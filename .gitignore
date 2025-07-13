@@ -1,0 +1,5 @@
+.env
+.venv/
+passwords/
+signer-v4/
+__pycache__
