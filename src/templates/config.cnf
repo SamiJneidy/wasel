@@ -28,7 +28,7 @@ OU={{organization_unit_name}}
 O={{organization_name}}
 
 [alt_names]
-SN=1-Hmmo|2-Ver791|3-DDCDC0AE-89CF-4361-82C8-864AE2AFA79E
+SN={{serial_number}}
 UID={{vat_number}}
 title={{invoicing_type}}
 registeredAddress={{address}}

@@ -1,9 +1,5 @@
-import jwt
-from datetime import datetime, timedelta, timezone
-from src.core.enums import OTPStatus, OTPUsage, UserRole, UserStatus
+from src.core.enums import UserStatus
 from .repositories import UserRepository
-from src.core.config import settings
-from .utils import hash_password, verify_password
 from .schemas import (
     UserOut,
     UserUpdate,
@@ -34,15 +30,33 @@ class UserService:
         return UserOut.model_validate(db_user)
 
     async def update(self, id: int, data: UserUpdate) -> UserOut:
-        """Returns user by id."""
-        db_user = await self.user_repo.update(id, data.model_dump())
+        """Updates user by id."""
+        data_dict = data.model_dump()
+        data_dict.update({"common_name": data.registraion_name, "organization_name": data.registraion_name, "country_code": "SA"})
+        
+        if data.vat_number[10] == "1":
+            tin_number = data.vat_number[:10]
+            data_dict.update({"organization_unit_name": tin_number})    
+        else:
+            data_dict.update({"organization_unit_name": data.registraion_name})
+
+        db_user = await self.user_repo.update(id, data_dict)
         if not db_user:
             raise UserNotFoundException()
         return UserOut.model_validate(db_user)
 
     async def update_by_email(self, email: str, data: UserUpdate) -> UserOut:
-        """Returns user by email."""
-        db_user = await self.user_repo.update_by_email(email, data.model_dump())
+        """Updates user by email."""
+        data_dict = data.model_dump()
+        data_dict.update({"common_name": data.registraion_name, "organization_name": data.registraion_name, "country_code": "SA"})
+        
+        if data.vat_number[10] == "1":
+            tin_number = data.vat_number[:10]
+            data_dict.update({"organization_unit_name": tin_number})    
+        else:
+            data_dict.update({"organization_unit_name": data.registraion_name})
+
+        db_user = await self.user_repo.update_by_email(email, data_dict)
         if not db_user:
             raise UserNotFoundException()
         return UserOut.model_validate(db_user)
@@ -68,3 +82,10 @@ class UserService:
             raise UserNotFoundException()
         return UserOut.model_validate(db_user)
     
+    async def delete_user(self, email: str) -> None:
+        """Deletes a user (NOT A SOFT DELETE)."""
+        db_user = await self.get_by_email(email)
+        if not db_user:
+            raise UserNotFoundException()
+        await self.user_repo.delete(email)
+        return None

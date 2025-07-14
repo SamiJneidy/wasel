@@ -18,7 +18,7 @@ class User(Base, AuditTimeMixin):
     registraion_name = Column(String(250), nullable=True)
     common_name = Column(String(250), nullable=True)
     organization_unit_name = Column(String(250), nullable=True)
-    organization_name = Column(String(250), nullable=True)
+    unit_name = Column(String(250), nullable=True)
     vat_number = Column(String(20), nullable=True)
     invoicing_type = Column(String(5), nullable=True)
     address = Column(String(400), nullable=True)

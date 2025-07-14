@@ -1,4 +1,3 @@
-from alembic.command import current
 from fastapi import APIRouter, status
 from src.core.schemas import SingleObjectResponse
 from .services import UserService
@@ -83,42 +82,8 @@ async def get(
     return SingleObjectResponse[UserOut](data=data)
 
 
-# @router.patch(
-#     path="/{id}",
-#     response_model=SingleObjectResponse[UserOut],
-#     responses={
-#         status.HTTP_200_OK: {
-#             "description": "Updated user successfully."
-#         },
-#         status.HTTP_404_NOT_FOUND: {
-#             "description": "User was not found.",
-#             "content": {
-#                 "application/json": {
-#                     "examples": {
-#                         "UserNotFound": {
-#                             "value": {
-#                                 "detail": "User not found"
-#                             }
-#                         },
-#                     }
-#                 }
-#             }
-#         },
-#     }
-# )
-# async def update(
-#     id: int, 
-#     data: UserUpdate,
-#     user_service: Annotated[UserService, Depends(get_user_service)],
-#     current_user: Annotated[UserOut, Depends(get_current_user)],
-# ) -> SingleObjectResponse[UserOut]:
-#     """Update user by id"""
-#     data = await user_service.update(id, data)
-#     return SingleObjectResponse[UserOut](data=data)
-
-
 @router.patch(
-    path="/",
+    path="/{id}",
     response_model=SingleObjectResponse[UserOut],
     responses={
         status.HTTP_200_OK: {
@@ -141,21 +106,22 @@ async def get(
     }
 )
 async def update(
+    id: int, 
     data: UserUpdate,
     user_service: Annotated[UserService, Depends(get_user_service)],
     current_user: Annotated[UserOut, Depends(get_current_user)],
 ) -> SingleObjectResponse[UserOut]:
-    """Update user by email."""
-    data = await user_service.update_by_email(current_user.email, data)
+    """Update user by id"""
+    data = await user_service.update(id, data)
     return SingleObjectResponse[UserOut](data=data)
 
 
-@router.delete(
-    path="/",
-    status_code=status.HTTP_204_NO_CONTENT,
-        responses={
-        status.HTTP_204_NO_CONTENT: {
-            "description": "User has beed deleted successfully."
+@router.patch(
+    path="/email/{email}",
+    response_model=SingleObjectResponse[UserOut],
+    responses={
+        status.HTTP_200_OK: {
+            "description": "Updated user successfully."
         },
         status.HTTP_404_NOT_FOUND: {
             "description": "User was not found.",
@@ -173,9 +139,12 @@ async def update(
         },
     }
 )
-async def delete_user(
-    email: str,
-    user_service: Annotated[UserService, Depends(get_user_service)]
-) -> None:
-    """Deletes a user by email. This endpoint for development only."""
-    await user_service.delete_user(email)
+async def update(
+    email: str, 
+    data: UserUpdate,
+    user_service: Annotated[UserService, Depends(get_user_service)],
+    current_user: Annotated[UserOut, Depends(get_current_user)],
+) -> SingleObjectResponse[UserOut]:
+    """Update user by email."""
+    data = await user_service.update_by_email(email, data)
+    return SingleObjectResponse[UserOut](data=data)

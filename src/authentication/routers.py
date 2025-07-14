@@ -427,19 +427,7 @@ async def reset_password(
 ) -> PasswordResetResponse:
     """Reset the password of the user. Note that the user has to verify the OTP code in order to reset his password.""" 
     return await auth_service.reset_password(data)
-
-
-# @router.delete(
-#     path="/",
-#     status_code=status.HTTP_204_NO_CONTENT
-# )
-# async def delete_user(
-#     email: str,
-#     user_service: Annotated[UserService, Depends(get_user_service)]
-# ) -> None:
-#     """Deletes a user by email. This endpoint is used only during the development."""
-#     await user_service.delete_user(email)
-
+    
 
 @router.post(
     path="/swaggerlogin", 

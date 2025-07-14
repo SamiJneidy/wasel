@@ -25,11 +25,3 @@ class UserUpdate(UserBase):
 class UserOut(UserBase, AuditTimeMixin):
     email: str = Field(..., min_length=5, max_length=100, example="user@example.com")
     model_config = ConfigDict(from_attributes=True)
-
-class UserInDB(UserBase):
-    email: str
-    country_code: Optional[str]
-    common_name: Optional[str]
-    organization_unit_name: Optional[str]
-    organization_name: Optional[str]
-    

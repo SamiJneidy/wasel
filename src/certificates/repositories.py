@@ -88,9 +88,3 @@ class UserRepository:
         self.db.refresh(db_user)
         return db_user
     
-    async def delete(self, email: str) -> User | None:
-        """Delete a user (NOT A SOFT DELETE)"""
-        stmt = delete(User).where(User.email==email)
-        self.db.execute(stmt)
-        self.db.commit()
-        return None

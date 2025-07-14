@@ -2,6 +2,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from fastapi_mail import ConnectionConfig
 
 class Settings(BaseSettings):
+    ZATCA_ASN_TEMPLATE: str
     ENVIRONMENT: str
     MAXIMUM_NUMBER_OF_INVALID_LOGIN_ATTEMPTS: int
     SECRET_KEY: str
