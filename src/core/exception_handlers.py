@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import HTTPException, RequestValidationError
-from src.authentication.exceptions import BaseAppException
+from src.auth.exceptions import BaseAppException
 # from app.core.exceptions.database_exceptions import ForeignKeyViolationException, UniqueConstraintViolationException
 
 def register_exception_handlers(app: FastAPI):

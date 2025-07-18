@@ -4,7 +4,7 @@ from src.core.database import Base
 from src.core.models import AuditTimeMixin
 from src.core.enums import UserRole, UserStatus, OTPUsage, OTPStatus
 
-class User(Base, AuditTimeMixin):
+class Certificate(Base, AuditTimeMixin):
     __tablename__ = "users"
     id = Column(Integer, autoincrement=True, primary_key=True, index=True)
     email = Column(String(100), unique=True, nullable=False, index=True)

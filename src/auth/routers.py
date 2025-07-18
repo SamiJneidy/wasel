@@ -1,35 +1,35 @@
 from fastapi import APIRouter, status, Response
 from fastapi.security import OAuth2PasswordRequestForm
 from redis.asyncio import Redis
-
-from .services import OTPService, AuthenticationService
-from src.core.enums import OTPUsage
-from src.core.config import settings
+from .services.auth import AuthService
 from .schemas import (
-    SignUp,
-    SignUpResponse,
-    Login,
+    LoginRequest,
     LoginResponse,
-    LogoutResponse,
-    OTPOut, 
-    OTPVerificationRequest, 
-    OTPVerificationResponse,
-    PasswordResetResponse, 
-    PasswordResetOTPRequest,
-    PasswordResetOTPResponse,
-    PasswordResetRequest,
+    SignUp,
+    SignUpCompleteRequest,
+    SignUpCompleteResponse, 
+    SignUpResponse,
+    VerifyEmailRequest,
+    VerifyEmailResponse,
+    ResetPasswordRequest,
+    ResetPasswordResponse,
+    RequestEmailVerificationOTPRequest,
+    RequestEmailVerificationOTPResponse,
+    RequestPasswordResetOTPRequest,
+    RequestPasswordResetOTPResponse,
+    VerifyPasswordResetOTPRequest,
+    VerifyPasswordResetOTPResponse,
     TokenRefreshRequest,
     TokenResponse,
+    LogoutResponse,
     UserOut,
-    EmailVerificationOTPRequest,
-    EmailVerificationOTPResponse,
+    SingleObjectResponse,
 )
 from .dependencies import (
     Annotated,
     Depends, 
-    get_authentication_service,
+    get_auth_service,
     get_current_user,
-    get_otp_service,
     get_redis,
     oauth2_scheme
 )
@@ -79,10 +79,43 @@ router = APIRouter(
 )
 async def signup(
     data: SignUp,
-    auth_service: Annotated[AuthenticationService, Depends(get_authentication_service)],
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> SignUpResponse:
     """Sign up a new user.""" 
     return await auth_service.signup(data)
+
+
+@router.post(
+    path="/signup/complete",
+    response_model=SingleObjectResponse[SignUpCompleteResponse],
+    responses={
+        status.HTTP_200_OK: {
+            "description": "Updated user successfully."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "User was not found.",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "UserNotFound": {
+                            "value": {
+                                "detail": "User not found"
+                            }
+                        },
+                    }
+                }
+            }
+        },
+    }
+)
+async def update(
+    data: SignUpCompleteRequest,
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
+    current_user: Annotated[UserOut, Depends(get_current_user)],
+) -> SingleObjectResponse[SignUpCompleteResponse]:
+    """Complete the sign up process after the user verifies his email."""
+    data = await auth_service.sign_up_complete(current_user.email, data)
+    return SingleObjectResponse[SignUpCompleteResponse](data=data)
 
 
 @router.post(
@@ -153,8 +186,8 @@ async def signup(
 )
 async def login(
     response: Response,
-    data: Login,
-    auth_service: Annotated[AuthenticationService, Depends(get_authentication_service)],
+    data: LoginRequest,
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> LoginResponse:
     login_response: LoginResponse = await auth_service.login(data)
     await auth_service.set_refresh_token_cookie(response, login_response.refresh_token, "/api/v1/auth/refresh")
@@ -215,12 +248,75 @@ async def get_me(
 async def refresh(
     token_refresh_request: TokenRefreshRequest,
     response: Response,
-    auth_service: Annotated[AuthenticationService, Depends(get_authentication_service)],
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> TokenResponse:
-    """Refresh an expired access token using a valid refresh token and sets new refresh token in HTTP-only cookie."""
+    """Refreshes an expired access token using a valid refresh token and sets new refresh token in HTTP-only cookie."""
     token_response = await auth_service.refresh(token_refresh_request)
     await auth_service.set_refresh_token_cookie(response, token_response.refresh_token, "/api/v1/auth/refresh")
     return token_response
+
+
+@router.post(
+    path="/verify-email", 
+    response_model=TokenResponse,
+    responses={
+        status.HTTP_200_OK: {
+            "description": "The verification has been completed successfully."
+        },
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": "The OTP code was not verified. This happens in case of invalid or expired OTP code.",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "InvalidOTP": {
+                            "value": {
+                                "detail": "The OTP code is invalid or has expired or has been used before"
+                            }
+                        },
+                    }
+                }
+            }
+        }
+    }
+)
+async def verify_email_after_signup(
+    data: VerifyEmailRequest,
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
+) -> TokenResponse:
+    """Verifies an email after signup and returns access and refresh tokens.""" 
+    return await auth_service.verify_email_after_signup(data)
+
+
+@router.post(
+    path="/reset-password", 
+    response_model=ResetPasswordResponse,
+    responses={
+        status.HTTP_200_OK: {
+            "description": "The verification has been completed successfully."
+        },
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": "The OTP code was not verified. This happens in case of invalid or expired OTP code.",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "InvalidOTP": {
+                            "value": {
+                                "detail": "The OTP code is invalid or has expired or has been used before"
+                            }
+                        },
+                    }
+                }
+            }
+        }
+    }
+)
+async def reset_password(
+    data: ResetPasswordRequest,
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
+) -> ResetPasswordResponse:
+    """Resets the passwords after verifying a password-reset OTP code.""" 
+    return await auth_service.reset_password(data)
+
 
 @router.post(
     path="/logout",
@@ -237,8 +333,8 @@ async def logout(token: str = Depends(oauth2_scheme), redis: Redis = Depends(get
 
 
 @router.post(
-    path="/otp/generate/email-verification", 
-    response_model=EmailVerificationOTPResponse,
+    path="/otp/request/email-verification", 
+    response_model=RequestEmailVerificationOTPResponse,
     responses={
         status.HTTP_200_OK: {
             "description": "The OTP code has been created and sent to the email successfully."
@@ -292,18 +388,17 @@ async def logout(token: str = Depends(oauth2_scheme), redis: Redis = Depends(get
         }
     }
 )
-async def request_email_verification(
-    data: EmailVerificationOTPRequest,
-    auth_service: Annotated[AuthenticationService, Depends(get_authentication_service)],
-
-) -> EmailVerificationOTPResponse:
+async def request_email_verification_otp(
+    data: RequestEmailVerificationOTPRequest,
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
+) -> RequestEmailVerificationOTPResponse:
     """Create an OTP code for password reset and send it to the user's email.""" 
-    return await auth_service.request_email_verification(data)
+    return await auth_service.request_email_verification_otp(data)
 
 
 @router.post(
-    path="/otp/generate/password-reset", 
-    response_model=PasswordResetOTPResponse,
+    path="/otp/request/password-reset", 
+    response_model=RequestPasswordResetOTPResponse,
     responses={
         status.HTTP_200_OK: {
             "description": "The OTP code has been created and sent to the email successfully."
@@ -357,18 +452,18 @@ async def request_email_verification(
         }
     }
 )
-async def request_password_reset(
-    data: PasswordResetOTPRequest,
-    auth_service: Annotated[AuthenticationService, Depends(get_authentication_service)],
+async def request_password_reset_otp(
+    data: RequestPasswordResetOTPRequest,
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
 
-) -> PasswordResetOTPResponse:
+) -> RequestPasswordResetOTPResponse:
     """Create an OTP code for password reset and send it to the user's email.""" 
-    return await auth_service.request_password_reset(data)
+    return await auth_service.request_password_reset_otp(data)
 
 
 @router.post(
-    path="/otp/verify", 
-    response_model=OTPVerificationResponse,
+    path="/otp/verify/email-verification", 
+    response_model=VerifyEmailResponse,
     responses={
         status.HTTP_200_OK: {
             "description": "The verification has been completed successfully."
@@ -389,45 +484,44 @@ async def request_password_reset(
         }
     }
 )
-async def verify_otp(
-    data: OTPVerificationRequest,
-    otp_service: Annotated[OTPService, Depends(get_otp_service)],
-) -> OTPVerificationResponse:
-    """Verify an OTP code for email verification, password reset, ...etc. The user status will be changed to 'ACTIVE' after verifying except if his status was 'BLOCKED'.""" 
-    response: OTPVerificationResponse = await otp_service.verify_otp(data)
-    return response
+async def verify_email_verification_otp(
+    data: VerifyEmailRequest,
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
+) -> VerifyEmailResponse:
+    """Verify an OTP code for email verification.""" 
+    return await auth_service.verify_email_verification_otp(data)
 
 
 @router.post(
-    path="/reset-password", 
-    response_model=PasswordResetResponse,
+    path="/otp/verify/password-reset", 
+    response_model=VerifyPasswordResetOTPResponse,
     responses={
         status.HTTP_200_OK: {
-            "description": "The password has been reset successfully."
+            "description": "The verification has been completed successfully."
         },
         status.HTTP_401_UNAUTHORIZED: {
-            "description": "Could not reset the password. Request a new OTP code and try again.",
+            "description": "The OTP code was not verified. This happens in case of invalid or expired OTP code.",
             "content": {
                 "application/json": {
                     "examples": {
-                        "PasswordResetNotAllowed": {
+                        "InvalidOTP": {
                             "value": {
-                                "detail": "Password reset not allowed. Please request a new OTP code and try again."
+                                "detail": "The OTP code is invalid or has expired or has been used before"
                             }
-                        }
+                        },
                     }
                 }
             }
-        },
+        }
     }
 )
-async def reset_password(
-    data: PasswordResetRequest,
-    auth_service: Annotated[AuthenticationService, Depends(get_authentication_service)],
-) -> PasswordResetResponse:
-    """Reset the password of the user. Note that the user has to verify the OTP code in order to reset his password.""" 
-    return await auth_service.reset_password(data)
-    
+async def verify_password_reset_otp(
+    data: VerifyPasswordResetOTPRequest,
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
+) -> VerifyPasswordResetOTPResponse:
+    """Verify an OTP code for password reset.""" 
+    return await auth_service.verify_password_reset_otp(data)
+
 
 @router.post(
     path="/swaggerlogin", 
@@ -438,11 +532,10 @@ async def reset_password(
     },
 )
 async def swaggerlogin(
-    auth_service: Annotated[AuthenticationService, Depends(get_authentication_service)],
-    response: Response,
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
     login_credentials: OAuth2PasswordRequestForm = Depends(), 
 ) -> dict[str, str]:
     """This is for SwaggerUI authentication for testing purposes only. Don't use this endpoint if you want to login as a frontend, use the login endpoint instead."""
-    login_data = Login(email=login_credentials.username, password=login_credentials.password)
+    login_data = LoginRequest(email=login_credentials.username, password=login_credentials.password)
     login_response: LoginResponse = await auth_service.login(login_data)
     return {"access_token": login_response.access_token, "token_type": "bearer"}

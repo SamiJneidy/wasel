@@ -1,7 +1,7 @@
 from pydantic import BaseModel, EmailStr, StringConstraints, ConfigDict, constr, Field, field_validator, model_validator
 from datetime import datetime
 from src.core.schemas import AuditTimeMixin
-from src.core.enums import PartyIdentificationScheme
+from src.core.enums import PartyIdentificationScheme, UserRole, UserStatus
 from typing import Optional
 
 class UserBase(BaseModel):
@@ -24,12 +24,19 @@ class UserUpdate(UserBase):
 
 class UserOut(UserBase, AuditTimeMixin):
     email: str = Field(..., min_length=5, max_length=100, example="user@example.com")
+    status: UserStatus
     model_config = ConfigDict(from_attributes=True)
 
 class UserInDB(UserBase):
     email: str
+    password: str
     country_code: Optional[str]
     common_name: Optional[str]
     organization_unit_name: Optional[str]
     organization_name: Optional[str]
+    last_login: Optional[datetime]
+    invalid_login_attempts: int
+    status: UserStatus
+    role: UserRole
+    model_config = ConfigDict(from_attributes=True)
     

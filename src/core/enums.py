@@ -18,8 +18,7 @@ class EmployeeStatus(str, Enum):
     RETIRED = "retired"
 
 class UserRole(str, Enum):
-    JOB_SEEKER = "job_seeker"                # Regular user (default)
-    RECRUITER = "recruiter"      # Manages content (e.g., delete posts)
+    CLIENT = "client"
     ADMIN = "admin"              # Manages users, settings, etc.
     SUPER_ADMIN = "super_admin"  # Full system access (rarely used)
 

@@ -1,8 +1,8 @@
 """initial migration
 
-Revision ID: 336ed1a062f9
+Revision ID: 1f9db2c274a9
 Revises: 
-Create Date: 2025-07-12 15:27:54.822642
+Create Date: 2025-07-17 22:13:38.822757
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '336ed1a062f9'
+revision: str = '1f9db2c274a9'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -39,13 +39,13 @@ def upgrade() -> None:
     sa.Column('password', sa.String(), nullable=False),
     sa.Column('last_login', sa.DateTime(), nullable=True),
     sa.Column('invalid_login_attempts', sa.Integer(), server_default=sa.text('0'), nullable=False),
-    sa.Column('role', sa.Enum('JOB_SEEKER', 'RECRUITER', 'ADMIN', 'SUPER_ADMIN', name='userrole'), nullable=False),
+    sa.Column('role', sa.Enum('CLIENT', 'ADMIN', 'SUPER_ADMIN', name='userrole'), nullable=False),
     sa.Column('status', sa.Enum('PENDING', 'ACTIVE', 'BLOCKED', 'DISABLED', 'DELETED', name='userstatus'), nullable=False),
     sa.Column('phone', sa.String(length=20), nullable=True),
     sa.Column('registraion_name', sa.String(length=250), nullable=True),
     sa.Column('common_name', sa.String(length=250), nullable=True),
     sa.Column('organization_unit_name', sa.String(length=250), nullable=True),
-    sa.Column('unit_name', sa.String(length=250), nullable=True),
+    sa.Column('organization_name', sa.String(length=250), nullable=True),
     sa.Column('vat_number', sa.String(length=20), nullable=True),
     sa.Column('invoicing_type', sa.String(length=5), nullable=True),
     sa.Column('address', sa.String(length=400), nullable=True),

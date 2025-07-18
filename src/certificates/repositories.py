@@ -4,7 +4,7 @@ from datetime import datetime
 from .models import User
 from src.core.enums import UserRole, UserStatus, OTPUsage, OTPStatus
 
-class UserRepository:
+class CertificateRepository:
     def __init__(self, db: Session):
         self.db = db
 

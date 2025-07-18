@@ -11,7 +11,7 @@ config = context.config
 
 # ADDED BY ME
 from src.core.database import Base
-from src.authentication.models import OTP
+from src.auth.models import OTP
 from src.users.models import User
 from src.core.config import settings
 

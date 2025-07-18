@@ -14,6 +14,7 @@ class AuthenticationRepository:
         self.db.execute(delete(User).where(User.email==email))
         self.db.commit()
 
+
 class OTPRepository:
     def __init__(self, db: Session):
         self.db = db
@@ -53,3 +54,12 @@ class OTPRepository:
         self.db.commit()
         self.db.refresh(db_otp)
         return db_otp
+
+    async def delete_otp(self, code: str) -> OTP | None:
+        db_otp = self.db.query(OTP).filter(OTP.code==code)
+        if not db_otp:
+            return None
+        db_otp.delete()
+        self.db.commit()
+        return db_otp
+        

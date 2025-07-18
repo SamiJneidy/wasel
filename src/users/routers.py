@@ -1,17 +1,15 @@
-from alembic.command import current
 from fastapi import APIRouter, status
 from src.core.schemas import SingleObjectResponse
 from .services import UserService
 from .schemas import (
     UserOut,
-    UserUpdate,
 )
 from .dependencies import (
     Annotated,
     Depends, 
     get_user_service,
 )
-from src.authentication.dependencies import get_current_user
+from src.auth.dependencies import get_current_user
 
 router = APIRouter(
     prefix="/users", 
@@ -115,39 +113,6 @@ async def get(
 #     """Update user by id"""
 #     data = await user_service.update(id, data)
 #     return SingleObjectResponse[UserOut](data=data)
-
-
-@router.patch(
-    path="/",
-    response_model=SingleObjectResponse[UserOut],
-    responses={
-        status.HTTP_200_OK: {
-            "description": "Updated user successfully."
-        },
-        status.HTTP_404_NOT_FOUND: {
-            "description": "User was not found.",
-            "content": {
-                "application/json": {
-                    "examples": {
-                        "UserNotFound": {
-                            "value": {
-                                "detail": "User not found"
-                            }
-                        },
-                    }
-                }
-            }
-        },
-    }
-)
-async def update(
-    data: UserUpdate,
-    user_service: Annotated[UserService, Depends(get_user_service)],
-    current_user: Annotated[UserOut, Depends(get_current_user)],
-) -> SingleObjectResponse[UserOut]:
-    """Update user by email."""
-    data = await user_service.update_by_email(current_user.email, data)
-    return SingleObjectResponse[UserOut](data=data)
 
 
 @router.delete(

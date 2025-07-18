@@ -3,13 +3,16 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from typing import Annotated
 from redis.asyncio import Redis
+
 from .repositories import OTPRepository, AuthenticationRepository
-from .services import OTPService, AuthenticationService
+from .services import AuthService, OTPService
+from src.core.dependencies import get_email_service
 from src.core.config import settings
 from src.core.database import get_db
 from src.users.schemas import UserOut
 from src.users.repositories import UserRepository
-from src.users.dependencies import get_user_repository
+from src.users.dependencies import get_user_service
+from src.core.utils import EmailService
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/swaggerlogin")
 
@@ -21,39 +24,43 @@ async def get_redis():
     finally:
         await redis.close()
 
+
 # OTP
 def get_otp_repository(db: Annotated[Session, Depends(get_db)]) -> OTPRepository:
     """Returns otp repository dependency"""
     return OTPRepository(db)
 
+
 def get_otp_service(
     otp_repo: Annotated[OTPRepository, Depends(get_otp_repository)],
-    user_repo: Annotated[UserRepository, Depends(get_user_repository)],
 ) -> OTPService:
     
     """Returns otp service dependency"""
-    return OTPService(otp_repo, user_repo)
+    return OTPService(otp_repo)
 
-# Authentication
-def get_authentication_repository(db: Annotated[Session, Depends(get_db)]) -> AuthenticationRepository:
+
+# Auth
+def get_auth_repository(db: Annotated[Session, Depends(get_db)]) -> AuthenticationRepository:
     """Returns authentication repository dependency."""
     return AuthenticationRepository(db)
 
-def get_authentication_service(
-    authentication_repo: Annotated[AuthenticationRepository, Depends(get_authentication_repository)],
-    user_repo: Annotated[UserRepository, Depends(get_user_repository)],
+
+def get_auth_service(
+    authentication_repo: Annotated[AuthenticationRepository, Depends(get_auth_repository)],
+    user_service: Annotated[UserRepository, Depends(get_user_service)],
     otp_service: Annotated[OTPService, Depends(get_otp_service)],
-) -> AuthenticationService:
+    email_service: Annotated[EmailService, Depends(get_email_service)],
+) -> AuthService:
     """Returns authentication service dependency."""
-    return AuthenticationService(authentication_repo, user_repo, otp_service)
+    return AuthService(authentication_repo, user_service, otp_service, email_service)
+
 
 async def get_current_user(
     token: Annotated[str, Depends(oauth2_scheme)],
-    auth_service: Annotated[AuthenticationService, Depends(get_authentication_service)],
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> UserOut:
     """Returns the current user who is logged in."""
     return await auth_service.get_user_from_token(token)
-
 
 
 # async def get_current_user(
@@ -66,4 +73,3 @@ async def get_current_user(
 #     company = await company_service.get_company_by_id(user.company_id)
 #     current_company.set(company)
 #     return user
-
