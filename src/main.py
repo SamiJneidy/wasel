@@ -10,7 +10,12 @@ app.include_router(v1_router)
 register_exception_handlers(app)
 
 # Configure CORS
-origins = ["*"]
+origins = [
+    "http://127.0.0.1:8000",
+    "http://127.0.0.1:8080",
+    "http://localhost:3000",
+    "https://wasel-black.vercel.app"
+]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,

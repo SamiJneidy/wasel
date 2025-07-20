@@ -13,6 +13,7 @@ config = context.config
 from src.core.database import Base
 from src.auth.models import OTP
 from src.users.models import User
+from src.csid.models import CSID
 from src.core.config import settings
 
 config.set_main_option("sqlalchemy.url", settings.SQLALCHEMY_URL)

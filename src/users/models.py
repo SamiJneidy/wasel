@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Enum as SQLEnum, func, text
+from sqlalchemy import Boolean, Column, Integer, String, DateTime, ForeignKey, Enum as SQLEnum, func, text
 from sqlalchemy.orm import relationship
 from src.core.database import Base
 from src.core.models import AuditTimeMixin
@@ -14,6 +14,7 @@ class User(Base, AuditTimeMixin):
     role = Column(SQLEnum(UserRole), nullable=False)
     status = Column(SQLEnum(UserStatus), nullable=False)
     phone = Column(String(20), nullable=True)
+    is_completed = Column(Boolean, nullable=True)
     
     registraion_name = Column(String(250), nullable=True)
     common_name = Column(String(250), nullable=True)

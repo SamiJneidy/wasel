@@ -1,7 +1,7 @@
 import requests
 from fastapi_mail import FastMail, MessageSchema
 from pydantic import EmailStr
-from src.core.config import mail_config
+from src.core.config import mail_config, settings
 from src.auth.exceptions import OTPCouldNotBeSentException
 
 

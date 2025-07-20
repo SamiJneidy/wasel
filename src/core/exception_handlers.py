@@ -1,7 +1,10 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import HTTPException, RequestValidationError
-from src.auth.exceptions import BaseAppException
+from .exceptions import BaseAppException
+from src.zatca.exceptions import BaseZatcaException
+
+
 # from app.core.exceptions.database_exceptions import ForeignKeyViolationException, UniqueConstraintViolationException
 
 def register_exception_handlers(app: FastAPI):
@@ -20,6 +23,16 @@ def register_exception_handlers(app: FastAPI):
             status_code=exc.status_code,
             content={
                 "detail": exc.detail,
+            },
+        )
+    
+    @app.exception_handler(BaseZatcaException)
+    async def zatca_exception(request: Request, exc: BaseZatcaException):
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={
+                "detail": exc.detail,
+                "zatca_response": exc.zatca_response
             },
         )
     

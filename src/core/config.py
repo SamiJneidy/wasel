@@ -2,6 +2,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from fastapi_mail import ConnectionConfig
 
 class Settings(BaseSettings):
+    MAX_RETRIES: int
+    TIMEOUT: int
+    ZATCA_PRODUCTION_CSID_RENEWAL_URL: str
+    ZATCA_PRODUCTION_CSID_URL: str
     ZATCA_COMPLIANCE_CSID_URL: str
     ZATCA_ASN_TEMPLATE: str
     ENVIRONMENT: str

@@ -14,3 +14,7 @@ class ResourceNotFoundException(BaseAppException):
     def __init__(self, resource_name: str = "Resource", detail: str = None):
         detail = detail or f"{resource_name} not found."
         super().__init__(detail, status.HTTP_404_NOT_FOUND)
+
+class RequestCouldNotBeSent(BaseAppException):
+    def __init__(self, detail: str = "Request could not be sent.", status_code: int = status.HTTP_408_REQUEST_TIMEOUT):
+        super().__init__(detail, status_code)

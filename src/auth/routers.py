@@ -1,4 +1,4 @@
-from fastapi import APIRouter, status, Response
+from fastapi import APIRouter, Request, status, Response
 from fastapi.security import OAuth2PasswordRequestForm
 from redis.asyncio import Redis
 from .services.auth import AuthService
@@ -19,7 +19,7 @@ from .schemas import (
     RequestPasswordResetOTPResponse,
     VerifyPasswordResetOTPRequest,
     VerifyPasswordResetOTPResponse,
-    TokenRefreshRequest,
+    TokenRefreshResponse,
     TokenResponse,
     LogoutResponse,
     UserOut,
@@ -109,12 +109,12 @@ async def signup(
     }
 )
 async def update(
-    data: SignUpCompleteRequest,
+    body: SignUpCompleteRequest,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
     current_user: Annotated[UserOut, Depends(get_current_user)],
 ) -> SingleObjectResponse[SignUpCompleteResponse]:
     """Complete the sign up process after the user verifies his email."""
-    data = await auth_service.sign_up_complete(current_user.email, data)
+    data = await auth_service.sign_up_complete(current_user.email, body)
     return SingleObjectResponse[SignUpCompleteResponse](data=data)
 
 
@@ -226,7 +226,7 @@ async def get_me(
 
 @router.post(
     path="/refresh",
-    response_model=TokenResponse,
+    response_model=TokenRefreshResponse,
     responses={
         status.HTTP_200_OK: {
             "description": "Generated new access token and refresh token successfully."
@@ -246,13 +246,14 @@ async def get_me(
     }
 )
 async def refresh(
-    token_refresh_request: TokenRefreshRequest,
+    request: Request,
     response: Response,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
-) -> TokenResponse:
+) -> TokenRefreshResponse:
     """Refreshes an expired access token using a valid refresh token and sets new refresh token in HTTP-only cookie."""
-    token_response = await auth_service.refresh(token_refresh_request)
-    await auth_service.set_refresh_token_cookie(response, token_response.refresh_token, "/api/v1/auth/refresh")
+    refresh_token = request.cookies.get("refresh_token")
+    token_response = await auth_service.refresh(refresh_token)
+    await auth_service.set_refresh_token_cookie(response, refresh_token, "/api/v1/auth/refresh")
     return token_response
 
 

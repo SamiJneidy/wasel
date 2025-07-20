@@ -18,8 +18,8 @@ class TokenResponse(BaseModel):
     refresh_token: str
 
 
-class TokenRefreshRequest(BaseModel):
-    refresh_token: str
+class TokenRefreshResponse(BaseModel):
+    access_token: str
 
 
 class SignUp(BaseModel):

@@ -11,6 +11,11 @@ class UserNotActiveException(BaseAppException):
     def __init__(self, detail: str = "Your accounts is not active. You can not perform the action.", status_code: int = status.HTTP_403_FORBIDDEN):
         super().__init__(detail, status_code)
 
+class UserNotCompleteException(BaseAppException):
+    """Raised when the user is not complete."""
+    def __init__(self, detail: str = "The user has not completed the sign up.", status_code: int = status.HTTP_403_FORBIDDEN):
+        super().__init__(detail, status_code)
+
 class UserBlockedException(BaseAppException):
     """Raised when a blocked user tries to perform an action."""
     def __init__(self, detail: str = "Your accounts is blocked. Please contact the support to discuss the issue.", status_code: int = status.HTTP_403_FORBIDDEN):

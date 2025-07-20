@@ -9,6 +9,10 @@ class Country(str, Enum):
     SYRIA = "Syria"
     USA = "USA"
 
+class CSIDType(str, Enum):
+    PRODUCTION = "production"
+    COMPLIANCE = "compliance"
+
 class MartialStatus(str, Enum):
     Single = "single"
     Married = "married"

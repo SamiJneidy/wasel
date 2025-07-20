@@ -15,6 +15,7 @@ from ..schemas import (
     OTPCreate,
     SignUp, 
     SignUpResponse,
+    TokenRefreshResponse,
     VerifyEmailRequest,
     VerifyEmailResponse,
     ResetPasswordRequest,
@@ -26,7 +27,6 @@ from ..schemas import (
     VerifyPasswordResetOTPRequest,
     VerifyPasswordResetOTPResponse,
     TokenPayload,
-    TokenRefreshRequest,
     TokenResponse,
     OTPOut,
     SignUpCompleteRequest,
@@ -65,7 +65,7 @@ class AuthService:
         
         data.password = hash_password(data.password)
         user_dict: dict = data.model_dump(exclude={"confirm_password"})
-        user_dict.update({"role": UserRole.CLIENT, "status": UserStatus.PENDING})
+        user_dict.update({"role": UserRole.CLIENT, "status": UserStatus.PENDING, "is_completed": False})
         user = await self.user_service.create_user_after_signup(user_dict)
         
         email_verification_otp_request = RequestEmailVerificationOTPRequest(email=data.email)
@@ -78,7 +78,12 @@ class AuthService:
         """Complete the signup process after verifying the email."""
         
         data_dict = data.model_dump()
-        data_dict.update({"common_name": data.registraion_name, "organization_name": data.registraion_name, "country_code": "SA"})
+        data_dict.update({
+            "common_name": data.registraion_name, 
+            "organization_name": data.registraion_name, 
+            "country_code": "SA",
+            "is_completed": True
+        })
         
         if data.vat_number[10] == "1":
             tin_number = data.vat_number[:10]
@@ -255,13 +260,12 @@ class AuthService:
         return user
 
 
-    async def refresh(self, token_refresh_request: TokenRefreshRequest) -> TokenResponse:
+    async def refresh(self, refresh_token: str) -> TokenRefreshResponse:
         """Refresh an expired access token using a valid refresh token and sets new refresh token in HTTP-only cookie."""
-        user = await self.verify_token(token_refresh_request.refresh_token)
+        user = await self.verify_token(refresh_token)
         token_payload = TokenPayload(sub=user.email)
         access_token = self.create_access_token(token_payload)
-        refresh_token = self.create_refresh_token(token_payload)
-        return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+        return TokenRefreshResponse(access_token=access_token)
 
 
     async def set_refresh_token_cookie(self, response: Response, refresh_token: str, path: str) -> None:

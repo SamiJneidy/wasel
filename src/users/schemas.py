@@ -23,12 +23,13 @@ class UserUpdate(UserBase):
     pass
 
 class UserOut(UserBase, AuditTimeMixin):
+    id: int
     email: str = Field(..., min_length=5, max_length=100, example="user@example.com")
+    is_completed: bool = Field(..., description="A boolean to identify if the user has finished the signup process or not. The signup process ends when the user successfully enters his company info.")
     status: UserStatus
     model_config = ConfigDict(from_attributes=True)
 
-class UserInDB(UserBase):
-    email: str
+class UserInDB(UserOut):
     password: str
     country_code: Optional[str]
     common_name: Optional[str]
@@ -36,7 +37,6 @@ class UserInDB(UserBase):
     organization_name: Optional[str]
     last_login: Optional[datetime]
     invalid_login_attempts: int
-    status: UserStatus
     role: UserRole
     model_config = ConfigDict(from_attributes=True)
     
