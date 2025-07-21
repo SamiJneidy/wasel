@@ -103,7 +103,7 @@ class CSIDService:
             raise UserNotCompleteException()
         
         private_key, csr_base64 = self.generate_private_key_and_csr(user)
-        zatca_csid = await self.zatca_service.get_compliance_csid(csr_base64, data.otp)
+        zatca_csid = await self.zatca_service.get_compliance_csid(csr_base64, data.code)
         
         certificate = base64.b64decode(zatca_csid.binary_security_token).decode('utf-8')
         authorization = zatca_csid.binary_security_token + ':' + zatca_csid.secret

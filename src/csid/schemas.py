@@ -17,7 +17,7 @@ class CSIDCreate(ZatcaCSIDResponse):
 
 
 class ComplianceCSIDRequest(BaseModel):
-    otp: str
+    code: str
 
     @field_validator('otp', mode='after')
     def is_numeric(cls, value):
