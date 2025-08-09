@@ -154,6 +154,7 @@ class InvoiceService:
             try:
                 invoice_request = invoice_helper.sign_invoice(invoice_data, csid.private_key, csid.certificate)
             except Exception as e:
+                print(e)
                 raise InvoiceSigningError()
             # Send invoice to zatca and update the related fields
             zatca_result = await self.zatca_service.send_compliance_invoice(invoice_request, data.invoice_type, csid.binary_security_token, csid.secret)
