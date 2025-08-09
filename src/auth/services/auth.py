@@ -1,7 +1,7 @@
 import jwt
 from datetime import datetime, timedelta, timezone
 from fastapi import Response
-from src.core.enums import OTPStatus, OTPUsage, UserRole, UserStatus
+from src.core.enums import OTPStatus, OTPUsage, UserRole, UserStatus, Stage
 from src.users.schemas import UserInDB, UserOut
 from src.core.config import settings
 from src.core.utils import EmailService
@@ -55,7 +55,7 @@ class AuthService:
         self.email_service = email_service
 
     
-    async def signup(self, data: SignUp) -> SignUpResponse:
+    async def signup(self, data: SignUp) -> UserOut:
         """Sign up a new user using email and password. Any extra user fields can be updated from the user service in 'users' package."""
         try:
             user = await self.user_service.get_by_email(data.email)
@@ -65,22 +65,22 @@ class AuthService:
         
         data.password = hash_password(data.password)
         user_dict: dict = data.model_dump(exclude={"confirm_password"})
-        user_dict.update({"role": UserRole.CLIENT, "status": UserStatus.PENDING, "is_completed": False})
+        user_dict.update({"role": UserRole.CLIENT, "status": UserStatus.PENDING, "is_completed": False, "stage": Stage.COMPLIANCE})
         user = await self.user_service.create_user_after_signup(user_dict)
         
         email_verification_otp_request = RequestEmailVerificationOTPRequest(email=data.email)
         await self.request_email_verification_otp(email_verification_otp_request)
         
-        return SignUpResponse.model_validate(user)
+        return user
 
 
-    async def sign_up_complete(self, email: str, data: SignUpCompleteRequest) -> SignUpCompleteResponse:
+    async def sign_up_complete(self, email: str, data: SignUpCompleteRequest) -> UserOut:
         """Complete the signup process after verifying the email."""
         
         data_dict = data.model_dump()
         data_dict.update({
-            "common_name": data.registraion_name, 
-            "organization_name": data.registraion_name, 
+            "common_name": data.registration_name, 
+            "organization_name": data.registration_name, 
             "country_code": "SA",
             "is_completed": True
         })
@@ -89,11 +89,12 @@ class AuthService:
             tin_number = data.vat_number[:10]
             data_dict.update({"organization_unit_name": tin_number})    
         else:
-            data_dict.update({"organization_unit_name": data.registraion_name})
+            data_dict.update({"organization_unit_name": data.registration_name})
 
-        db_user = await self.user_service.update_by_email(email, data_dict)
+        await self.user_service.update_by_email(email, data_dict)
         
-        return SignUpCompleteResponse.model_validate(db_user)
+        user = await self.user_service.get_by_email(email)
+        return user
         
 
     async def login(self, credentials: LoginRequest) -> LoginResponse:
@@ -118,12 +119,12 @@ class AuthService:
         
         token_payload = TokenPayload(sub=credentials.email)
         access_token = self.create_access_token(token_payload)
-        refresh_token = self.create_refresh_token(token_payload)
         
         await self.user_service.reset_invalid_login_attempts(credentials.email)
         await self.user_service.update_last_login(credentials.email, datetime.utcnow())
         
-        return LoginResponse(access_token=access_token, refresh_token=refresh_token)
+        user = await self.user_service.get_by_email(db_user.email)
+        return LoginResponse(data=user, access_token=access_token)
 
 
     async def request_email_verification_otp(self, data: RequestEmailVerificationOTPRequest) -> RequestEmailVerificationOTPResponse:
@@ -187,19 +188,19 @@ class AuthService:
         return VerifyPasswordResetOTPResponse(email=data.email)
 
 
-    async def verify_email_after_signup(self, data: VerifyEmailRequest) -> TokenResponse:
+    async def verify_email_after_signup(self, data: VerifyEmailRequest) -> LoginResponse:
         """Verifies email account after signup. The function will create access and refresh token after finishing the verificaion successfully."""
         
         await self.verify_email_verification_otp(data)
         
         token_payload = TokenPayload(sub=data.email)
         access_token = self.create_access_token(token_payload)
-        refresh_token = self.create_refresh_token(token_payload)
         
         await self.user_service.reset_invalid_login_attempts(data.email)
         await self.user_service.update_last_login(data.email, datetime.utcnow())
         
-        return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+        user = await self.user_service.get_by_email(data.email)
+        return LoginResponse(data=user, access_token=access_token)
     
 
     async def reset_password(self, data: ResetPasswordRequest) -> ResetPasswordResponse:
@@ -260,33 +261,25 @@ class AuthService:
         return user
 
 
-    async def refresh(self, refresh_token: str) -> TokenRefreshResponse:
-        """Refresh an expired access token using a valid refresh token and sets new refresh token in HTTP-only cookie."""
+    async def refresh(self, refresh_token: str) -> str:
+        """Refreshes an expired access token using a valid refresh token and returns the new access token."""
         user = await self.verify_token(refresh_token)
         token_payload = TokenPayload(sub=user.email)
         access_token = self.create_access_token(token_payload)
-        return TokenRefreshResponse(access_token=access_token)
+        return access_token
 
 
-    async def set_refresh_token_cookie(self, response: Response, refresh_token: str, path: str) -> None:
+    async def set_refresh_token_cookie(self, email: str, response: Response, path: str) -> None:
         """Sets the refresh token cookie. The cookie will be set based on the current environment. The 'path' argument will not be used in development environment."""
-        if settings.ENVIRONMENT == "PRODUCTION":
-            response.set_cookie(
-                key="refresh_token",
-                value=refresh_token,
-                httponly=True,
-                secure=True,
-                samesite="lax",
-                max_age=settings.REFRESH_TOKEN_EXPIRATION_DAYS * 24 * 60 * 60,
-                path=path
-            )
-        if settings.ENVIRONMENT == "DEVELOPMENT":
-            response.set_cookie(
-                key="refresh_token",
-                value=refresh_token,
-                httponly=True,
-                secure=False,
-                samesite="lax",
-                max_age=settings.REFRESH_TOKEN_EXPIRATION_DAYS * 24 * 60 * 60,
-                path="/"
-            )
+        user = await self.user_service.get_by_email(email) # This is for future updates in case I added extra user data to the payload
+        token_payload = TokenPayload(sub=email)
+        refresh_token = self.create_refresh_token(token_payload)
+        response.set_cookie(
+            key="refresh_token",
+            value=refresh_token,
+            httponly=True,
+            secure=True if settings.ENVIRONMENT == "PRODUCTION" else False,
+            samesite="lax",
+            max_age=settings.REFRESH_TOKEN_EXPIRATION_DAYS * 24 * 60 * 60,
+            path=path if settings.ENVIRONMENT == "PRODUCTION" else "/"
+        )

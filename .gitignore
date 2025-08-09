@@ -1,5 +1,11 @@
 .env
+zatca_urls.html
+temp.py
+invoice.xml
+standard_invoice_response.json
+simplified_invoice_response.json
 .venv/
 passwords/
+certificates/
 signer-v4/
 __pycache__

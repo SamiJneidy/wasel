@@ -2,9 +2,6 @@ import base64
 import os
 import re
 import uuid
-import json
-import time
-import requests
 from cryptography import x509
 from cryptography.x509.oid import NameOID, ObjectIdentifier
 from cryptography.hazmat.backends import default_backend
@@ -17,10 +14,9 @@ from src.users.schemas import UserInDB, UserOut
 from src.users.services import UserService
 from src.zatca.services import ZatcaService
 from src.core.enums import CSIDType
-from .schemas import ComplianceCSIDRequest, ComplianceCSIDResponse, CSIDCreate
+from .schemas import ComplianceCSIDRequest, CSIDOut, CSIDCreate, CSIDInDB
 from .repositories import CSIDRepository
 from .exceptions import UserNotCompleteException
-
 
 class CSIDService:
     def __init__(self, csid_repo: CSIDRepository, user_service: UserService, zatca_service: ZatcaService):
@@ -96,7 +92,8 @@ class CSIDService:
 
         return private_key_content, csr_base64
 
-    async def generate_compliance_csid(self, email: str, data: ComplianceCSIDRequest) -> ComplianceCSIDResponse:
+
+    async def generate_compliance_csid(self, email: str, data: ComplianceCSIDRequest) -> CSIDOut:
         
         user: UserInDB = await self.user_service.get_user_in_db(email)
         if not user.is_completed:
@@ -123,5 +120,49 @@ class CSIDService:
         )
 
         await self.csid_repo.create(csid_data.model_dump())
-        return ComplianceCSIDResponse(email=user.email)
+        return CSIDOut(email=user.email)
 
+
+    async def get_compliance_csid(self, user_id: int) -> CSIDInDB:
+        csid = await self.csid_repo.get_compliance_csid_by_user_id(user_id)
+        return CSIDInDB.model_validate(csid)
+    
+    
+    async def get_production_csid(self, user_id: int) -> CSIDInDB:
+        csid = await self.csid_repo.get_production_csid_by_user_id(user_id)
+        return CSIDInDB.model_validate(csid)
+
+
+    async def generate_production_csid(self, email: str) -> CSIDOut:
+        
+        user: UserInDB = await self.user_service.get_user_in_db(email)
+        if not user.is_completed:
+            raise UserNotCompleteException()
+        
+        compliance_csid = await self.csid_repo.get_compliance_csid_by_user_id(user.id)
+
+        zatca_csid = await self.zatca_service.get_production_csid(
+            compliance_csid.request_id, 
+            compliance_csid.binary_security_token, 
+            compliance_csid.secret
+        )
+        
+        certificate = base64.b64decode(zatca_csid.binary_security_token).decode('utf-8')
+        authorization = zatca_csid.binary_security_token + ':' + zatca_csid.secret
+        authorization_base64 = base64.b64encode(authorization.encode('utf-8')).decode('utf-8')
+
+        csid_data = CSIDCreate(
+            user_id=user.id, 
+            type=CSIDType.PRODUCTION,
+            private_key=compliance_csid.private_key, 
+            csr_base64=compliance_csid.csr_base64, 
+            certificate=certificate,
+            authorization=authorization_base64,
+            request_id=zatca_csid.request_id,
+            disposition_message=zatca_csid.disposition_message,
+            binary_security_token=zatca_csid.binary_security_token,
+            secret=zatca_csid.secret
+        )
+
+        await self.csid_repo.create(csid_data.model_dump())
+        return CSIDOut(email=user.email)

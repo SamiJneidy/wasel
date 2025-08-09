@@ -1,9 +1,5 @@
 from sqlalchemy import Column, DateTime, String, Integer, ForeignKey, func
 
-class BaseModel:
-    """Adds id column to a model."""
-    id = Column(Integer, autoincrement=True, primary_key=True, index=True)
-
 class AuditByMixin:
     """Adds created_by and updated_by columns to a model."""
     created_by = Column(Integer, ForeignKey('users.id'), nullable=True)
@@ -23,6 +19,6 @@ class AddressMixin:
     address_line1 = Column(String, nullable=True)
     address_line2 = Column(String, nullable=True)
 
-class AuditMixin(BaseModel, AuditTimeMixin, AuditByMixin):
-    """Adds id, created_at, created_by, updated_at and updated_by to a model."""
+class AuditMixin(AuditTimeMixin, AuditByMixin):
+    """Adds created_at, created_by, updated_at and updated_by to a model."""
     pass

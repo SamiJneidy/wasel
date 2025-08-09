@@ -1,9 +1,6 @@
 import httpx
-import asyncio
 import backoff
-import requests
 from src.core.config import settings
-
 
 class AsyncRequestService:
     
@@ -22,21 +19,21 @@ class AsyncRequestService:
         max_tries=lambda self: self.max_retries,
         jitter=None,
     )
-    async def request(self, method, url, json, headers, auth=None, **kwargs):
+    async def request(self, method, url, json, headers, auth=None, params=None, **kwargs):
         try:
-            response: httpx.Response = await self.client.request(method=method, url=url, json=json, headers=headers, **kwargs)
+            response: httpx.Response = await self.client.request(method=method, url=url, data=json, headers=headers, auth=auth, **kwargs)
             return response
         except httpx.RequestError as e:
             return None
 
-    async def get(self, url, headers, json, params=None, **kwargs):
-        return await self.request("GET", url, json, headers, params=params, **kwargs)
+    async def get(self, url, headers, json, auth=None, params=None, **kwargs):
+        return await self.request("GET", url, json, headers, auth, params, **kwargs)
 
-    async def post(self, url, headers, json, params=None, **kwargs):
-        return await self.request("POST", url, json, headers, params=params, **kwargs)
+    async def post(self, url, headers, json, auth=None, params=None, **kwargs):
+        return await self.request("POST", url, json, headers, auth, params, **kwargs)
     
-    async def put(self, url, headers, json, params=None, **kwargs):
-        return await self.request("PUT", url, json, headers, params=params, **kwargs)
+    async def put(self, url, headers, json, auth=None, params=None, **kwargs):
+        return await self.request("PUT", url, json, headers, auth, params, **kwargs)
 
-    async def delete(self, url, headers, json, params=None, **kwargs):
-        return await self.request("DELETE", url, json, headers, params=params, **kwargs)
+    async def delete(self, url, headers, json, auth=None, params=None, **kwargs):
+        return await self.request("DELETE", url, json, headers, auth, params, **kwargs)

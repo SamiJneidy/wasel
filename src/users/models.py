@@ -1,8 +1,8 @@
-from sqlalchemy import Boolean, Column, Integer, String, DateTime, ForeignKey, Enum as SQLEnum, func, text
+from sqlalchemy import Boolean, Column, Integer, String, DateTime, ForeignKey, Enum, func, text
 from sqlalchemy.orm import relationship
 from src.core.database import Base
 from src.core.models import AuditTimeMixin
-from src.core.enums import UserRole, UserStatus, OTPUsage, OTPStatus
+from src.core.enums import UserRole, UserStatus, Stage
 
 class User(Base, AuditTimeMixin):
     __tablename__ = "users"
@@ -11,12 +11,12 @@ class User(Base, AuditTimeMixin):
     password = Column(String, nullable=False)
     last_login = Column(DateTime, nullable=True)
     invalid_login_attempts = Column(Integer, nullable=False, server_default=text("0"))
-    role = Column(SQLEnum(UserRole), nullable=False)
-    status = Column(SQLEnum(UserStatus), nullable=False)
+    role = Column(Enum(UserRole), nullable=False)
+    status = Column(Enum(UserStatus), nullable=False)
     phone = Column(String(20), nullable=True)
-    is_completed = Column(Boolean, nullable=True)
+    is_completed = Column(Boolean, nullable=False)
     
-    registraion_name = Column(String(250), nullable=True)
+    registration_name = Column(String(250), nullable=True)
     common_name = Column(String(250), nullable=True)
     organization_unit_name = Column(String(250), nullable=True)
     organization_name = Column(String(250), nullable=True)
@@ -32,4 +32,5 @@ class User(Base, AuditTimeMixin):
     postal_code = Column(String(10), nullable=True)
     party_identification_scheme = Column(String(10), nullable=True)
     party_identification_value = Column(String(30), nullable=True)
+    stage = Column(Enum(Stage), nullable=True)
     

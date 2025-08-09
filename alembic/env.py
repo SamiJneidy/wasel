@@ -14,6 +14,9 @@ from src.core.database import Base
 from src.auth.models import OTP
 from src.users.models import User
 from src.csid.models import CSID
+from src.customers.models import Customer
+from src.items.models import Item
+from src.invoices.models import Invoice, InvoiceCustomer, InvoiceLine
 from src.core.config import settings
 
 config.set_main_option("sqlalchemy.url", settings.SQLALCHEMY_URL)

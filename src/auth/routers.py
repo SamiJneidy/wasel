@@ -42,7 +42,7 @@ router = APIRouter(
 
 @router.post(
     path="/signup",
-    response_model=SignUpResponse,
+    response_model=SingleObjectResponse[UserOut],
     responses={
         status.HTTP_200_OK: {
             "description": "The user has signed up successfully."
@@ -78,16 +78,16 @@ router = APIRouter(
     }
 )
 async def signup(
-    data: SignUp,
+    body: SignUp,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
-) -> SignUpResponse:
+) -> SingleObjectResponse[UserOut]:
     """Sign up a new user.""" 
-    return await auth_service.signup(data)
-
+    data = await auth_service.signup(body)
+    return SingleObjectResponse(data=data)
 
 @router.post(
     path="/signup/complete",
-    response_model=SingleObjectResponse[SignUpCompleteResponse],
+    response_model=SingleObjectResponse[UserOut],
     responses={
         status.HTTP_200_OK: {
             "description": "Updated user successfully."
@@ -108,14 +108,16 @@ async def signup(
         },
     }
 )
-async def update(
+async def sign_up_complete(
+    response: Response,
     body: SignUpCompleteRequest,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
     current_user: Annotated[UserOut, Depends(get_current_user)],
-) -> SingleObjectResponse[SignUpCompleteResponse]:
+) -> SingleObjectResponse[UserOut]:
     """Complete the sign up process after the user verifies his email."""
     data = await auth_service.sign_up_complete(current_user.email, body)
-    return SingleObjectResponse[SignUpCompleteResponse](data=data)
+    await auth_service.set_refresh_token_cookie(data.email, response, "/api/v1/auth/refresh")
+    return SingleObjectResponse(data=data)
 
 
 @router.post(
@@ -190,7 +192,7 @@ async def login(
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> LoginResponse:
     login_response: LoginResponse = await auth_service.login(data)
-    await auth_service.set_refresh_token_cookie(response, login_response.refresh_token, "/api/v1/auth/refresh")
+    await auth_service.set_refresh_token_cookie(data.email, response, "/api/v1/auth/refresh")
     return login_response
 
 @router.get(
@@ -247,19 +249,17 @@ async def get_me(
 )
 async def refresh(
     request: Request,
-    response: Response,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> TokenRefreshResponse:
     """Refreshes an expired access token using a valid refresh token and sets new refresh token in HTTP-only cookie."""
     refresh_token = request.cookies.get("refresh_token")
-    token_response = await auth_service.refresh(refresh_token)
-    await auth_service.set_refresh_token_cookie(response, refresh_token, "/api/v1/auth/refresh")
-    return token_response
+    access_token = await auth_service.refresh(refresh_token)
+    return TokenRefreshResponse(access_token=access_token)
 
 
 @router.post(
     path="/verify-email", 
-    response_model=TokenResponse,
+    response_model=LoginResponse,
     responses={
         status.HTTP_200_OK: {
             "description": "The verification has been completed successfully."
@@ -283,7 +283,7 @@ async def refresh(
 async def verify_email_after_signup(
     data: VerifyEmailRequest,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
-) -> TokenResponse:
+) -> LoginResponse:
     """Verifies an email after signup and returns access and refresh tokens.""" 
     return await auth_service.verify_email_after_signup(data)
 

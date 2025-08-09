@@ -2,7 +2,7 @@ from fastapi import APIRouter, status
 from .services import CSIDService
 from .schemas import (
     ComplianceCSIDRequest,
-    ComplianceCSIDResponse,
+    CSIDOut,
     UserOut,
 )
 from .dependencies import (
@@ -20,7 +20,7 @@ router = APIRouter(
 
 @router.post(
     path="/compliance",
-    response_model=ComplianceCSIDResponse,
+    response_model=CSIDOut,
     responses={
         status.HTTP_200_OK: {
             "description": "User was returned successfully."
@@ -45,6 +45,38 @@ async def generate_compliance_csid(
     body: ComplianceCSIDRequest,
     csid_service: Annotated[CSIDService, Depends(get_csid_service)],
     current_user: Annotated[UserOut, Depends(get_current_user)],
-) -> ComplianceCSIDResponse:
+) -> CSIDOut:
     """Generate a compliance CSID."""
     return await csid_service.generate_compliance_csid(current_user.email, body)
+
+
+
+@router.post(
+    path="/production",
+    response_model=CSIDOut,
+    responses={
+        status.HTTP_200_OK: {
+            "description": "User was returned successfully."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "User was not found.",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "UesrNotFound": {
+                            "value": {
+                                "detail": "User not found"
+                            }
+                        },
+                    }
+                }
+            }
+        }
+    }
+)
+async def generate_production_csid(
+    csid_service: Annotated[CSIDService, Depends(get_csid_service)],
+    current_user: Annotated[UserOut, Depends(get_current_user)],
+) -> CSIDOut:
+    """Generate a production CSID."""
+    return await csid_service.generate_production_csid(current_user.email)

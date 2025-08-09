@@ -10,6 +10,8 @@ def get_user_repository(db: Annotated[Session, Depends(get_db)]) -> UserReposito
     """Returns user repository dependency."""
     return UserRepository(db)
 
-def get_user_service(user_repo: Annotated[UserRepository, Depends(get_user_repository)]) -> UserService:
+def get_user_service(
+    user_repo: Annotated[UserRepository, Depends(get_user_repository)],
+) -> UserService:
     """Returns otp service dependency"""
     return UserService(user_repo)

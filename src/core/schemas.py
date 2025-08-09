@@ -20,6 +20,9 @@ class ObjectListResponse(BaseModel, Generic[T]):
     """Used when returning an array of objects"""
     data: list[T] = Field(..., description="This may be any schema value")
 
+class SuccessfulResponse(BaseModel):
+    detail: str
+
 class AuditByMixin:
     """Adds created_by and updated_by columns to a schema."""
     created_by: int | None

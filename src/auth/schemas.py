@@ -52,8 +52,9 @@ class LoginRequest(BaseModel):
     password: str = Field(..., example="abcABC123")
 
 
-class LoginResponse(TokenResponse):
-    pass
+class LoginResponse(BaseModel):
+    data: UserOut
+    access_token: str
 
 
 class LogoutResponse(BaseModel):
