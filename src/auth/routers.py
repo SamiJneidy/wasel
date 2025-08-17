@@ -197,7 +197,7 @@ async def login(
 
 @router.get(
     path="/me",
-    response_model=UserOut,
+    response_model=SingleObjectResponse[UserOut],
     responses={
         status.HTTP_200_OK: {
             "description": "The current user returned successfully."
@@ -221,9 +221,9 @@ async def login(
 )
 async def get_me(
     current_user: Annotated[UserOut, Depends(get_current_user)],
-) -> UserOut:
+) -> SingleObjectResponse[UserOut]:
     """Returns the current user who is logged in."""
-    return current_user
+    return SingleObjectResponse(data=current_user)
 
 
 @router.post(

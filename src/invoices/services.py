@@ -19,6 +19,8 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from .repositories import InvoiceRepository
 from .exceptions import SwitchToProductionForbiddenException, BaseAppException, InvoiceNotFoundException, InvoiceSigningError, IntegrityErrorException, raise_integrity_error
 from .utils.invoice_helper import invoice_helper
+from src.core.utils.math_helper import round_decimal
+from decimal import Decimal
 
 class InvoiceService:
     def __init__(self, db: Session, user: UserOut, csid_service: CSIDService, customer_service: CustomerService, item_service: ItemService, zatca_service: ZatcaService, user_service: UserService):
@@ -74,7 +76,7 @@ class InvoiceService:
 
 
     async def get_invoice_header(self, invoice_id: int) -> InvoiceHeaderOut:
-        invoice_header = await self.invoice_repository.get_invoice(invoice_id)
+        invoice_header = await self.invoice_repository.get_invoice(self.user.id, invoice_id)
         return InvoiceHeaderOut.model_validate(invoice_header)
 
 
@@ -85,47 +87,82 @@ class InvoiceService:
         return InvoiceOut(invoice_lines=invoice_lines, customer=invoice_customer, **invoice_header.model_dump())
 
 
-    async def create_invoice_header(self, data: InvoiceCreate) -> InvoiceHeaderOut:
-        invoice_dict = data.model_dump(exclude={"invoice_lines", "customer"})
+    async def create_invoice_header(self, data: dict) -> InvoiceHeaderOut:
+        invoice = await self.invoice_repository.create_invoice(self.user.id, data)
+        return InvoiceHeaderOut.model_validate(invoice)
+
+
+    async def create_invoice_customer(self, invoice_id: int, data: dict) -> None:
+        customer = data.copy()
+        customer.update({"invoice_id": invoice_id})
+        await self.invoice_repository.create_invoice_customer(customer)
+
+
+    async def create_invoice_lines(self, invoice_id: int, data: list[dict]) -> None:
+        invoice_lines = data.copy()
+        for line in invoice_lines:
+            line.update({"invoice_id": invoice_id})
+        await self.invoice_repository.create_invoice_lines(data)
+
+
+    async def prepare_invoice_for_creation(self, data: InvoiceCreate) -> dict:
+        invoice = data.model_dump()
+
+        # Create invoice lines
+        invoice_lines = []
+        for line in data.invoice_lines:
+            item = await self.item_service.get(line.item_id)
+            line_extension_amount = round_decimal(item.price * line.quantity - line.discount_amount, 2)
+            tax_amount = round_decimal(line_extension_amount * data.tax_rate / 100, 2)
+            rounding_amount = round_decimal(line_extension_amount + tax_amount, 2)
+            line_dict = {
+                "item_name": item.name,
+                "item_price": item.price,
+                "item_unit_code": item.unit_code,
+                "quantity": line.quantity,
+                "discount_amount": line.discount_amount,
+                "line_extension_amount": line_extension_amount,
+                "tax_amount": tax_amount,
+                "rounding_amount": rounding_amount,
+                "tax_exemption_reason_code": line.tax_exemption_reason_code,
+                "tax_exemption_reason": line.tax_exemption_reason
+            }
+            invoice_lines.append(line_dict)
+        invoice.update({"invoice_lines": invoice_lines})
+
+        # Create invoice customer
+        if isinstance(data.customer, int):
+            customer = await self.customer_service.get(data.customer)
+            customer_snapshot = CustomerSnapshot(**customer.model_dump(exclude_none=True, exclude_unset=True))
+            customer_dict = customer_snapshot.model_dump()
+        elif data.customer is not None:
+            customer_dict = data.customer.model_dump()
+        invoice.update({"customer": customer_dict})
+
+        # Add invoice totals
+        invoice_line_extension_amount = round_decimal(sum(line["line_extension_amount"] for line in invoice_lines), 2)
+        invoice_taxable_amount = round_decimal(invoice_line_extension_amount - data.discount_amount, 2)
+        invoice_tax_amount = round_decimal(invoice_taxable_amount * data.tax_rate / 100, 2)
+        invoice_tax_inclusive_amount = round_decimal(invoice_taxable_amount + invoice_tax_amount, 2)
+        payable_amount = invoice_tax_inclusive_amount
+        invoice.update({
+            "line_extension_amount": invoice_line_extension_amount,
+            "taxable_amount": invoice_taxable_amount,
+            "tax_amount": invoice_tax_amount,
+            "tax_inclusive_amount": invoice_tax_inclusive_amount,
+            "payable_amount": payable_amount
+        })
+        
+        # Add additional invoice fields
         pih = await self.get_new_pih(self.user.id, self.user.stage)
         icv = await self.get_new_icv(self.user.id, self.user.stage)
-        invoice_dict.update({
+        invoice.update({
             "pih": pih,
             "icv": icv,
             "uuid": uuid.uuid4(),
             "stage": self.user.stage
         })
-        invoice = await self.invoice_repository.create_invoice(self.user.id, invoice_dict)
-        return InvoiceHeaderOut.model_validate(invoice)
-
-    
-    async def create_invoice_customer(self, invoice_id: int, invoice_data: InvoiceCreate) -> None:
-        if isinstance(invoice_data.customer, int):
-            customer = await self.customer_service.get(invoice_data.customer)
-            customer_snapshot = CustomerSnapshot(**customer.model_dump(exclude_none=True, exclude_unset=True))
-            customer_dict = customer_snapshot.model_dump()
-            customer_dict.update({"invoice_id": invoice_id})
-            await self.invoice_repository.create_invoice_customer(customer_dict)
-    
-        elif invoice_data.customer is not None:
-            customer_dict = invoice_data.customer.model_dump()
-            customer_dict.update({"invoice_id": invoice_id})
-            await self.invoice_repository.create_invoice_customer(customer_dict)
-
-    
-    async def create_invoice_lines(self, invoice_id: int, invoice_lines: list[InvoiceLineCreate]) -> None:
-        modified_invoice_lines = []
-        for line in invoice_lines:
-            item = await self.item_service.get(line.item_id)
-            line_dict = line.model_dump(exclude={"item_id"})
-            line_dict.update({
-                "invoice_id": invoice_id,
-                "item_name": item.name,
-                "item_price": item.price,
-                "item_unit_code": item.unit_code
-            })
-            modified_invoice_lines.append(line_dict)
-        await self.invoice_repository.create_invoice_lines(modified_invoice_lines)
+        return invoice
 
 
     async def prepare_invoice_for_signing(self, invoice_id: int) -> dict[str, str]:
@@ -145,9 +182,14 @@ class InvoiceService:
     async def create_compliance_invoice(self, data: InvoiceCreate) -> InvoiceOut:
         try:
             # Create a new invoice
-            invoice = await self.create_invoice_header(data)
-            await self.create_invoice_customer(invoice.id, data) 
-            await self.create_invoice_lines(invoice.id, data.invoice_lines)
+            invoice_dict = await self.prepare_invoice_for_creation(data)
+            customer = invoice_dict.pop("customer")
+            invoice_lines = invoice_dict.pop("invoice_lines")
+            
+            invoice = await self.create_invoice_header(invoice_dict)
+            await self.create_invoice_customer(invoice.id, customer) 
+            await self.create_invoice_lines(invoice.id, invoice_lines)
+
             # Sign the invoice
             invoice_data = await self.prepare_invoice_for_signing(invoice.id)
             csid = await self.csid_service.get_compliance_csid(self.user.id)
@@ -182,9 +224,14 @@ class InvoiceService:
     async def create_standard_invoice(self, data: InvoiceCreate) -> InvoiceOut:
         try:
             # Create a new invoice
-            invoice = await self.create_invoice_header(data)
-            await self.create_invoice_customer(invoice.id, data) 
-            await self.create_invoice_lines(invoice.id, data.invoice_lines)
+            invoice_dict = await self.prepare_invoice_for_creation(data)
+            customer = invoice_dict.pop("customer")
+            invoice_lines = invoice_dict.pop("invoice_lines")
+            
+            invoice = await self.create_invoice_header(invoice_dict)
+            await self.create_invoice_customer(invoice.id, customer) 
+            await self.create_invoice_lines(invoice.id, invoice_lines)
+
             # Sign the invoice
             invoice_data = await self.prepare_invoice_for_signing(invoice.id)
             csid = await self.csid_service.get_production_csid(self.user.id)
@@ -217,9 +264,14 @@ class InvoiceService:
     async def create_simplified_invoice(self, data: InvoiceCreate) -> InvoiceOut:
         try:
             # Create a new invoice
-            invoice = await self.create_invoice_header(data)
-            await self.create_invoice_customer(invoice.id, data) 
-            await self.create_invoice_lines(invoice.id, data.invoice_lines)
+            invoice_dict = await self.prepare_invoice_for_creation(data)
+            customer = invoice_dict.pop("customer")
+            invoice_lines = invoice_dict.pop("invoice_lines")
+            
+            invoice = await self.create_invoice_header(invoice_dict)
+            await self.create_invoice_customer(invoice.id, customer) 
+            await self.create_invoice_lines(invoice.id, invoice_lines)
+            
             # Sign the invoice
             invoice_data = await self.prepare_invoice_for_signing(invoice.id)
             csid = await self.csid_service.get_production_csid(self.user.id)

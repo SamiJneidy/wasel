@@ -29,7 +29,7 @@ async def create_customer(
     body: CustomerCreate,
     customer_service: Annotated[CustomerService, Depends(get_customer_service)],
     current_user: Annotated[UserOut, Depends(get_current_user)],
-) -> CustomerOut:
+) -> SingleObjectResponse[CustomerOut]:
     """Create a new customer."""
     data = await customer_service.create(body)
     return SingleObjectResponse(data=data)
@@ -44,7 +44,7 @@ async def update_customer(
     body: CustomerUpdate,
     customer_service: Annotated[CustomerService, Depends(get_customer_service)],
     current_user: Annotated[UserOut, Depends(get_current_user)],
-) -> CustomerOut:
+) -> SingleObjectResponse[CustomerOut]:
     """Update a customer."""
     data = await customer_service.update(id, body)
     return SingleObjectResponse(data=data)
@@ -84,7 +84,7 @@ async def get_customer(
     id: int,
     customer_service: Annotated[CustomerService, Depends(get_customer_service)],
     current_user: Annotated[UserOut, Depends(get_current_user)],
-) -> CustomerOut:
+) -> SingleObjectResponse[CustomerOut]:
     """Get a signle customer."""
     data = await customer_service.get(id)
     return SingleObjectResponse(data=data)

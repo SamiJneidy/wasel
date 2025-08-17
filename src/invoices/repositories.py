@@ -43,8 +43,8 @@ class InvoiceRepository:
         self.db.bulk_insert_mappings(InvoiceLine, data)
         self.db.flush()
         
-    async def get_invoice(self, id: int) -> Invoice | None:
-        return self.db.query(Invoice).filter(Invoice.id==id).first()
+    async def get_invoice(self, user_id: int, id: int) -> Invoice | None:
+        return self.db.query(Invoice).filter(Invoice.user_id==user_id, Invoice.id==id).first()
     
     async def get_invoices_by_user_id(self, user_id: int, stage: Stage) -> list[Invoice] | None:
         return self.db.query(Invoice).filter(Invoice.user_id==user_id, Invoice.stage==stage).all()

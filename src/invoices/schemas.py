@@ -43,7 +43,18 @@ class Supplier(PartyIdentificationBase):
 
 
 
-class InvoiceLineBase(BaseModel):
+class InvoiceLineCreate(BaseModel):
+    item_id: int    
+    quantity: Decimal = Field(..., decimal_places=6)
+    discount_amount: Decimal = Field(..., decimal_places=2)
+    tax_exemption_reason_code: Optional[TaxExemptionReasonCode] = Field(None)
+    tax_exemption_reason: Optional[str] = Field(None, min_length=1, max_length=4000)
+
+class InvoiceLineOut(BaseModel):
+    id: int
+    item_name: str = Field(..., min_length=1, max_length=500)
+    item_price: Decimal = Field(..., decimal_places=2)
+    item_unit_code: str
     quantity: Decimal = Field(..., decimal_places=6)
     discount_amount: Decimal = Field(..., decimal_places=2)
     line_extension_amount: Decimal = Field(..., decimal_places=2)
@@ -51,15 +62,7 @@ class InvoiceLineBase(BaseModel):
     rounding_amount: Decimal = Field(..., decimal_places=2)
     tax_exemption_reason_code: Optional[TaxExemptionReasonCode] = Field(None)
     tax_exemption_reason: Optional[str] = Field(None, min_length=1, max_length=4000)
-
-class InvoiceLineCreate(InvoiceLineBase):
-    item_id: int
-
-class InvoiceLineOut(InvoiceLineBase):
-    id: int
-    item_name: str = Field(..., min_length=1, max_length=500)
-    item_price: Decimal = Field(..., decimal_places=2)
-    item_unit_code: str
+    
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -78,17 +81,17 @@ class InvoiceHeaderBase(BaseModel):
     note: Optional[str] = Field(None, max_length=4000, description="General notes about the invoice")
     tax_rate: Decimal = Field(..., decimal_places=2, description="Tax rate applied to the invoice", example=15.00)
     classified_tax_category: TaxCategory = Field(..., description="Tax category classification")
-    line_extension_amount: Decimal = Field(..., description="Total amount before taxes and discounts", example=1000.00)
     discount_amount: Decimal = Field(..., description="Total discount amount", example=50.00)
-    taxable_amount: Decimal = Field(..., description="Amount subject to taxation", example=950.00)
-    tax_amount: Decimal = Field(..., description="Total tax amount", example=142.50)
-    tax_inclusive_amount: Decimal = Field(..., description="Total amount including taxes", example=1092.50)
-    payable_amount: Decimal = Field(..., description="Final amount to be paid", example=1092.50)
     tax_exemption_reason_code: Optional[TaxExemptionReasonCode] = Field(None)
     tax_exemption_reason: Optional[str] = Field(None, min_length=1, max_length=4000)
 
 class InvoiceHeaderOut(InvoiceHeaderBase):
     id: int
+    line_extension_amount: Decimal = Field(..., description="Total amount before taxes and discounts", example=1000.00)
+    taxable_amount: Decimal = Field(..., description="Amount subject to taxation", example=950.00)
+    tax_amount: Decimal = Field(..., description="Total tax amount", example=142.50)
+    tax_inclusive_amount: Decimal = Field(..., description="Total amount including taxes", example=1092.50)
+    payable_amount: Decimal = Field(..., description="Final amount to be paid", example=1092.50)
     pih: str 
     icv: int
     base64_qr_code: Optional[str] = None
@@ -122,7 +125,7 @@ class InvoiceCreate(InvoiceHeaderBase):
         except Exception:
             raise ValueError("The input should be a valid time in the format HH:MM:SS")
 
-    @field_validator("line_extension_amount", "discount_amount", "taxable_amount", "tax_amount", "tax_inclusive_amount", "payable_amount", mode="after")
+    @field_validator("discount_amount", mode="after")
     def validate_amount(cls, value):
         if value < 0:
             raise ValueError("The value must be positive")
