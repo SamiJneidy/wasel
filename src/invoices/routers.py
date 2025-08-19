@@ -87,29 +87,21 @@ async def switch_to_production(
     current_user: Annotated[UserOut, Depends(get_current_user)],
 ) -> SuccessfulResponse:
     await invoice_service.switch_to_production()
-    return SuccessfulResponse(detail="Success! You are now on production stage")
+    return SuccessfulResponse(detail="Success. You are now running on production stage")
 
+
+
+from pydantic import BaseModel
+class Ex(BaseModel):
+    detail: str
 
 @router.get(
     path="/{id}",
     response_model=SingleObjectResponse[InvoiceOut],
     responses={
-        status.HTTP_200_OK: {
-            "description": "User was returned successfully."
-        },
         status.HTTP_404_NOT_FOUND: {
             "description": "User was not found.",
-            "content": {
-                "application/json": {
-                    "examples": {
-                        "UesrNotFound": {
-                            "value": {
-                                "detail": "User not found"
-                            }
-                        },
-                    }
-                }
-            }
+            "model": Ex
         }
     }
 )

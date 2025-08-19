@@ -1,7 +1,7 @@
 from typing import Self
 from pydantic import BaseModel, EmailStr, StringConstraints, ConfigDict, Field, model_validator
 from datetime import datetime
-from src.core.schemas import BaseSchema, SingleObjectResponse
+from src.core.schemas import BaseSchema, SingleObjectResponse, SuccessfulResponse, ErrorResponse
 from src.users.schemas import UserOut, UserUpdate
 from src.core.enums import OTPStatus, OTPUsage, UserRole, UserStatus
 
@@ -53,12 +53,8 @@ class LoginRequest(BaseModel):
 
 
 class LoginResponse(BaseModel):
-    data: UserOut
+    user: UserOut
     access_token: str
-
-
-class LogoutResponse(BaseModel):
-    detail: str = Field(..., example="Logged out successfully")
 
 
 class RequestEmailVerificationOTPRequest(BaseModel):

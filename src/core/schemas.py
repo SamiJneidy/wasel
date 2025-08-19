@@ -23,6 +23,9 @@ class ObjectListResponse(BaseModel, Generic[T]):
 class SuccessfulResponse(BaseModel):
     detail: str
 
+class ErrorResponse(BaseModel):
+    detail: str
+
 class AuditByMixin:
     """Adds created_by and updated_by columns to a schema."""
     created_by: int | None

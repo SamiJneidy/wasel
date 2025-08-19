@@ -1,0 +1,15 @@
+SUMMARIES = {
+    "signup": "Register a new user and send a verification OTP to their email.",
+    "sign_up_complete": "Complete signup after email verification and update user profile.",
+    "login": "Authenticate a user with email and password and return access tokens.",
+    "get_me": "Retrieve details of the currently authenticated user.",
+    "refresh": "Generate a new access token using a valid refresh token.",
+    "verify_email_after_signup": "Verify user's email after signup using an OTP code.",
+    "reset_password": "Reset the account password using a verified OTP code.",
+    "logout": "Log out the current user by revoking their token.",
+    "request_email_verification_otp": "Send a new OTP to the user's email for email verification.",
+    "request_password_reset_otp": "Send a new OTP to the user's email for password reset.",
+    "verify_email_verification_otp": "Verify an OTP provided for email verification.",
+    "verify_password_reset_otp": "Verify an OTP provided for password reset.",
+    "swaggerlogin": "Login endpoint for Swagger UI testing only (not for production use).",
+}

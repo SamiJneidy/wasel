@@ -124,7 +124,7 @@ class AuthService:
         await self.user_service.update_last_login(credentials.email, datetime.utcnow())
         
         user = await self.user_service.get_by_email(db_user.email)
-        return LoginResponse(data=user, access_token=access_token)
+        return LoginResponse(user=user, access_token=access_token)
 
 
     async def request_email_verification_otp(self, data: RequestEmailVerificationOTPRequest) -> RequestEmailVerificationOTPResponse:
@@ -200,7 +200,7 @@ class AuthService:
         await self.user_service.update_last_login(data.email, datetime.utcnow())
         
         user = await self.user_service.get_by_email(data.email)
-        return LoginResponse(data=user, access_token=access_token)
+        return LoginResponse(user=user, access_token=access_token)
     
 
     async def reset_password(self, data: ResetPasswordRequest) -> ResetPasswordResponse:
