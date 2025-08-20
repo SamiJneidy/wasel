@@ -17,14 +17,13 @@ DOCSTRINGS = {
     Returns profile information of the logged-in user.""",
 
     "refresh": """Generate a new access token using a valid refresh token. 
-    A new refresh token is also issued and stored in an HTTP-only cookie. 
     Used when the current access token has expired.""",
 
     "verify_email_after_signup": """Verify the user's email address after signup using an OTP code. 
     Once verified, the system issues access and refresh tokens to complete the authentication process.""",
 
-    "reset_password": """Reset the user's password after validating a password-reset OTP. 
-    This allows users to regain access to their account if they forgot their password.""",
+    "reset_password": """Reset the user's password using a previously verified password-reset OTP. 
+    The OTP is verified in a separate route and is not included in this request body.""",
 
     "logout": """Logout the current user by revoking their access token. 
     The token is blacklisted for a limited time, preventing further use.""",

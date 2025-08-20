@@ -33,5 +33,5 @@ class UserNotPendingException(BaseAppException):
 
 class UserNotVerifiedException(BaseAppException):
     """Raised when the user's email is not verified."""
-    def __init__(self, detail: str | None = "Your account is not verified. Verify your account and try again.", status_code: int = status.HTTP_400_BAD_REQUEST):
+    def __init__(self, detail: str | None = "Your account is not verified. Verify your account and try again.", status_code: int = status.HTTP_403_FORBIDDEN):
         super().__init__(detail, status_code)

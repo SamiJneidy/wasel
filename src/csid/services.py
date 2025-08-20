@@ -13,16 +13,17 @@ from src.core.config import settings
 from src.users.schemas import UserInDB, UserOut
 from src.users.services import UserService
 from src.zatca.services import ZatcaService
-from src.core.enums import CSIDType
+from src.core.enums import CSIDType, InvoiceType, InvoicingType, Stage
 from .schemas import ComplianceCSIDRequest, CSIDOut, CSIDCreate, CSIDInDB
-from .repositories import CSIDRepository
-from .exceptions import UserNotCompleteException
+from .repositories import CSIDRepository, InvoiceRepository
+from .exceptions import SwitchToProductionForbiddenException, UserNotCompleteException
 
 class CSIDService:
-    def __init__(self, csid_repo: CSIDRepository, user_service: UserService, zatca_service: ZatcaService):
+    def __init__(self, csid_repo: CSIDRepository, user_service: UserService, zatca_service: ZatcaService, invoice_repository: InvoiceRepository):
         self.user_service = user_service
         self.zatca_service = zatca_service
         self.csid_repo = csid_repo
+        self.invoice_repository = invoice_repository
 
     def generate_private_key(self):
         """Returns a private key object, not a serialized string."""
@@ -94,7 +95,6 @@ class CSIDService:
 
 
     async def generate_compliance_csid(self, email: str, data: ComplianceCSIDRequest) -> CSIDOut:
-        
         user: UserInDB = await self.user_service.get_user_in_db(email)
         if not user.is_completed:
             raise UserNotCompleteException()
@@ -118,7 +118,6 @@ class CSIDService:
             binary_security_token=zatca_csid.binary_security_token,
             secret=zatca_csid.secret
         )
-
         await self.csid_repo.create(csid_data.model_dump())
         return CSIDOut(email=user.email)
 
@@ -132,13 +131,26 @@ class CSIDService:
         csid = await self.csid_repo.get_production_csid_by_user_id(user_id)
         return CSIDInDB.model_validate(csid)
 
-
-    async def generate_production_csid(self, email: str) -> CSIDOut:
+    
+    async def can_switch_to_production(self, email: str) -> bool:
+        user = await self.user_service.get_user_in_db(email)
+        standard_count = await self.invoice_repository.get_invoice_type_code_distinct_count(user.id, InvoiceType.STANDARD)
+        simplified_count = await self.invoice_repository.get_invoice_type_code_distinct_count(user.id, InvoiceType.SIMPLIFIED)
+        if user.invoicing_type == InvoicingType.STANDARD:
+            return True if standard_count >= 3 else False
+        elif user.invoicing_type == InvoicingType.SIMPLIFIED:
+            return True if simplified_count >= 3 else False
+        else:
+            return True if standard_count + simplified_count >= 6 else False
         
+    
+    async def generate_production_csid(self, email: str) -> CSIDOut:
         user: UserInDB = await self.user_service.get_user_in_db(email)
         if not user.is_completed:
             raise UserNotCompleteException()
-        
+        if not await self.can_switch_to_production(email):
+            raise SwitchToProductionForbiddenException()
+
         compliance_csid = await self.csid_repo.get_compliance_csid_by_user_id(user.id)
 
         zatca_csid = await self.zatca_service.get_production_csid(
@@ -165,4 +177,5 @@ class CSIDService:
         )
 
         await self.csid_repo.create(csid_data.model_dump())
+        await self.user_service.update_by_email(email, {"stage": Stage.PRODUCTION})
         return CSIDOut(email=user.email)

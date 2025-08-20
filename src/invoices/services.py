@@ -17,13 +17,13 @@ from .schemas import (
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from .repositories import InvoiceRepository
-from .exceptions import SwitchToProductionForbiddenException, BaseAppException, InvoiceNotFoundException, InvoiceSigningError, IntegrityErrorException, raise_integrity_error
+from .exceptions import BaseAppException, InvoiceNotFoundException, InvoiceSigningError, IntegrityErrorException, raise_integrity_error
 from .utils.invoice_helper import invoice_helper
 from src.core.utils.math_helper import round_decimal
 from decimal import Decimal
 
 class InvoiceService:
-    def __init__(self, db: Session, user: UserOut, csid_service: CSIDService, customer_service: CustomerService, item_service: ItemService, zatca_service: ZatcaService, user_service: UserService):
+    def __init__(self, db: Session, user: UserOut, csid_service: CSIDService, customer_service: CustomerService, item_service: ItemService, zatca_service: ZatcaService, user_service: UserService, invoice_repository: InvoiceRepository):
         self.db = db
         self.user = user
         self.csid_service = csid_service
@@ -31,24 +31,7 @@ class InvoiceService:
         self.item_service = item_service
         self.zatca_service = zatca_service
         self.user_service = user_service
-        self.invoice_repository = InvoiceRepository(db)
-
-
-    async def can_switch_to_production(self, user_id: int) -> bool:
-        standard_count = await self.invoice_repository.get_invoice_type_code_distinct_count(user_id, InvoiceType.STANDARD)
-        simplified_count = await self.invoice_repository.get_invoice_type_code_distinct_count(user_id, InvoiceType.SIMPLIFIED)
-        if self.user.invoicing_type == InvoicingType.STANDARD:
-            return True if standard_count >= 3 else False
-        elif self.user.invoicing_type == InvoicingType.SIMPLIFIED:
-            return True if simplified_count >= 3 else False
-        else:
-            return True if standard_count + simplified_count >= 6 else False
-        
-    
-    async def switch_to_production(self) -> None:
-        if not await self.can_switch_to_production(self.user.id):
-            raise SwitchToProductionForbiddenException()
-        await self.user_service.update_by_email(self.user.email, {"stage": Stage.PRODUCTION})
+        self.invoice_repository = invoice_repository
 
 
     async def get_new_pih(self, user_id: int, stage: Stage) -> str:

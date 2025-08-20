@@ -6,6 +6,10 @@ RESPONSES = {
         status.HTTP_200_OK: {
             "description": "User registered successfully and OTP sent for email verification."
         },
+        status.HTTP_403_FORBIDDEN: {
+            "description": "The user account is blocked or disabled; OTP request denied.",
+            "model": ErrorResponse,
+        },
         status.HTTP_409_CONFLICT: {
             "description": "The email is already associated with an existing account.",
             "model": ErrorResponse,
@@ -20,6 +24,10 @@ RESPONSES = {
         status.HTTP_200_OK: {
             "description": "The user profile was updated and signup process completed."
         },
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": "Invalid or missing access token.",
+            "model": ErrorResponse,
+        },
         status.HTTP_404_NOT_FOUND: {
             "description": "No user account was found for the current session.",
             "model": ErrorResponse,
@@ -33,7 +41,7 @@ RESPONSES = {
             "model": ErrorResponse,
         },
         status.HTTP_403_FORBIDDEN: {
-            "description": "The account is inactive, blocked, disabled, or has not yet been verified.",
+            "description": "The account is inactive, blocked, disabled or not verified",
             "model": ErrorResponse,
         },
         status.HTTP_401_UNAUTHORIZED: {
@@ -72,10 +80,14 @@ RESPONSES = {
 
     "reset_password": {
         status.HTTP_200_OK: {
-            "description": "Password reset successfully. The new password is now active."
+            "description": "Password reset successfully. The new password is now active. Requires a previously verified password-reset OTP."
         },
         status.HTTP_401_UNAUTHORIZED: {
-            "description": "The provided OTP is invalid, expired, or already used.",
+            "description": "Password reset not allowed because the OTP is missing, expired, unverified, or mismatched for the email.",
+            "model": ErrorResponse,
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No user exists with the given email address.",
             "model": ErrorResponse,
         },
     },
@@ -83,6 +95,10 @@ RESPONSES = {
     "logout": {
         status.HTTP_200_OK: {
             "description": "User logged out successfully. The access token has been revoked."
+        },
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": "Invalid or missing access token.",
+            "model": ErrorResponse,
         },
     },
 
@@ -113,7 +129,7 @@ RESPONSES = {
             "model": ErrorResponse,
         },
         status.HTTP_403_FORBIDDEN: {
-            "description": "The user account is inactive, blocked, or not yet verified.",
+            "description": "The user account is inactive, blocked or not verified.",
             "model": ErrorResponse,
         },
         status.HTTP_503_SERVICE_UNAVAILABLE: {
@@ -145,6 +161,18 @@ RESPONSES = {
     "swaggerlogin": {
         status.HTTP_200_OK: {
             "description": "Swagger-only login successful. Returns a bearer token for testing."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No user exists with the provided email address.",
+            "model": ErrorResponse,
+        },
+        status.HTTP_403_FORBIDDEN: {
+            "description": "The account is inactive, blocked, or disabled or not verified.",
+            "model": ErrorResponse,
+        },
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": "The provided email or password is incorrect.",
+            "model": ErrorResponse,
         },
     },
 }
