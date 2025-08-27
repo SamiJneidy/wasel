@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Generic, TypeVar
+from typing import Generic, TypeVar, Optional
 from pydantic import BaseModel, EmailStr, StringConstraints, ConfigDict, Field
 
 T = TypeVar("T")
@@ -8,12 +8,22 @@ class SingleObjectResponse(BaseModel, Generic[T]):
     """Used when returning a single object"""
     data: T = Field(..., description="This may be any schema value")
     
+class PagintationParams(BaseModel):
+    page: int = Field(1, ge=1)
+    limit: Optional[int] = Field(None, ge=1, le=100)
+
+    @property
+    def skip(self):
+        if self.page is not None and self.limit is not None:
+            return (self.page-1) * self.limit
+        return None
+
 class PaginatedResponse(BaseModel, Generic[T]):
     """Used when returning paginated data"""
     data: list[T]
     total_rows: int | None = None
     total_pages: int | None = None
-    current_page: int | None = None
+    page: int | None = None
     limit: int | None = None
 
 class ObjectListResponse(BaseModel, Generic[T]):

@@ -1,12 +1,16 @@
+from math import ceil
 from fastapi import APIRouter, status
 from src.core.enums import Stage, InvoiceType
 from .services import InvoiceService
 from .schemas import (
+    InvoiceFilters,
     SingleObjectResponse,
     SuccessfulResponse,
     InvoiceCreate,
     InvoiceOut,
     UserOut,
+    PagintationParams,
+    PaginatedResponse
 )
 from .dependencies import (
     Annotated,
@@ -59,3 +63,25 @@ async def get_invoice(
 ) -> SingleObjectResponse[InvoiceOut]:
     invoice = await invoice_service.get_invoice(id)
     return SingleObjectResponse(data=invoice)
+
+@router.get(
+    path="/",
+    response_model=PaginatedResponse[InvoiceOut],
+    # responses=RESPONSES["get_invoices"],
+    # summary=SUMMARIES["get_invoices"],
+    # description=DOCSTRINGS["get_invoices"],
+)
+async def get_invoices(
+    pagination: PagintationParams = Depends(),
+    filters: InvoiceFilters = Depends(),
+    current_user: UserOut = Depends(get_current_user),
+    invoice_service: InvoiceService = Depends(get_invoice_service),
+) -> PaginatedResponse[InvoiceOut]:
+    total_rows, data = await invoice_service.get_invoices(pagination, filters)
+    return PaginatedResponse(
+        data=data,
+        total_rows=total_rows,
+        total_pages=ceil(total_rows/pagination.limit) if pagination.limit is not None else 1,
+        page=pagination.page,
+        limit=pagination.limit
+    )

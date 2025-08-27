@@ -41,10 +41,11 @@ class Invoice(Base, AuditMixin):
     user = relationship("User", foreign_keys=[user_id], remote_side="User.id")
 
 
-class InvoiceCustomer(Base):
-    __tablename__ = "invoices_customers"
+class CustomerSnapshot(Base):
+    __tablename__ = "customer_snapshots"
     id = Column(Integer, autoincrement=True, primary_key=True, index=True)
     invoice_id = Column(Integer, ForeignKey('invoices.id', ondelete="CASCADE"), nullable=False)
+    customer_id = Column(Integer, ForeignKey('customers.id', ondelete="RESTRICT"), nullable=True) 
     registration_name = Column(String(250), nullable=False)
     vat_number = Column(String(20), nullable=True)
     country_code = Column(String(5), nullable=True, server_default="SA")

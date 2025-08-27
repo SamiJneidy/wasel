@@ -9,10 +9,12 @@ from src.customers.services import CustomerService
 from src.items.services import ItemService
 from src.core.enums import InvoicingType, Stage, TaxExemptionReasonCode, PartyIdentificationScheme, InvoiceType, InvoiceTypeCode, PaymentMeansCode, TaxCategory
 from .schemas import (
+    PagintationParams,
+    InvoiceFilters,
     SuccessfulResponse,
     InvoiceLineCreate, InvoiceLineOut,
     InvoiceHeaderOut, InvoiceCreate, InvoiceOut,
-    Supplier, CustomerSnapshot, CustomerSnapshotOut, TaxExcemptionCustomer, TaxExcemptionCustomerOut
+    Supplier, CustomerSnapshotCreate, CustomerSnapshotOut, TaxExcemptionCustomer, TaxExcemptionCustomerOut
 )
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -116,7 +118,8 @@ class InvoiceService:
         # Create invoice customer
         if isinstance(data.customer, int):
             customer = await self.customer_service.get(data.customer)
-            customer_snapshot = CustomerSnapshot(**customer.model_dump(exclude_none=True, exclude_unset=True))
+            customer_snapshot = CustomerSnapshotCreate(**customer.model_dump(exclude_none=True, exclude_unset=True))
+            customer_snapshot.customer_id = data.customer
             customer_dict = customer_snapshot.model_dump()
         elif data.customer is not None:
             customer_dict = data.customer.model_dump()
@@ -284,3 +287,6 @@ class InvoiceService:
             self.db.rollback()
             raise e
     
+    async def get_invoices(self, pagination: PagintationParams, filters: InvoiceFilters) -> tuple[int, list[InvoiceOut]]:
+        total, invoices = await self.invoice_repository.get_invoices_by_user_id(self.user.id, self.user.stage, pagination.skip, pagination.limit, filters.model_dump(exclude_none=True))
+        return total, [await self.get_invoice(invoice.id) for invoice in invoices]

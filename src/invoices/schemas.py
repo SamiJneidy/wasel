@@ -1,7 +1,7 @@
 from pydantic import BaseModel, EmailStr, StringConstraints, ConfigDict, constr, Field, field_validator, model_validator
 from datetime import date, time, datetime
 from src.zatca.schemas import ZatcaCSIDResponse
-from src.core.schemas import AuditTimeMixin, SingleObjectResponse, SuccessfulResponse
+from src.core.schemas import AuditTimeMixin, SingleObjectResponse, SuccessfulResponse, PagintationParams, PaginatedResponse
 from src.users.schemas import UserOut
 from src.core.enums import TaxExemptionReasonCode, PartyIdentificationScheme, InvoiceType, InvoiceTypeCode, PaymentMeansCode, TaxCategory
 from typing import Optional, Annotated, Self, Union
@@ -19,18 +19,18 @@ class PartyIdentificationBase(BaseModel):
     party_identification_scheme: Optional[PartyIdentificationScheme]
     party_identification_value: Optional[str] = Field(..., min_length=1, max_length=25, example="5243526715")
 
-class CustomerSnapshot(PartyIdentificationBase):
-    pass
+class CustomerSnapshotCreate(PartyIdentificationBase):
+    customer_id: Optional[int] = None
 
-class TaxExcemptionCustomer(BaseModel):
-    registration_name: Optional[str] = Field(..., min_length=1, max_length=250, example="Ahmed Ali")
-    party_identification_scheme: Optional[PartyIdentificationScheme]
-    party_identification_value: Optional[str] = Field(..., min_length=1, max_length=25, example="5243526715")
-    
 class CustomerSnapshotOut(PartyIdentificationBase):
     id: int
     invoice_id: int
     model_config = ConfigDict(from_attributes=True)    
+
+class TaxExcemptionCustomer(BaseModel):
+    registration_name: Optional[str] = Field(..., min_length=1, max_length=250, example="Ahmed Ali")
+    party_identification_scheme: Optional[PartyIdentificationScheme]
+    party_identification_value: Optional[str] = Field(..., min_length=1, max_length=25, example="5243526715")    
 
 class TaxExcemptionCustomerOut(TaxExcemptionCustomer):
     id: int
@@ -161,3 +161,22 @@ class InvoiceOut(InvoiceHeaderOut):
     invoice_lines: list[InvoiceLineOut]
     invoice_hash: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
+
+
+class InvoiceFilters(BaseModel):
+    customer_id: Optional[int] = Field(None)
+    invoice_type: Optional[InvoiceType] = Field(None, description="Standard or Simplified")
+    invoice_type_code: Optional[InvoiceTypeCode] = Field(None, description="Invoice, Credit Note or Debit Note")
+    issue_date_range_from: Optional[date] = Field(None, description="Date in format YYYY-MM-DD", example="2025-01-24")
+    issue_date_range_to: Optional[date] = Field(None, description="Date in format YYYY-MM-DD", example="2025-01-24")
+    payment_means_code: Optional[PaymentMeansCode] = Field(None, description="Code representing the payment method")
+    classified_tax_category: Optional[TaxCategory] = Field(None, description="Tax category classification")
+
+    @field_validator("issue_date_range_from", "issue_date_range_to", mode="after")
+    def validate_date_format(cls, value):
+        if value is None:
+            return None
+        try:
+            return datetime.strptime(str(value), "%Y-%m-%d").date()
+        except Exception as e:
+            raise ValueError("The input should be a valid date in the format YYYY-MM-DD")
