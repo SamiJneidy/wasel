@@ -116,14 +116,15 @@ class InvoiceService:
         invoice.update({"invoice_lines": invoice_lines})
 
         # Create invoice customer
-        if isinstance(data.customer, int):
-            customer = await self.customer_service.get(data.customer)
-            customer_snapshot = CustomerSnapshotCreate(**customer.model_dump(exclude_none=True, exclude_unset=True))
-            customer_snapshot.customer_id = data.customer
-            customer_dict = customer_snapshot.model_dump()
-        elif data.customer is not None:
-            customer_dict = data.customer.model_dump()
-        invoice.update({"customer": customer_dict})
+        if data.customer is not None:
+            if isinstance(data.customer, int):
+                customer = await self.customer_service.get(data.customer)
+                customer_snapshot = CustomerSnapshotCreate(**customer.model_dump(exclude_none=True, exclude_unset=True))
+                customer_snapshot.customer_id = data.customer
+                customer_dict = customer_snapshot.model_dump()
+            else:
+                customer_dict = data.customer.model_dump()
+            invoice.update({"customer": customer_dict})
 
         # Add invoice totals
         invoice_line_extension_amount = round_decimal(sum(line["line_extension_amount"] for line in invoice_lines), 2)
@@ -167,13 +168,18 @@ class InvoiceService:
 
     async def create_compliance_invoice(self, data: InvoiceCreate) -> InvoiceOut:
         try:
-            # Create a new invoice
+
+            # Prepare invoice for creation and create invoice header
             invoice_dict = await self.prepare_invoice_for_creation(data)
             customer = invoice_dict.pop("customer")
             invoice_lines = invoice_dict.pop("invoice_lines")
-            
             invoice = await self.create_invoice_header(invoice_dict)
-            await self.create_invoice_customer(invoice.id, customer) 
+
+            # Create invoice customer
+            if customer is not None:
+                await self.create_invoice_customer(invoice.id, customer) 
+
+            # Create invoice lines
             await self.create_invoice_lines(invoice.id, invoice_lines)
 
             # Sign the invoice
@@ -206,16 +212,21 @@ class InvoiceService:
             self.db.rollback()
             raise e
     
-    
+ 
     async def create_standard_invoice(self, data: InvoiceCreate) -> InvoiceOut:
         try:
-            # Create a new invoice
+
+            # Prepare invoice for creation and create invoice header
             invoice_dict = await self.prepare_invoice_for_creation(data)
             customer = invoice_dict.pop("customer")
             invoice_lines = invoice_dict.pop("invoice_lines")
-            
             invoice = await self.create_invoice_header(invoice_dict)
-            await self.create_invoice_customer(invoice.id, customer) 
+
+            # Create invoice customer
+            if customer is not None:
+                await self.create_invoice_customer(invoice.id, customer) 
+
+            # Create invoice lines
             await self.create_invoice_lines(invoice.id, invoice_lines)
 
             # Sign the invoice
@@ -249,13 +260,17 @@ class InvoiceService:
 
     async def create_simplified_invoice(self, data: InvoiceCreate) -> InvoiceOut:
         try:
-            # Create a new invoice
+            # Prepare invoice for creation and create invoice header
             invoice_dict = await self.prepare_invoice_for_creation(data)
             customer = invoice_dict.pop("customer")
             invoice_lines = invoice_dict.pop("invoice_lines")
-            
             invoice = await self.create_invoice_header(invoice_dict)
-            await self.create_invoice_customer(invoice.id, customer) 
+
+            # Create invoice customer
+            if customer is not None:
+                await self.create_invoice_customer(invoice.id, customer) 
+
+            # Create invoice lines
             await self.create_invoice_lines(invoice.id, invoice_lines)
             
             # Sign the invoice
@@ -287,6 +302,7 @@ class InvoiceService:
             self.db.rollback()
             raise e
     
+
     async def get_invoices(self, pagination: PagintationParams, filters: InvoiceFilters) -> tuple[int, list[InvoiceOut]]:
         total, invoices = await self.invoice_repository.get_invoices_by_user_id(self.user.id, self.user.stage, pagination.skip, pagination.limit, filters.model_dump(exclude_none=True))
         return total, [await self.get_invoice(invoice.id) for invoice in invoices]

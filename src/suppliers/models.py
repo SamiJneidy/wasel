@@ -4,8 +4,8 @@ from src.core.database import Base
 from src.core.models import AuditMixin
 from src.core.enums import PartyIdentificationScheme
 
-class Customer(Base, AuditMixin):
-    __tablename__ = "customers"
+class Supplier(Base, AuditMixin):
+    __tablename__ = "suppliers"
     id = Column(Integer, autoincrement=True, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     registration_name = Column(String(250), nullable=True)
@@ -22,3 +22,4 @@ class Customer(Base, AuditMixin):
     bank_account = Column(String(100), nullable=True)
     website = Column(String(100), nullable=True)
     notes = Column(String(1000), nullable=True)
+    

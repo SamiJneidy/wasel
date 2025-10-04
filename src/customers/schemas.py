@@ -16,6 +16,11 @@ class CustomerBase(BaseModel):
     postal_code: str = Field(..., min_length=5, max_length=5, pattern=r"^\d{5}$")
     party_identification_scheme: PartyIdentificationScheme
     party_identification_value: str = Field(..., min_length=1, max_length=25, example="5243526715")
+    phone: Optional[str] = Field(None, example="+963900000000")
+    website: Optional[str] = Field(None, min_length=1, max_length=100, example="www.wasel.com")
+    bank_account: Optional[str] = Field(None, min_length=1, max_length=100, example="11111111111111")
+    notes: Optional[str] = Field(None, min_length=1, max_length=1000, example="Extra information")
+    
 
 class CustomerCreate(CustomerBase):
     pass
