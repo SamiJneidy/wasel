@@ -9,6 +9,7 @@ class Item(Base, AuditMixin):
     id = Column(Integer, autoincrement=True, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     name = Column(String(300), nullable=False)
-    price = Column(DECIMAL(scale=2), nullable=False)
+    default_sale_price = Column(DECIMAL(scale=2), nullable=False)
+    default_buy_price = Column(DECIMAL(scale=2), nullable=False)
     unit_code = Column(String(30), nullable=False)
-    
+    description = Column(String(400), nullable=True)
