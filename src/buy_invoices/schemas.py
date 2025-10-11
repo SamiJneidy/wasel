@@ -85,7 +85,6 @@ class BuyInvoiceHeaderOut(BuyInvoiceHeaderBase):
     tax_amount: Decimal = Field(..., description="Total tax amount", example=142.50)
     tax_inclusive_amount: Decimal = Field(..., description="Total amount including taxes", example=1092.50)
     invoice_number: str
-    icv: int
     # base64_qr_code: Optional[str] = None
     # invoice_hash: Optional[str] = None
     # uuid: uuid.UUID

@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr, StringConstraints, ConfigDict, constr, Field, field_validator, model_validator
 from datetime import datetime
-from src.core.schemas import AuditTimeMixin, ObjectListResponse, SingleObjectResponse
+from src.core.schemas import AuditTimeMixin, ObjectListResponse, SingleObjectResponse, PagintationParams, PaginatedResponse
 from src.users.schemas import UserOut
 from src.core.enums import PartyIdentificationScheme
 from typing import Optional
@@ -31,3 +31,9 @@ class CustomerUpdate(CustomerBase):
 class CustomerOut(CustomerBase):
     id: int
     model_config = ConfigDict(from_attributes=True)
+
+    
+class CustomerFilters(BaseModel):
+    registration_name: Optional[str] = Field(None, example="Wasel LLC")
+    vat_number: Optional[str] = Field(None)
+    phone: Optional[str] = Field(None, example="+963900000000")

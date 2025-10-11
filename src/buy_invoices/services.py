@@ -150,5 +150,5 @@ class BuyInvoiceService:
     
 
     async def get_invoices(self, pagination: PagintationParams, filters: BuyInvoiceFilters) -> tuple[int, list[BuyInvoiceOut]]:
-        total, invoices = await self.buy_invoice_repository.get_invoices_by_user_id(self.user.id, self.user.stage, pagination.skip, pagination.limit, filters.model_dump(exclude_none=True))
+        total, invoices = await self.buy_invoice_repository.get_invoices_by_user_id(self.user.id, pagination.skip, pagination.limit, filters.model_dump(exclude_none=True))
         return total, [await self.get_invoice(invoice.id) for invoice in invoices]

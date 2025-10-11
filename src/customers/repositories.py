@@ -13,8 +13,19 @@ class CustomerRepository:
     async def get(self, id: int) -> Customer | None:
         return self.db.query(Customer).filter(Customer.id==id, Customer.user_id==self.user.id).first()
     
-    async def get_customers(self) -> list[Customer]:
-        return self.db.query(Customer).filter(Customer.user_id==self.user.id).all()
+    async def get_customers(self, skip: int = None, limit: int = None, filters: dict = {}) -> list[Customer]:
+        query = self.db.query(Customer).filter(Customer.user_id==self.user.id)
+        for k, v in filters.items():
+            column = getattr(Customer, k, None)
+            if column is not None:
+                print(k, v)
+                query = query.filter(func.lower(column).like(f"%{v.lower()}%"))
+        total_rows = query.count()
+        if skip:
+            query = query.offset(skip)
+        if limit:
+            query = query.limit(limit)
+        return total_rows, query.all()
 
     async def create(self, data: dict) -> Customer | None:
         customer = Customer(**data)

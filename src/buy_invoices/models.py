@@ -10,7 +10,6 @@ class BuyInvoice(Base, AuditMixin):
     id = Column(Integer, autoincrement=True, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     invoice_number = Column(String(100), nullable=True)
-    icv = Column(Integer, default=1, autoincrement=True)
     # invoice_type = Column(Enum(InvoiceType), nullable=False)
     invoice_type_code = Column(Enum(InvoiceTypeCode), nullable=False)
     issue_date = Column(Date, nullable=False)

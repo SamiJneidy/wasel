@@ -13,8 +13,19 @@ class SupplierRepository:
     async def get(self, id: int) -> Supplier | None:
         return self.db.query(Supplier).filter(Supplier.id==id, Supplier.user_id==self.user.id).first()
     
-    async def get_suppliers(self) -> list[Supplier]:
-        return self.db.query(Supplier).filter(Supplier.user_id==self.user.id).all()
+    async def get_suppliers(self, skip: int = None, limit: int = None, filters: dict = {}) -> list[Supplier]:
+        query = self.db.query(Supplier).filter(Supplier.user_id==self.user.id)
+        for k, v in filters.items():
+            column = getattr(Supplier, k, None)
+            if column is not None:
+                print(k, v)
+                query = query.filter(func.lower(column).like(f"%{v.lower()}%"))
+        total_rows = query.count()
+        if skip:
+            query = query.offset(skip)
+        if limit:
+            query = query.limit(limit)
+        return total_rows, query.all()
 
     async def create(self, data: dict) -> Supplier | None:
         supplier = Supplier(**data)

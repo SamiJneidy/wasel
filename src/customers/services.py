@@ -1,7 +1,7 @@
 from fastapi import status
 from src.core.config import settings
 from src.core.enums import PartyIdentificationScheme
-from .schemas import CustomerOut, CustomerCreate, CustomerUpdate
+from .schemas import CustomerOut, CustomerCreate, CustomerUpdate, PagintationParams, CustomerFilters
 from .repositories import CustomerRepository
 from .exceptions import CustomerNotFoundException
 
@@ -16,12 +16,9 @@ class CustomerService:
             raise CustomerNotFoundException()
         return CustomerOut.model_validate(customer)
     
-    async def get_customers_for_user(self) -> list[CustomerOut]:
-        query_set = await self.customer_repo.get_customers()
-        result = [
-            CustomerOut.model_validate(customer) for customer in query_set
-        ]
-        return result
+    async def get_customers_for_user(self, pagination_params: PagintationParams, filters: CustomerFilters) -> list[CustomerOut]:
+        total, query_set = await self.customer_repo.get_customers(pagination_params.skip, pagination_params.limit, filters.model_dump(exclude_none=True))
+        return total, [CustomerOut.model_validate(customer) for customer in query_set]
     
     async def create(self, data: CustomerCreate) -> CustomerOut:
         customer = await self.customer_repo.create(data.model_dump())

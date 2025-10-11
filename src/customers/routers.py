@@ -1,3 +1,4 @@
+from math import ceil
 from fastapi import APIRouter, status
 from .services import CustomerService
 from .schemas import (
@@ -7,6 +8,9 @@ from .schemas import (
     UserOut,
     ObjectListResponse,
     SingleObjectResponse,
+    PagintationParams,
+    PaginatedResponse,
+    CustomerFilters,
 )
 from .dependencies import (
     Annotated,
@@ -73,7 +77,7 @@ async def delete_customer(
 
 @router.get(
     path="/",
-    response_model=ObjectListResponse[CustomerOut],
+    response_model=PaginatedResponse[CustomerOut],
     responses=RESPONSES["get_customers_for_user"],
     summary=SUMMARIES["get_customers_for_user"],
     description=DOCSTRINGS["get_customers_for_user"],
@@ -81,9 +85,17 @@ async def delete_customer(
 async def get_customers_for_user(
     customer_service: Annotated[CustomerService, Depends(get_customer_service)],
     current_user: Annotated[UserOut, Depends(get_current_user)],
-) -> ObjectListResponse[CustomerOut]:
-    data = await customer_service.get_customers_for_user()
-    return ObjectListResponse(data=data)
+    pagination_params: PagintationParams = Depends(),
+    filters: CustomerFilters = Depends(),
+) -> PaginatedResponse[CustomerOut]:
+    total_rows, data = await customer_service.get_customers_for_user(pagination_params, filters)
+    return PaginatedResponse(
+        data=data,
+        total_rows=total_rows,
+        total_pages=ceil(total_rows/pagination_params.limit) if pagination_params.limit is not None else 1,
+        page=pagination_params.page,
+        limit=pagination_params.limit
+    )
 
 
 @router.get(

@@ -1,7 +1,7 @@
 from fastapi import status
 from src.core.config import settings
 from src.core.enums import PartyIdentificationScheme
-from .schemas import SupplierOut, SupplierCreate, SupplierUpdate
+from .schemas import SupplierOut, SupplierCreate, SupplierUpdate, PagintationParams, SupplierFilters
 from .repositories import SupplierRepository
 from .exceptions import SupplierNotFoundException
 
@@ -16,12 +16,9 @@ class SupplierService:
             raise SupplierNotFoundException()
         return SupplierOut.model_validate(supplier)
     
-    async def get_suppliers_for_user(self) -> list[SupplierOut]:
-        query_set = await self.supplier_repo.get_suppliers()
-        result = [
-            SupplierOut.model_validate(supplier) for supplier in query_set
-        ]
-        return result
+    async def get_suppliers_for_user(self, pagination_params: PagintationParams, filters: SupplierFilters) -> list[SupplierOut]:
+        total, query_set = await self.supplier_repo.get_suppliers(pagination_params.skip, pagination_params.limit, filters.model_dump(exclude_none=True))
+        return total, [SupplierOut.model_validate(customer) for customer in query_set]
     
     async def create(self, data: SupplierCreate) -> SupplierOut:
         supplier = await self.supplier_repo.create(data.model_dump())

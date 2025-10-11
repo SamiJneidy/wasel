@@ -1,3 +1,4 @@
+from math import ceil
 from fastapi import APIRouter, status
 from .services import SupplierService
 from .schemas import (
@@ -7,6 +8,9 @@ from .schemas import (
     UserOut,
     ObjectListResponse,
     SingleObjectResponse,
+    PagintationParams, 
+    PaginatedResponse,
+    SupplierFilters
 )
 from .dependencies import (
     Annotated,
@@ -70,10 +74,9 @@ async def delete_supplier(
 ) -> None:
     return await supplier_service.delete(id)
 
-
 @router.get(
     path="/",
-    response_model=ObjectListResponse[SupplierOut],
+    response_model=PaginatedResponse[SupplierOut],
     responses=RESPONSES["get_suppliers_for_user"],
     summary=SUMMARIES["get_suppliers_for_user"],
     description=DOCSTRINGS["get_suppliers_for_user"],
@@ -81,9 +84,17 @@ async def delete_supplier(
 async def get_suppliers_for_user(
     supplier_service: Annotated[SupplierService, Depends(get_supplier_service)],
     current_user: Annotated[UserOut, Depends(get_current_user)],
-) -> ObjectListResponse[SupplierOut]:
-    data = await supplier_service.get_suppliers_for_user()
-    return ObjectListResponse(data=data)
+    pagination_params: PagintationParams = Depends(),
+    filters: SupplierFilters = Depends(),
+) -> PaginatedResponse[SupplierOut]:
+    total_rows, data = await supplier_service.get_suppliers_for_user(pagination_params, filters)
+    return PaginatedResponse(
+        data=data,
+        total_rows=total_rows,
+        total_pages=ceil(total_rows/pagination_params.limit) if pagination_params.limit is not None else 1,
+        page=pagination_params.page,
+        limit=pagination_params.limit
+    )
 
 
 @router.get(

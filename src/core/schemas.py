@@ -10,7 +10,7 @@ class SingleObjectResponse(BaseModel, Generic[T]):
     
 class PagintationParams(BaseModel):
     page: int = Field(1, ge=1)
-    limit: Optional[int] = Field(None, ge=1, le=100)
+    limit: int = Field(20, ge=1, le=100)
 
     @property
     def skip(self):
