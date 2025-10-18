@@ -16,8 +16,6 @@
 		<cac:ClassifiedTaxCategory>
 			<cbc:ID>{{classified_tax_category}}</cbc:ID>
 			<cbc:Percent>{{tax_rate}}</cbc:Percent>			
-			<cbc:TaxExemptionReasonCode>{{tax_exemption_reason_code}}</cbc:TaxExemptionReasonCode>
-			<cbc:TaxExemptionReason>{{tax_exemption_reason}}</cbc:TaxExemptionReason>
 			<cac:TaxScheme>
 				<cbc:ID>VAT</cbc:ID>
 			</cac:TaxScheme>
@@ -28,8 +26,8 @@
 			<cac:AllowanceCharge>
 				<cbc:ChargeIndicator>false</cbc:ChargeIndicator>
 				<cbc:AllowanceChargeReason>discount</cbc:AllowanceChargeReason>
-				<cbc:Amount currencyID="SAR">0</cbc:Amount>
-				<cbc:BaseAmount currencyID="SAR">{{item_price}}</cbc:BaseAmount>
+				<cbc:Amount currencyID="SAR">{{price_discount}}</cbc:Amount>
+				<cbc:BaseAmount currencyID="SAR">{{item_price_before_discount}}</cbc:BaseAmount>
 			</cac:AllowanceCharge>
 	</cac:Price>
 </cac:InvoiceLine>

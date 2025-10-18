@@ -1,14 +1,15 @@
-from sqlalchemy import Column, Integer, String, UUID, Date, Text, DECIMAL, DateTime, ForeignKey, Enum, func, text
+from sqlalchemy import BOOLEAN, Column, Integer, String, UUID, Date, Text, DECIMAL, DateTime, ForeignKey, Enum, func, text
 from sqlalchemy.orm import relationship
 from src.core.database import Base
 from src.core.models import AuditMixin
 from src.core.enums import InvoiceType, InvoiceTypeCode, PaymentMeansCode, TaxExemptionReasonCode, Stage
 
 
-class Invoice(Base, AuditMixin):
-    __tablename__ = "invoices"
+class SaleInvoice(Base, AuditMixin):
+    __tablename__ = "sale_invoices"
     id = Column(Integer, autoincrement=True, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    customer_id = Column(Integer, ForeignKey('customers.id'), nullable=False)
     invoice_type = Column(Enum(InvoiceType), nullable=False)
     invoice_type_code = Column(Enum(InvoiceTypeCode), nullable=False)
     issue_date = Column(Date, nullable=False)
@@ -16,13 +17,9 @@ class Invoice(Base, AuditMixin):
     document_currency_code = Column(String(5), nullable=False, server_default="SAR")
     actual_delivery_date = Column(Date, nullable=True)
     payment_means_code = Column(Enum(PaymentMeansCode), nullable=False)
-    original_invoice_id = Column(Integer, ForeignKey('invoices.id'), nullable=True)
+    original_invoice_id = Column(Integer, ForeignKey('sale_invoices.id'), nullable=True)
     instruction_note = Column(String(4000), nullable=True)
     note = Column(String(4000), nullable=True)
-    tax_rate = Column(DECIMAL(scale=2), nullable=False)    
-    tax_exemption_reason_code = Column(Enum(TaxExemptionReasonCode), nullable=True)
-    tax_exemption_reason = Column(String(4000), nullable=True)
-    classified_tax_category = Column(String(5), nullable=False)
     line_extension_amount = Column(DECIMAL(scale=2), nullable=False)
     discount_amount = Column(DECIMAL(scale=2), nullable=False)
     taxable_amount = Column(DECIMAL(scale=2), nullable=False)
@@ -41,35 +38,21 @@ class Invoice(Base, AuditMixin):
     user = relationship("User", foreign_keys=[user_id], remote_side="User.id")
 
 
-class CustomerSnapshot(Base):
-    __tablename__ = "customer_snapshots"
+class SaleInvoiceLine(Base):
+    __tablename__ = "sale_invoices_lines"
     id = Column(Integer, autoincrement=True, primary_key=True, index=True)
-    invoice_id = Column(Integer, ForeignKey('invoices.id', ondelete="CASCADE"), nullable=False)
-    customer_id = Column(Integer, ForeignKey('customers.id', ondelete="RESTRICT"), nullable=True) 
-    registration_name = Column(String(250), nullable=False)
-    vat_number = Column(String(20), nullable=True)
-    country_code = Column(String(5), nullable=True, server_default="SA")
-    street = Column(String(300), nullable=True)
-    building_number = Column(String(15), nullable=True)
-    division = Column(String(200), nullable=True)
-    city = Column(String(50), nullable=True)
-    postal_code = Column(String(10), nullable=True)
-    party_identification_scheme = Column(String(10), nullable=False)
-    party_identification_value = Column(String(30), nullable=False)
-
-
-class InvoiceLine(Base):
-    __tablename__ = "invoices_lines"
-    id = Column(Integer, autoincrement=True, primary_key=True, index=True)
-    invoice_id = Column(Integer, ForeignKey('invoices.id', ondelete="CASCADE"), nullable=False)
-    item_name = Column(String(200), nullable=False)
+    invoice_id = Column(Integer, ForeignKey('sale_invoices.id', ondelete="CASCADE"), nullable=False)
+    item_id = Column(Integer, ForeignKey('items.id', ondelete="RESTRICT"), nullable=False)
     item_price = Column(DECIMAL(scale=2), nullable=False)
-    item_unit_code = Column(String(30), nullable=False)
+    price_includes_tax = Column(BOOLEAN)
+    price_discount = Column(DECIMAL(scale=2), nullable=False)
     quantity = Column(DECIMAL(scale=6), nullable=False)
     discount_amount = Column(DECIMAL(scale=2), nullable=False)
     line_extension_amount = Column(DECIMAL(scale=2), nullable=False)
     tax_amount = Column(DECIMAL(scale=2), nullable=False)
     rounding_amount = Column(DECIMAL(scale=2), nullable=False)
+    classified_tax_category = Column(String(5), nullable=False)
+    tax_rate = Column(DECIMAL(scale=2), nullable=False)    
     tax_exemption_reason_code = Column(Enum(TaxExemptionReasonCode), nullable=True)
-    tax_exemption_reason = Column(String(4000), nullable=True)
+    tax_exemption_reason = Column(String(200), nullable=True)
     

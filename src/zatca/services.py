@@ -89,14 +89,14 @@ class ZatcaService:
         }
         auth = BasicAuth(binary_security_token, secret)
         response = await self.request_service.post(settings.ZATCA_COMPLIANCE_INVOICE_URL, headers, json_payload, auth)
-        if not response:
+        try:
+            response_json: dict = response.json()
+        except:
             raise ZatcaRequestFailedException()
-        
-        response_json: dict = response.json()
         if invoice_type == InvoiceType.STANDARD and response_json.get("clearanceStatus") != "CLEARED":
-                raise InvoiceNotAcceptedException(zatca_response=response_json)
+            raise InvoiceNotAcceptedException(zatca_response=response_json)
         elif invoice_type == InvoiceType.SIMPLIFIED and response_json.get("reportingStatus") != "REPORTED":
-                raise InvoiceNotAcceptedException(zatca_response=response_json)
+            raise InvoiceNotAcceptedException(zatca_response=response_json)
         
         return ZatcaComplianceInvoiceResponse(
             status_code=response.status_code,
@@ -113,9 +113,10 @@ class ZatcaService:
         }
         auth = BasicAuth(binary_security_token, secret)
         response = await self.request_service.post(settings.ZATCA_STANDARD_INVOICE_URL, headers, json_payload, auth)
-        if not response:
+        try:
+            response_json: dict = response.json()
+        except:
             raise ZatcaRequestFailedException()
-        response_json: dict = response.json()
         if response_json.get("clearanceStatus") != "CLEARED":
             raise InvoiceNotAcceptedException(zatca_response=response_json)
         return ZatcaStandardInvoiceResponse(
@@ -135,9 +136,10 @@ class ZatcaService:
         }
         auth = BasicAuth(binary_security_token, secret)
         response = await self.request_service.post(settings.ZATCA_SIMPLIFIED_INVOICE_URL, headers, json_payload, auth)
-        if not response:
+        try:
+            response_json: dict = response.json()
+        except:
             raise ZatcaRequestFailedException()
-        response_json: dict = response.json()
         if response_json.get("reportingStatus") != "REPORTED":
             raise InvoiceNotAcceptedException(zatca_response=response_json)
         return ZatcaSimplifiedInvoiceResponse(

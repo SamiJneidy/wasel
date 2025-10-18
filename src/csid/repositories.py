@@ -3,7 +3,7 @@ from sqlalchemy import func, or_, select, insert, update, delete
 from datetime import datetime
 from .models import CSID
 from src.core.enums import CSIDType
-from src.invoices.repositories import InvoiceRepository
+from src.sale_invoices.repositories import SaleInvoiceRepository
 
 class CSIDRepository:
     def __init__(self, db: Session):

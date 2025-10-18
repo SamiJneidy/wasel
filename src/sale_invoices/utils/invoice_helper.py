@@ -66,7 +66,7 @@ class invoice_helper:
     def clear_empty_tags(node):
         # If a tag has cbc namespace, then it contains data
         if node.tag.startswith(f'{{{invoice_helper.namespaces['cbc']}}}'):
-            if node.text[:2] == '{{' or node.text == None or node.text.strip() == "":
+            if node.text is None or node.text[:2] == '{{' or node.text.strip() == "":
                 node.getparent().remove(node)
             return
         # If a tag has cac namespace, then it may have child tags
@@ -114,10 +114,18 @@ class invoice_helper:
         # Read invoice line xml template file
         invoice_line_root = etree.parse(os.path.abspath(os.path.join(current_dir, "templates", "invoice_line.xml"))).getroot()
         
-        # Update invoiced quantity
+        # Add invoiced quantity
         element = invoice_line_root.xpath(".//*[text()='{{quantity}}']", namespaces=invoice_helper.namespaces)[0]
-        element.set("unitCode", invoice_line["item_unit_code"])
+        element.set("unitCode", invoice_line["item"]["unit_code"])
         element.text = invoice_line["quantity"]
+
+        # Add item name
+        element = invoice_line_root.xpath(".//*[text()='{{item_name}}']", namespaces=invoice_helper.namespaces)[0]
+        element.text = invoice_line["item"]["name"]
+
+        # Add item price before discount
+        element = invoice_line_root.xpath(".//*[text()='{{item_price_before_discount}}']", namespaces=invoice_helper.namespaces)[0]
+        element.text = invoice_line["item_price_before_discount"]
 
         # Replace placeholders with actual invoice line values
         for key, value in invoice_line.items():
@@ -144,7 +152,7 @@ class invoice_helper:
         # Add supplier info
         invoice_helper.add_supplier_or_customer(root, invoice_data["supplier"], "supplier")
         
-        # Add customer info if it appears in the invoice
+        # Add customer info if it is in the invoice data
         if "customer" in invoice_data:
             invoice_helper.add_supplier_or_customer(root, invoice_data["customer"], "customer")
 
@@ -155,18 +163,37 @@ class invoice_helper:
         for line in invoice_lines:
             invoice_helper.add_invoice_line(line, root)
 
-        # Construct the tax subtotal template
-        tax_subtotal_xml_root = etree.parse(os.path.abspath(os.path.join(current_dir, "templates", "tax_subtotal.xml"))).getroot()
-
-        # Add the tax subtotal template in the second TaxTotal element
+        # Add the tax subtotals template for each tax category in the second TaxTotal element
+        tax_categories = invoice_data["tax_totals"]
+        num_of_distinct_tax_categories = 0
         tax_total = root.xpath('.//cac:TaxTotal', namespaces=invoice_helper.namespaces)[1]
-        tax_total.append(tax_subtotal_xml_root)
-        
+        for cat, vals in tax_categories.items():
+            if vals["used"] == False:
+                continue
+            num_of_distinct_tax_categories += 1
+            tax_subtotal_xml_root = etree.parse(os.path.abspath(os.path.join(current_dir, "templates", "tax_subtotal.xml"))).getroot()
+            for key, value in vals.items():
+                placeholder = f"{{{{{key}}}}}"  # e.g., "{{IssueDate}}"
+                elements = tax_subtotal_xml_root.xpath(f".//*[text()='{placeholder}']", namespaces=invoice_helper.namespaces)
+                for elem in elements:
+                    elem.text = value  # Replace with the value from the JSON
+            tax_total.append(tax_subtotal_xml_root)
+
         # Add details about tax categories in the AllowanceCharge element
-        allowance = root.xpath('.//cac:AllowanceCharge', namespaces=invoice_helper.namespaces)[0]
-        tax_category = tax_subtotal_xml_root.xpath('.//cac:TaxCategory', namespaces=invoice_helper.namespaces)[0]
-        tax_category_copy = etree.fromstring(etree.tostring(tax_category))
-        allowance.append(tax_category_copy)
+        allowance_xml_root = root.xpath('.//cac:AllowanceCharge', namespaces=invoice_helper.namespaces)[0]
+        if num_of_distinct_tax_categories == 1 and float(invoice_data["discount_amount"]) > 0:
+            # allowance_xml_root = etree.parse(os.path.abspath(os.path.join(current_dir, "templates", "allowance_charge.xml"))).getroot()
+            for cat, vals in tax_categories.items():
+                if vals["used"] == False:
+                    continue
+                for key, value in vals.items():
+                    placeholder = f"{{{{{key}}}}}"  # e.g., "{{IssueDate}}"
+                    elements = allowance_xml_root.xpath(f".//*[text()='{placeholder}']", namespaces=invoice_helper.namespaces)
+                    for elem in elements:
+                        elem.text = value  # Replace with the value from the JSON
+                break   
+        else:
+            root.remove(allowance_xml_root)
         
         # Update invoice invoice_data
         for key, value in invoice_data.items():

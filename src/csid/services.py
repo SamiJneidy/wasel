@@ -15,15 +15,15 @@ from src.users.services import UserService
 from src.zatca.services import ZatcaService
 from src.core.enums import CSIDType, InvoiceType, InvoicingType, Stage
 from .schemas import ComplianceCSIDRequest, CSIDOut, CSIDCreate, CSIDInDB
-from .repositories import CSIDRepository, InvoiceRepository
+from .repositories import CSIDRepository, SaleInvoiceRepository
 from .exceptions import SwitchToProductionForbiddenException, UserNotCompleteException
 
 class CSIDService:
-    def __init__(self, csid_repo: CSIDRepository, user_service: UserService, zatca_service: ZatcaService, invoice_repository: InvoiceRepository):
+    def __init__(self, csid_repo: CSIDRepository, user_service: UserService, zatca_service: ZatcaService, sale_invoice_repository: SaleInvoiceRepository):
         self.user_service = user_service
         self.zatca_service = zatca_service
         self.csid_repo = csid_repo
-        self.invoice_repository = invoice_repository
+        self.sale_sale_invoice_repository = sale_invoice_repository
 
     def generate_private_key(self):
         """Returns a private key object, not a serialized string."""
@@ -134,8 +134,8 @@ class CSIDService:
     
     async def can_switch_to_production(self, email: str) -> bool:
         user = await self.user_service.get_user_in_db(email)
-        standard_count = await self.invoice_repository.get_invoice_type_code_distinct_count(user.id, InvoiceType.STANDARD)
-        simplified_count = await self.invoice_repository.get_invoice_type_code_distinct_count(user.id, InvoiceType.SIMPLIFIED)
+        standard_count = await self.sale_sale_invoice_repository.get_invoice_type_code_distinct_count(user.id, InvoiceType.STANDARD)
+        simplified_count = await self.sale_sale_invoice_repository.get_invoice_type_code_distinct_count(user.id, InvoiceType.SIMPLIFIED)
         if user.invoicing_type == InvoicingType.STANDARD:
             return True if standard_count >= 3 else False
         elif user.invoicing_type == InvoicingType.SIMPLIFIED:

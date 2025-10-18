@@ -18,7 +18,7 @@ from src.customers.models import Customer
 from src.suppliers.models import Supplier
 from src.items.models import Item
 from src.buy_invoices.models import BuyInvoice, BuyInvoiceLine
-from src.invoices.models import Invoice, CustomerSnapshot, InvoiceLine
+from src.sale_invoices.models import SaleInvoice, SaleInvoiceLine
 from src.core.config import settings
 
 config.set_main_option("sqlalchemy.url", settings.SQLALCHEMY_URL)

@@ -1,13 +1,13 @@
 from math import ceil
 from fastapi import APIRouter, status
-from src.core.enums import Stage, InvoiceType
-from .services import InvoiceService
+from src.core.enums import Stage
+from .services import SaleInvoiceService
 from .schemas import (
-    InvoiceFilters,
+    SaleInvoiceFilters,
     SingleObjectResponse,
     SuccessfulResponse,
-    InvoiceCreate,
-    InvoiceOut,
+    SaleInvoiceCreate,
+    SaleInvoiceOut,
     UserOut,
     PagintationParams,
     PaginatedResponse
@@ -21,62 +21,57 @@ from .dependencies import (
 from src.docs.invoices import RESPONSES, DOCSTRINGS, SUMMARIES
 
 router = APIRouter(
-    prefix="/invoices", 
-    tags=["Invoices"],
+    prefix="/sale-invoices", 
+    tags=["Sale Invoices"],
 )
 
 
 @router.post(
     path="/",
     status_code=status.HTTP_201_CREATED,
-    response_model=SingleObjectResponse[InvoiceOut],
+    response_model=SingleObjectResponse[SaleInvoiceOut],
     responses=RESPONSES["create_invoice"],
     summary=SUMMARIES["create_invoice"],
     description=DOCSTRINGS["create_invoice"],
 )
 async def create_invoice(
-    body: InvoiceCreate,
-    invoice_service: Annotated[InvoiceService, Depends(get_invoice_service)],
+    body: SaleInvoiceCreate,
+    invoice_service: Annotated[SaleInvoiceService, Depends(get_invoice_service)],
     current_user: Annotated[UserOut, Depends(get_current_user)],
-) -> SingleObjectResponse[InvoiceOut]:
-    if current_user.stage == Stage.COMPLIANCE:
-        data = await invoice_service.create_compliance_invoice(body)
-    elif body.invoice_type == InvoiceType.STANDARD:
-        data = await invoice_service.create_standard_invoice(body)
-    elif body.invoice_type == InvoiceType.SIMPLIFIED:
-        data = await invoice_service.create_simplified_invoice(body)
+) -> SingleObjectResponse[SaleInvoiceOut]:
+    data = await invoice_service.create_invoice(body)
     return SingleObjectResponse(data=data)
 
 
 
 @router.get(
     path="/{id}",
-    response_model=SingleObjectResponse[InvoiceOut],
+    response_model=SingleObjectResponse[SaleInvoiceOut],
     responses=RESPONSES["get_invoice"],
     summary=SUMMARIES["get_invoice"],
     description=DOCSTRINGS["get_invoice"],
 )
 async def get_invoice(
     id: int,
-    invoice_service: Annotated[InvoiceService, Depends(get_invoice_service)],
+    invoice_service: Annotated[SaleInvoiceService, Depends(get_invoice_service)],
     current_user: Annotated[UserOut, Depends(get_current_user)],
-) -> SingleObjectResponse[InvoiceOut]:
+) -> SingleObjectResponse[SaleInvoiceOut]:
     invoice = await invoice_service.get_invoice(id)
     return SingleObjectResponse(data=invoice)
 
 @router.get(
     path="/",
-    response_model=PaginatedResponse[InvoiceOut],
+    response_model=PaginatedResponse[SaleInvoiceOut],
     # responses=RESPONSES["get_invoices"],
     # summary=SUMMARIES["get_invoices"],
     # description=DOCSTRINGS["get_invoices"],
 )
 async def get_invoices(
     pagination: PagintationParams = Depends(),
-    filters: InvoiceFilters = Depends(),
+    filters: SaleInvoiceFilters = Depends(),
     current_user: UserOut = Depends(get_current_user),
-    invoice_service: InvoiceService = Depends(get_invoice_service),
-) -> PaginatedResponse[InvoiceOut]:
+    invoice_service: SaleInvoiceService = Depends(get_invoice_service),
+) -> PaginatedResponse[SaleInvoiceOut]:
     total_rows, data = await invoice_service.get_invoices(pagination, filters)
     return PaginatedResponse(
         data=data,

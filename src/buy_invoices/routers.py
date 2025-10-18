@@ -22,7 +22,7 @@ from src.docs.invoices import RESPONSES, DOCSTRINGS, SUMMARIES
 
 router = APIRouter(
     prefix="/buy-invoices", 
-    tags=["BuyInvoices"],
+    tags=["Buy Invoices"],
 )
 
 

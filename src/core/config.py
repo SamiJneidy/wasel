@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     CLOUDINARY_API_KEY: str
     CLOUDINARY_API_SECRET: str
     CLOUDINARY_URL: str
+    STANDARD_TAX_RATE: float
     model_config = SettingsConfigDict(env_file=".env")
 
 settings = Settings()
