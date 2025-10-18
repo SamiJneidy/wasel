@@ -122,7 +122,6 @@ class SaleInvoiceService:
         if(len(tax_categories) == 1):
             tax_rate = Decimal(settings.STANDARD_TAX_RATE) if tax_categories.pop() == TaxCategory.S else Decimal("0") 
             invoice_taxable_amount = round_decimal(invoice_line_extension_amount - data.discount_amount, 2)
-            print(invoice_taxable_amount)
             invoice_tax_amount = round_decimal(invoice_taxable_amount * tax_rate / 100, 2)
         else:
             invoice_taxable_amount = invoice_line_extension_amount
@@ -211,12 +210,7 @@ class SaleInvoiceService:
         try:
             invoice_request = invoice_helper.sign_invoice(invoice_data, csid.private_key, csid.certificate)
         except Exception as e:
-            raise
             raise InvoiceSigningError()
-        
-        with open("inv.xml", "w") as f:
-            req = json.loads(invoice_request)
-            f.write(base64.b64decode(req["invoice"]).decode())
         
         if(self.user.stage == Stage.COMPLIANCE):
             zatca_result = await self.zatca_service.send_compliance_invoice(invoice_request, invoice.invoice_type, csid.binary_security_token, csid.secret)
