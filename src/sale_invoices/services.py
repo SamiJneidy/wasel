@@ -225,8 +225,8 @@ class SaleInvoiceService:
             invoice_request = invoice_helper.sign_and_get_request(invoice_data, csid.private_key, csid.certificate)
         except Exception as e:
             raise InvoiceSigningError()
-        with open('inv.xml', "w") as f:
-            f.write(base64.b64decode(invoice_request["invoice"]).decode())
+        # with open('inv.xml', "w") as f:
+        #     f.write(base64.b64decode(invoice_request["invoice"]).decode())
         if(self.user.stage == Stage.COMPLIANCE):
             zatca_result = await self.zatca_service.send_compliance_invoice(invoice_request, invoice_header.invoice_type, csid.binary_security_token, csid.secret)
         elif(self.user.stage == Stage.PRODUCTION and invoice_header.invoice_type == InvoiceType.STANDARD):
