@@ -21,13 +21,14 @@ class invoice_helper:
 
 
     @staticmethod
-    def sign_invoice(invoice_data, private_key, x509_certificate_content) -> dict[str, str]:
-        """Returns {invoice_hash, uuid, invoice}"""
+    def sign_and_get_request(invoice_data, private_key, x509_certificate_content) -> dict[str, str]:
+        """Signs the invoice and returns the invoice request as a dictionary containing {invoice_hash, uuid, invoice}"""
         xml_string = invoice_helper.generate_xml_invoice(invoice_data)
         base_document = etree.fromstring(xml_string)
         # Sign the invoice, and return the invoice request {invoice_hash, uuid, invoice} 
-        invoice_request = einvoice_signer.get_request_api(base_document, x509_certificate_content, private_key)
-        return invoice_request
+        invoice_request_json = einvoice_signer.get_request_api(base_document, x509_certificate_content, private_key)
+        invoice_request_dict: dict = json.loads(invoice_request_json)
+        return invoice_request_dict
         
 
     @staticmethod
@@ -137,85 +138,71 @@ class invoice_helper:
         # Append invoice line to the invoice
         root.append(invoice_line_root)
 
-
     @staticmethod
-    def generate_xml_invoice(invoice_data: dict):
+    def add_tax_subtotals(root, invoice_data: dict):
+        """Add the tax subtotals template for each tax category in the second TaxTotal element"""
+
+        tax_categories = invoice_data["tax_categories"]
+        tax_total_element = root.xpath('.//cac:TaxTotal', namespaces=invoice_helper.namespaces)[1]
         
-        # Read xml template file
-        xml_template = etree.parse(os.path.abspath(os.path.join(current_dir, "templates", "invoice.xml")))
-        root = xml_template.getroot()
-
-        # Change name attribute of InvoiceTypeCode tag
-        invoice_type_code = root.xpath(".//*[text()='{{invoice_type_code}}']", namespaces=invoice_helper.namespaces)[0]
-        invoice_type_code.set('name', invoice_data['invoice_type'])
-
-        # Add supplier info
-        invoice_helper.add_supplier_or_customer(root, invoice_data["supplier"], "supplier")
-        
-        # Add customer info if it is in the invoice data
-        if "customer" in invoice_data:
-            invoice_helper.add_supplier_or_customer(root, invoice_data["customer"], "customer")
-
-        # Extract invoice lines
-        invoice_lines = invoice_data.pop("invoice_lines")
-
-        # Add invoice lines
-        for line in invoice_lines:
-            invoice_helper.add_invoice_line(line, root)
-
-        # Add the tax subtotals template for each tax category in the second TaxTotal element
-        tax_categories = invoice_data["tax_totals"]
-        num_of_distinct_tax_categories = 0
-        tax_total = root.xpath('.//cac:TaxTotal', namespaces=invoice_helper.namespaces)[1]
         for cat, vals in tax_categories.items():
-            if vals["used"] == False:
-                continue
-            num_of_distinct_tax_categories += 1
-            tax_subtotal_xml_root = etree.parse(os.path.abspath(os.path.join(current_dir, "templates", "tax_subtotal.xml"))).getroot()
+            tax_subtotal_xml_template = etree.parse(os.path.abspath(os.path.join(current_dir, "templates", "tax_subtotal.xml"))).getroot()
             for key, value in vals.items():
                 placeholder = f"{{{{{key}}}}}"  # e.g., "{{IssueDate}}"
-                elements = tax_subtotal_xml_root.xpath(f".//*[text()='{placeholder}']", namespaces=invoice_helper.namespaces)
+                elements = tax_subtotal_xml_template.xpath(f".//*[text()='{placeholder}']", namespaces=invoice_helper.namespaces)
                 for elem in elements:
                     elem.text = value  # Replace with the value from the JSON
-            tax_total.append(tax_subtotal_xml_root)
+            tax_total_element.append(tax_subtotal_xml_template)
 
-        # Add details about tax categories in the AllowanceCharge element
+    @staticmethod
+    def add_allowance_charge(root, invoice_data: dict):
+        """Add details about tax categories in the AllowanceCharge element"""
+
         allowance_xml_root = root.xpath('.//cac:AllowanceCharge', namespaces=invoice_helper.namespaces)[0]
-        if num_of_distinct_tax_categories == 1 and float(invoice_data["discount_amount"]) > 0:
-            # allowance_xml_root = etree.parse(os.path.abspath(os.path.join(current_dir, "templates", "allowance_charge.xml"))).getroot()
+        tax_categories = invoice_data["tax_categories"]
+        
+        if invoice_data["has_total_discount"] == True:
             for cat, vals in tax_categories.items():
-                if vals["used"] == False:
-                    continue
                 for key, value in vals.items():
                     placeholder = f"{{{{{key}}}}}"  # e.g., "{{IssueDate}}"
                     elements = allowance_xml_root.xpath(f".//*[text()='{placeholder}']", namespaces=invoice_helper.namespaces)
                     for elem in elements:
                         elem.text = value  # Replace with the value from the JSON
-                break   
         else:
             root.remove(allowance_xml_root)
         
-        # Update invoice invoice_data
+    @staticmethod
+    def generate_xml_invoice(invoice_data: dict):
+        """Generates the base xml invoice ready to be signed"""
+
+        xml_template = etree.parse(os.path.abspath(os.path.join(current_dir, "templates", "invoice.xml")))
+        root = xml_template.getroot()
+        # Change name attribute of InvoiceTypeCode tag
+        invoice_type_code = root.xpath(".//*[text()='{{invoice_type_code}}']", namespaces=invoice_helper.namespaces)[0]
+        invoice_type_code.set('name', invoice_data['invoice_type'])
+        invoice_helper.add_supplier_or_customer(root, invoice_data["supplier"], "supplier")
+        if "customer" in invoice_data:
+            invoice_helper.add_supplier_or_customer(root, invoice_data["customer"], "customer")
+        for line in invoice_data["invoice_lines"]:
+            invoice_helper.add_invoice_line(line, root)
+        invoice_helper.add_tax_subtotals(root, invoice_data)
+        invoice_helper.add_allowance_charge(root, invoice_data)
+        # Update general invoice data
         for key, value in invoice_data.items():
             placeholder = f"{{{{{key}}}}}"  # e.g., "{{IssueDate}}"
             elements = root.xpath(f".//*[text()='{placeholder}']", namespaces=invoice_helper.namespaces)
             for elem in elements:
                 elem.text = value  # Replace with the value from the JSON
-
         # Update all attributes named "currencyID"
         for elem in root.iter():  # Iterate through all elements in the XML tree
             if 'currencyID' in elem.attrib:
                 elem.attrib['currencyID'] = invoice_data["document_currency_code"]
-
         # Clear empty tags that were not given in the json data
         invoice_helper.clear_empty_tags(root)
-
-        # Transform the XML to a string, remove all \n, \t and tabs (4 consecutive spaces)
-        # then use toprettyxml() to re-indent the resulting XML string
+        # Transform the XML to a string, remove all \n, \t and tabs (4 consecutive spaces) then use toprettyxml() to re-indent the resulting XML string
         xml_str = etree.tostring(xml_template, encoding="UTF-8")
         xml_str = xml_str.replace(b'\n', b'').replace(b'\t', b'').replace(b'    ', b'')
         pretty_xml = minidom.parseString(xml_str).toprettyxml().rstrip()
-        
         return pretty_xml
 
 
@@ -240,14 +227,15 @@ class invoice_helper:
     
     
     @staticmethod
-    def extract_base64_qr_code(invoice) -> str:
+    def extract_base64_qr_code(invoice) -> str | None:
         if isinstance(invoice, str):
             decoded_xml = base64.b64decode(invoice)
             if decoded_xml is None:
                 raise ValueError("Invalid Base64 string provided.")
             invoice = decoded_xml
         elif not isinstance(invoice, (bytes, etree._Element)):
-            raise ValueError("Input must be a string or lxml.etree._Element.")
+            return None
+            # raise ValueError("Input must be a string or lxml.etree._Element.")
         # Load XML into an lxml Element
         if isinstance(invoice, bytes):
             doc = etree.fromstring(invoice)

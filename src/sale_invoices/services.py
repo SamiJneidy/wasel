@@ -26,6 +26,7 @@ from .exceptions import BaseAppException, InvoiceNotFoundException, InvoiceSigni
 from .utils.invoice_helper import invoice_helper
 from src.core.utils.math_helper import round_decimal
 from decimal import Decimal
+from src.core.consts import TAX_RATE
 
 class SaleInvoiceService:
     def __init__(self, db: Session, user: UserOut, csid_service: CSIDService, customer_service: CustomerService, item_service: ItemService, zatca_service: ZatcaService, user_service: UserService, sale_invoice_repository: SaleInvoiceRepository):
@@ -86,7 +87,10 @@ class SaleInvoiceService:
     async def create_invoice_lines(self, invoice_id: int, data: list[dict]) -> None:
         invoice_lines = data.copy()
         for line in invoice_lines:
-            line.update({"invoice_id": invoice_id})
+            line.update({
+                "invoice_id": invoice_id,    
+                "tax_rate": TAX_RATE[line["classified_tax_category"]]
+            })
         await self.sale_invoice_repository.create_invoice_lines(data)
 
 
@@ -96,15 +100,16 @@ class SaleInvoiceService:
         # Create invoice lines
         invoice_lines = []
         for line in data.invoice_lines:
-            item_price_afer_price_discount = round(line.item_price - line.price_discount, 2)
-            total = round(item_price_afer_price_discount * line.quantity - line.discount_amount, 2)
-            
-            if(line.price_includes_tax == True):
-                line_extension_amount = round_decimal((total * 100) / (line.tax_rate + 100), 2)
+            item_price_afer_price_discount = round_decimal(line.item_price - line.price_discount, 2)
+            total = round_decimal(item_price_afer_price_discount * line.quantity - line.discount_amount, 2)
+            tax_rate = TAX_RATE[line.classified_tax_category]
+
+            if(data.prices_include_tax == True):
+                line_extension_amount = round_decimal((total * 100) / (tax_rate + 100), 2)
                 tax_amount = round_decimal(total - line_extension_amount, 2)
             else:
                 line_extension_amount = total
-                tax_amount = round_decimal(line_extension_amount * line.tax_rate / 100, 2)
+                tax_amount = round_decimal(line_extension_amount * tax_rate / 100, 2)
                 
             rounding_amount = round_decimal(line_extension_amount + tax_amount, 2)
             line_dict = line.model_dump()
@@ -114,6 +119,7 @@ class SaleInvoiceService:
                 "rounding_amount": rounding_amount,
             })
             invoice_lines.append(line_dict)
+
         invoice.update({"invoice_lines": invoice_lines})
 
         # Add invoice totals
@@ -127,6 +133,7 @@ class SaleInvoiceService:
             invoice_taxable_amount = invoice_line_extension_amount
             invoice_tax_amount = round_decimal(sum(line["tax_amount"] for line in invoice_lines), 2)
         invoice_tax_inclusive_amount = round_decimal(invoice_taxable_amount + invoice_tax_amount, 2)
+        
         invoice.update({
             "line_extension_amount": invoice_line_extension_amount,
             "taxable_amount": invoice_taxable_amount,
@@ -134,7 +141,6 @@ class SaleInvoiceService:
             "tax_inclusive_amount": invoice_tax_inclusive_amount,
             "payable_amount": invoice_tax_inclusive_amount
         })
-
         return invoice
 
     async def add_customer_to_invoice_dict(self, invoice_dict: dict) -> None:
@@ -159,71 +165,79 @@ class SaleInvoiceService:
         """Create a dictionary representing the invoice and transform all numeric values into strings."""
         invoice = await self.get_invoice(invoice_id)
         invoice_lines = invoice.invoice_lines
-        invoice_json = invoice.model_dump_json(exclude_none=True, exclude_unset=True)
-        invoice_dict = json.loads(invoice_json)
+        invoice_dict = invoice.model_dump(exclude_none=True, exclude_unset=True)
         
-        tax_totals = {
+        # Add item price before discount
+        for line in invoice_dict["invoice_lines"]:
+            line.update({
+                "item_price_before_discount": line["item_price"],
+                "item_price_after_discount": round_decimal(line["item_price"] - line["price_discount"], 2), 
+            })
+
+        tax_categories = {
             'S': {"taxable_amount": Decimal("0"), "tax_amount": Decimal("0"), "classified_tax_category": 'S', "tax_rate": Decimal(settings.STANDARD_TAX_RATE), "tax_exemption_reason_code": None, "tax_exemption_reason": None, "used": False}, 
             'Z': {"taxable_amount": Decimal("0"), "tax_amount": Decimal("0"), "classified_tax_category": 'Z', "tax_rate": Decimal("0"), "tax_exemption_reason_code": None, "tax_exemption_reason": None, "used": False},
             'E': {"taxable_amount": Decimal("0"), "tax_amount": Decimal("0"), "classified_tax_category": 'E', "tax_rate": Decimal("0"), "tax_exemption_reason_code": None, "tax_exemption_reason": None, "used": False},
             'O': {"taxable_amount": Decimal("0"), "tax_amount": Decimal("0"), "classified_tax_category": 'O', "tax_rate": Decimal("0"), "tax_exemption_reason_code": None, "tax_exemption_reason": None, "used": False},
         }
 
-        # Add item price before discount
-        for line in invoice_dict["invoice_lines"]:
-            line.update({
-                "item_price_before_discount": line["item_price"]
-            })
-
-        # Invoice can hvae document level discount amount only if all lines have the same VAT category
+        # Invoice can have document level discount amount only if all lines have the same VAT category
         if invoice.discount_amount > 0:
+            has_total_discount = True
             tax_category = invoice_lines[0].classified_tax_category
-            tax_totals[tax_category]['taxable_amount'] = invoice.line_extension_amount
-            tax_totals[tax_category]['tax_amount'] = invoice.tax_amount
-            tax_totals[tax_category]['tax_exemption_reason_code'] = invoice_lines[0].tax_exemption_reason_code
-            tax_totals[tax_category]['tax_exemption_reason'] = invoice_lines[0].tax_exemption_reason
-            tax_totals[tax_category]['used'] = True
+            tax_categories[tax_category]['used'] = True
+            tax_categories[tax_category]['taxable_amount'] = invoice.taxable_amount
+            tax_categories[tax_category]['tax_amount'] = invoice.tax_amount
+            tax_categories[tax_category]['tax_exemption_reason_code'] = invoice_lines[0].tax_exemption_reason_code
+            tax_categories[tax_category]['tax_exemption_reason'] = invoice_lines[0].tax_exemption_reason
         else:
+            has_total_discount = False
             for line in invoice_lines:
                 tax_category = line.classified_tax_category
-                tax_totals[tax_category]['taxable_amount'] += line.line_extension_amount
-                tax_totals[tax_category]['tax_amount'] += line.tax_amount.str
-                tax_totals[tax_category]['tax_exemption_reason_code'] = line.tax_exemption_reason_code
-                tax_totals[tax_category]['tax_exemption_reason'] = line.tax_exemption_reason
-                tax_totals[tax_category]['used'] = True
+                tax_categories[tax_category]['taxable_amount'] += line.line_extension_amount
+                tax_categories[tax_category]['tax_amount'] += line.tax_amount
+                tax_categories[tax_category]['tax_exemption_reason_code'] = line.tax_exemption_reason_code
+                tax_categories[tax_category]['tax_exemption_reason'] = line.tax_exemption_reason
+                tax_categories[tax_category]['used'] = True
+        tax_categories = {k: v for k, v in tax_categories.items() if v['used'] == True}
 
-        # supplier = Supplier(**self.user.model_dump()).model_dump()
         invoice_dict.update({
+            "has_total_discount": has_total_discount,
             "supplier": self.user.model_dump(exclude={"created_at", "updated_at"}),
-            "tax_totals": tax_totals
+            "tax_categories": tax_categories
         })
         invoice_json = json.dumps(invoice_dict, cls=ToStrEncoder)
-        invoice_dict = json.loads(invoice_json, parse_int=lambda x : str(x))
+        invoice_dict: dict = json.loads(invoice_json, parse_int=lambda x : str(x))
         return invoice_dict
 
 
     async def sign_and_send_to_zatca(self, invoice_id: int) -> None:
         """Signs the invoice and send it to zatca."""
-        invoice = await self.get_invoice_header(invoice_id)
-        invoice_data = await self.prepare_invoice_for_signing(invoice_id)
-        csid = await self.csid_service.get_compliance_csid(self.user.id)
-        try:
-            invoice_request = invoice_helper.sign_invoice(invoice_data, csid.private_key, csid.certificate)
-        except Exception as e:
-            raise InvoiceSigningError()
+        invoice_header = await self.get_invoice_header(invoice_id)
         
         if(self.user.stage == Stage.COMPLIANCE):
-            zatca_result = await self.zatca_service.send_compliance_invoice(invoice_request, invoice.invoice_type, csid.binary_security_token, csid.secret)
-        elif(self.user.stage == Stage.PRODUCTION and invoice.invoice_type == InvoiceType.STANDARD):
+            csid = await self.csid_service.get_compliance_csid(self.user.id)
+        else:
+            csid = await self.csid_service.get_production_csid(self.user.id)
+
+        invoice_data = await self.prepare_invoice_for_signing(invoice_id)
+        try:
+            invoice_request = invoice_helper.sign_and_get_request(invoice_data, csid.private_key, csid.certificate)
+        except Exception as e:
+            raise InvoiceSigningError()
+        with open('inv.xml', "w") as f:
+            f.write(base64.b64decode(invoice_request["invoice"]).decode())
+        if(self.user.stage == Stage.COMPLIANCE):
+            zatca_result = await self.zatca_service.send_compliance_invoice(invoice_request, invoice_header.invoice_type, csid.binary_security_token, csid.secret)
+        elif(self.user.stage == Stage.PRODUCTION and invoice_header.invoice_type == InvoiceType.STANDARD):
             zatca_result = await self.zatca_service.send_standard_invoice(invoice_request, csid.binary_security_token, csid.secret)
-        elif(self.user.stage == Stage.PRODUCTION and invoice.invoice_type == InvoiceType.SIMPLIFIED):
+        elif(self.user.stage == Stage.PRODUCTION and invoice_header.invoice_type == InvoiceType.SIMPLIFIED):
             zatca_result = await self.zatca_service.send_simplified_invoice(invoice_request, csid.binary_security_token, csid.secret)
 
-        invoice_request: dict = json.loads(invoice_request)
-        if invoice.invoice_type == InvoiceType.SIMPLIFIED:
+        if invoice_header.invoice_type == InvoiceType.SIMPLIFIED:
             base64_invoice = invoice_request.get("invoice", None)
             zatca_response = json.dumps(zatca_result.zatca_response)
-        elif invoice.invoice_type == InvoiceType.STANDARD:
+        elif invoice_header.invoice_type == InvoiceType.STANDARD:
             base64_invoice = zatca_result.zatca_response.get("clearedInvoice", None)
             zatca_result.zatca_response.pop("clearedInvoice", None)
             zatca_response = json.dumps(zatca_result.zatca_response)
@@ -235,7 +249,7 @@ class SaleInvoiceService:
             "signed_xml_base64": base64_invoice,
             "base64_qr_code": invoice_helper.extract_base64_qr_code(base64_invoice)
         }
-        await self.sale_invoice_repository.update_invoice(invoice_id=invoice.id, data=to_update)
+        await self.sale_invoice_repository.update_invoice(invoice_id=invoice_header.id, data=to_update)
             
 
     async def create_invoice(self, data: SaleInvoiceCreate) -> SaleInvoiceOut:

@@ -34,14 +34,12 @@
 		<cbc:InstructionNote>{{instruction_note}}</cbc:InstructionNote>
 	</cac:PaymentMeans>
 	<cac:AllowanceCharge>
-    <cbc:ChargeIndicator>false</cbc:ChargeIndicator>
-    <cbc:AllowanceChargeReason>discount</cbc:AllowanceChargeReason>
+    	<cbc:ChargeIndicator>false</cbc:ChargeIndicator>
+    	<cbc:AllowanceChargeReason>discount</cbc:AllowanceChargeReason>
     	<cbc:Amount currencyID="SAR">{{discount_amount}}</cbc:Amount>
 		<cac:TaxCategory>
 			<cbc:ID>{{classified_tax_category}}</cbc:ID>
 			<cbc:Percent>{{tax_rate}}</cbc:Percent>
-			<cbc:TaxExemptionReasonCode>{{tax_exemption_reason_code}}</cbc:TaxExemptionReasonCode>
-			<cbc:TaxExemptionReason>{{tax_exemption_reason}}</cbc:TaxExemptionReason>
 			<cac:TaxScheme>
 				<cbc:ID>VAT</cbc:ID>
 			</cac:TaxScheme>

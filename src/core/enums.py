@@ -80,11 +80,13 @@ class TaxExemptionReasonCode(str, Enum):
     VATEX_SA_EDU = "VATEX-SA-EDU"
     VATEX_SA_HEA = "VATEX-SA-HEA"
     VATEX_SA_MLTRY = "VATEX-SA-MLTRY"
+    VATEX_SA_OOS = "VATEX-SA-OOS"
 
 class TaxCategory(str, Enum):
     S = "S"
     Z = "Z"
     E = "E"
+    O = "O"
 
 class Stage(str, Enum):
     PRODUCTION = "PRODUCTION"

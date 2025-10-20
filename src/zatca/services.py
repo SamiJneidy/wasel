@@ -80,7 +80,7 @@ class ZatcaService:
 
     
     async def send_compliance_invoice(self, invoice_request: dict, invoice_type: InvoiceType, binary_security_token: str, secret: str) -> ZatcaComplianceInvoiceResponse:
-        json_payload = invoice_request
+        json_payload = json.dumps(invoice_request)
         headers = {
             'accept': 'application/json',
             'accept-language': 'en',

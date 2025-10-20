@@ -22,7 +22,7 @@
 		</cac:ClassifiedTaxCategory>
 	</cac:Item>
 	<cac:Price>
-		<cbc:PriceAmount currencyID="SAR">{{item_price}}</cbc:PriceAmount>
+		<cbc:PriceAmount currencyID="SAR">{{item_price_after_discount}}</cbc:PriceAmount>
 			<cac:AllowanceCharge>
 				<cbc:ChargeIndicator>false</cbc:ChargeIndicator>
 				<cbc:AllowanceChargeReason>discount</cbc:AllowanceChargeReason>

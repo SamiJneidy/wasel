@@ -22,6 +22,7 @@ class SaleInvoice(Base, AuditMixin):
     note = Column(String(4000), nullable=True)
     line_extension_amount = Column(DECIMAL(scale=2), nullable=False)
     discount_amount = Column(DECIMAL(scale=2), nullable=False)
+    prices_include_tax = Column(BOOLEAN, nullable=False)
     taxable_amount = Column(DECIMAL(scale=2), nullable=False)
     tax_amount = Column(DECIMAL(scale=2), nullable=False)
     tax_inclusive_amount = Column(DECIMAL(scale=2), nullable=False)

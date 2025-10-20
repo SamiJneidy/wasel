@@ -39,12 +39,10 @@ import uuid
 class SaleInvoiceLineCreate(BaseModel):
     item_id: int    
     item_price: Decimal = Field(..., decimal_places=2)
-    price_includes_tax: bool = Field(...)
     price_discount: Decimal = Field(..., decimal_places=6)
     quantity: Decimal = Field(..., decimal_places=6)
     discount_amount: Decimal = Field(..., decimal_places=2)
     classified_tax_category: TaxCategory = Field(...)
-    tax_rate: Decimal = Field(..., decimal_places=2)
     tax_exemption_reason_code: Optional[TaxExemptionReasonCode] = Field(None)
     tax_exemption_reason: Optional[str] = Field(None, min_length=1, max_length=200)
     description: Optional[str] = Field(None, min_length=1, max_length=200)
@@ -64,14 +62,14 @@ class SaleInvoiceLineCreate(BaseModel):
 
     @model_validator(mode="after")
     def validate_line(self) -> Self:
-        if(self.classified_tax_category == TaxCategory.S and self.tax_rate != settings.STANDARD_TAX_RATE):
-            raise ValueError(f"Tax rate must be equal to {settings.STANDARD_TAX_RATE} when the tax category is 'S'")
-        if(self.classified_tax_category != TaxCategory.S and self.tax_rate != 0):
-            raise ValueError("Tax rate must be equal to 0.00 when the tax category is 'Z', 'E' or 'O'")
+        # if(self.classified_tax_category == TaxCategory.S and self.tax_rate != settings.STANDARD_TAX_RATE):
+        #     raise ValueError(f"Tax rate must be equal to {settings.STANDARD_TAX_RATE} when the tax category is 'S'")
+        # if(self.classified_tax_category != TaxCategory.S and self.tax_rate != 0):
+        #     raise ValueError("Tax rate must be equal to 0.00 when the tax category is 'Z', 'E' or 'O'")
+        if(self.classified_tax_category == TaxCategory.S and (self.tax_exemption_reason_code != None or self.tax_exemption_reason != None)):
+            raise ValueError("'Tax Exemption Reason' and 'Tax Exemption Reason Code' must be sent as 'null' when the tax category is 'S'")
         if(self.classified_tax_category != TaxCategory.S and (self.tax_exemption_reason_code is None or self.tax_exemption_reason is None)):
-            return ValueError("'Tax Exemption Reason' and 'Tax Exemption Reason Code' are mandatory when the tax category is 'Z', 'E' or 'O'")
-        if(self.classified_tax_category == TaxCategory.S and (self.tax_exemption_reason_code is not None or self.tax_exemption_reason is not None)):
-            return ValueError("'Tax Exemption Reason' and 'Tax Exemption Reason Code' must be sent as 'null' when the tax category is 'S'")
+            raise ValueError("'Tax Exemption Reason' and 'Tax Exemption Reason Code' are mandatory when the tax category is 'Z', 'E' or 'O'")
         return self 
 
 class SaleInvoiceLineOut(BaseModel):
@@ -79,7 +77,6 @@ class SaleInvoiceLineOut(BaseModel):
     item: Optional[ItemOut] = None
     item_price: Decimal = Field(..., decimal_places=2)
     quantity: Decimal = Field(..., decimal_places=6)
-    price_includes_tax: bool = Field(...)
     price_discount: Decimal = Field(..., decimal_places=6)
     discount_amount: Decimal = Field(..., decimal_places=2)
     line_extension_amount: Decimal = Field(..., decimal_places=2)
@@ -88,7 +85,7 @@ class SaleInvoiceLineOut(BaseModel):
     classified_tax_category: TaxCategory = Field(...)
     rounding_amount: Decimal = Field(..., decimal_places=2)
     tax_exemption_reason_code: Optional[TaxExemptionReasonCode] = Field(None)
-    tax_exemption_reason: Optional[str] = Field(None, min_length=1, max_length=4000)
+    tax_exemption_reason: Optional[str] = Field(None, min_length=1, max_length=200)
     description: Optional[str] = Field(None, min_length=1, max_length=200)
     model_config = ConfigDict(from_attributes=True)
 
@@ -103,6 +100,7 @@ class SaleInvoiceHeaderBase(BaseModel):
     payment_means_code: PaymentMeansCode = Field(..., description="Code representing the payment method")
     original_invoice_id: Optional[int] = Field(None, description="ID of the original invoice if this is a correction", example=456)
     instruction_note: Optional[str] = Field(None, max_length=4000, description="Additional instructions related to the invoice")
+    prices_include_tax: bool = Field(...)
     discount_amount: Decimal = Field(..., description="Total discount amount", example=50.00)
     note: Optional[str] = Field(None, max_length=4000, description="General notes about the invoice")
 
