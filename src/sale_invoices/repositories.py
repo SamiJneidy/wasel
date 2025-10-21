@@ -11,8 +11,13 @@ class SaleInvoiceRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    async def get_last_invoice(self, user_id: int, stage: Stage) -> SaleInvoice | None:
-        return self.db.query(SaleInvoice).filter(SaleInvoice.user_id==user_id, SaleInvoice.stage==stage).order_by(SaleInvoice.id).limit(1).first()
+    async def get_last_invoice(self, user_id: int, stage: Stage, filters: dict = {}) -> SaleInvoice | None:
+        query = self.db.query(SaleInvoice).filter(SaleInvoice.user_id==user_id, SaleInvoice.stage==stage)
+        for column, value in filters.items():
+            c = getattr(SaleInvoice, column, None)
+            if c is not None:
+                query = query.filter(c == value)
+        return query.order_by(SaleInvoice.id).limit(1).first()
 
     async def get_invoice_count(self, user_id: int, stage: Stage) -> int:
         stmt = select(func.count(SaleInvoice.id)).select_from(SaleInvoice).where(and_(SaleInvoice.user_id==user_id, SaleInvoice.stage==stage))

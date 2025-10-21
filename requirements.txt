@@ -44,6 +44,7 @@ PyJWT==2.10.1
 pyOpenSSL==23.2.0
 python-dotenv==1.1.0
 python-multipart==0.0.20
+pytz==2025.2
 PyYAML==6.0.2
 redis==5.2.1
 requests==2.32.4

@@ -8,6 +8,9 @@ from src.core.enums import InvoiceType, InvoiceTypeCode, PaymentMeansCode, TaxEx
 class SaleInvoice(Base, AuditMixin):
     __tablename__ = "sale_invoices"
     id = Column(Integer, autoincrement=True, primary_key=True, index=True)
+    year = Column(Integer, nullable=True, index=True)
+    seq_number = Column(Integer, nullable=True)
+    invoice_number = Column(String(50), index=True, nullable=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     customer_id = Column(Integer, ForeignKey('customers.id'), nullable=False)
     invoice_type = Column(Enum(InvoiceType), nullable=False)

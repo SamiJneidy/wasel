@@ -1,4 +1,9 @@
 from sqlalchemy import Column, DateTime, String, Integer, ForeignKey, func
+from src.core.consts import KSA_TZ
+from datetime import datetime
+
+def ksa_now():
+    return datetime.now(KSA_TZ)
 
 class AuditByMixin:
     """Adds created_by and updated_by columns to a model."""
@@ -7,8 +12,8 @@ class AuditByMixin:
 
 class AuditTimeMixin:
     """Adds created_at and updated_at columns to a model."""
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=True)
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=ksa_now, nullable=True)
+    updated_at = Column(DateTime(timezone=True), default=ksa_now, onupdate=ksa_now, nullable=True)
 
 class AddressMixin:
     """Adds address fields to a model."""

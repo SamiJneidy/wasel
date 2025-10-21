@@ -1,4 +1,5 @@
 import base64
+from datetime import datetime
 import json
 import uuid
 from src.core.utils.json_helper import ToStrEncoder
@@ -26,7 +27,7 @@ from .exceptions import BaseAppException, InvoiceNotFoundException, InvoiceSigni
 from .utils.invoice_helper import invoice_helper
 from src.core.utils.math_helper import round_decimal
 from decimal import Decimal
-from src.core.consts import TAX_RATE
+from src.core.consts import TAX_RATE, KSA_TZ
 
 class SaleInvoiceService:
     def __init__(self, db: Session, user: UserOut, csid_service: CSIDService, customer_service: CustomerService, item_service: ItemService, zatca_service: ZatcaService, user_service: UserService, sale_invoice_repository: SaleInvoiceRepository):
@@ -50,6 +51,18 @@ class SaleInvoiceService:
     async def get_new_icv(self, user_id: int, stage: Stage) -> str:
         icv = await self.sale_invoice_repository.get_invoice_count(user_id, stage)
         return icv+1
+
+
+    async def generate_invoice_number(self, user_id: int, invoice_type: InvoiceType, invoice_type_code: InvoiceTypeCode, year: int) -> str:
+        """Returns the sequence number along with the formatted invoice number."""
+        filters = {
+            "invoice_type": invoice_type,
+            "invoice_type_code": invoice_type_code,
+            "year": year
+        }
+        last_invoice = await self.sale_invoice_repository.get_last_invoice(user_id, self.user.stage, filters)
+        seq_number = (last_invoice.seq_number if last_invoice else 0) + 1
+        return seq_number, invoice_helper.format_invoice_number(invoice_type, invoice_type_code, year, seq_number)
 
 
     async def get_invoice_lines(self, invoice_id: int) -> list[SaleInvoiceLineOut]:
@@ -79,7 +92,10 @@ class SaleInvoiceService:
         return SaleInvoiceOut(invoice_lines=invoice_lines, customer=invoice_customer, **invoice_header.model_dump())
 
 
-    async def create_invoice_header(self, data: dict) -> SaleInvoiceHeaderOut:
+    async def create_invoice_header(self, user_id: int, data: dict) -> SaleInvoiceHeaderOut:
+        year = datetime.now(KSA_TZ).year
+        seq_number, invoice_number = await self.generate_invoice_number(user_id, data["invoice_type"], data["invoice_type_code"], year)
+        data.update({"year": year, "seq_number": seq_number, "invoice_number": invoice_number})
         invoice = await self.sale_invoice_repository.create_invoice(self.user.id, data)
         return SaleInvoiceHeaderOut.model_validate(invoice)
 
@@ -265,7 +281,7 @@ class SaleInvoiceService:
             customer = invoice_dict.pop("customer")
             
             # Create invoice header
-            invoice = await self.create_invoice_header(invoice_dict)
+            invoice = await self.create_invoice_header(self.user.id, invoice_dict)
             # Create invoice lines
             await self.create_invoice_lines(invoice.id, invoice_lines)
             # Sign the invoice and send it to zatca

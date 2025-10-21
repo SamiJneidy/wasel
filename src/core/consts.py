@@ -1,5 +1,10 @@
 from .config import settings
 from decimal import Decimal
+import pytz
+
+
+KSA_TZ = pytz.timezone("Asia/Riyadh")
+
 
 TAX_RATE = {
     'S': Decimal(settings.STANDARD_TAX_RATE),

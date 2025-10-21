@@ -106,6 +106,7 @@ class SaleInvoiceHeaderBase(BaseModel):
 
 class SaleInvoiceHeaderOut(SaleInvoiceHeaderBase):
     id: int
+    invoice_number: str = Field(...)
     line_extension_amount: Decimal = Field(..., description="Total amount before taxes and discounts", example=1000.00)
     taxable_amount: Decimal = Field(..., description="Amount subject to taxation", example=950.00)
     tax_amount: Decimal = Field(..., description="Total tax amount", example=142.50)
