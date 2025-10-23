@@ -17,8 +17,9 @@ class invoice_helper:
     @staticmethod
     def format_invoice_number(invoice_type: InvoiceType, invoice_type_code: InvoiceTypeCode, year: int, seq_number: int) -> str:
         """Returns the formatted invoice number in the format: <INVOICE TYPE>-<INVOICE TYPE CODE>-<YEAR>-<SEQUENCE NUMBER>"""
-        zumber = str(seq_number).zfill(7)
-        return f"{invoice_helper.INVOICE_TYPE_PREFIX[invoice_type]}-{invoice_helper.INVOICE_TYPE_CODE_PREFIX[invoice_type_code]}-{year}-{zumber}"
+        zumber = str(seq_number).zfill(6)
+        two_digit_year = str(year)[2:]
+        return f"{invoice_helper.INVOICE_TYPE_PREFIX[invoice_type]}-{invoice_helper.INVOICE_TYPE_CODE_PREFIX[invoice_type_code]}-{two_digit_year}-{zumber}"
     
     @staticmethod
     def sign_and_get_request(invoice_data, private_key, x509_certificate_content) -> dict[str, str]:

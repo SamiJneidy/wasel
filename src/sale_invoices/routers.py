@@ -3,6 +3,8 @@ from fastapi import APIRouter, status
 from src.core.enums import Stage
 from .services import SaleInvoiceService
 from .schemas import (
+    GetInvoiceNumberRequest,
+    GetInvoiceNumberResponse,
     SaleInvoiceFilters,
     SingleObjectResponse,
     SuccessfulResponse,
@@ -58,6 +60,23 @@ async def get_invoice(
 ) -> SingleObjectResponse[SaleInvoiceOut]:
     invoice = await invoice_service.get_invoice(id)
     return SingleObjectResponse(data=invoice)
+
+
+@router.post(
+    path="/generate-invoice-number",
+    response_model=SingleObjectResponse[GetInvoiceNumberResponse],
+    responses=RESPONSES["generate_invoice_number"],
+    summary=SUMMARIES["generate_invoice_number"],
+    description=DOCSTRINGS["generate_invoice_number"],
+)
+async def generate_invoice_number(
+    data: GetInvoiceNumberRequest,
+    invoice_service: Annotated[SaleInvoiceService, Depends(get_invoice_service)],
+    current_user: Annotated[UserOut, Depends(get_current_user)],
+) -> SingleObjectResponse[SaleInvoiceOut]:
+    seq_number, invoice_number = await invoice_service.generate_invoice_number(current_user.id, data.invoice_type, data.invoice_type_code)
+    return SingleObjectResponse(data=GetInvoiceNumberResponse(invoice_number=invoice_number))
+
 
 @router.get(
     path="/",

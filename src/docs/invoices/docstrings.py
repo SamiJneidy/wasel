@@ -19,4 +19,8 @@ This endpoint returns the full invoice details including:
 - Generated QR code for the invoice
 
 The invoice data is retrieved from the current user's account, ensuring proper access control.""",
+
+    "generate_invoice_number": """Generate and return a new invoice number.
+
+This function creates a unique invoice number that is displayed to the user when a new invoice is being created."""
 } 

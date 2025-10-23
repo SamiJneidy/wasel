@@ -183,3 +183,12 @@ class SaleInvoiceFilters(BaseModel):
             return datetime.strptime(str(value), "%Y-%m-%d").date()
         except Exception as e:
             raise ValueError("The input should be a valid date in the format YYYY-MM-DD") 
+        
+
+class GetInvoiceNumberRequest(BaseModel):
+    invoice_type: InvoiceType
+    invoice_type_code: InvoiceTypeCode
+
+
+class GetInvoiceNumberResponse(BaseModel):
+    invoice_number: str

@@ -14,4 +14,7 @@ RESPONSES = {
         status.HTTP_401_UNAUTHORIZED: {"description": "Invalid or missing access token.", "model": ErrorResponse},
         status.HTTP_404_NOT_FOUND: {"description": "Invoice not found.", "model": ErrorResponse},
     },
+    "generate_invoice_number": {
+        status.HTTP_200_OK: {"description": "Invoice number generated successfully"}
+    }
 } 

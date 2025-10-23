@@ -53,8 +53,9 @@ class SaleInvoiceService:
         return icv+1
 
 
-    async def generate_invoice_number(self, user_id: int, invoice_type: InvoiceType, invoice_type_code: InvoiceTypeCode, year: int) -> str:
+    async def generate_invoice_number(self, user_id: int, invoice_type: InvoiceType, invoice_type_code: InvoiceTypeCode) -> str:
         """Returns the sequence number along with the formatted invoice number."""
+        year = datetime.now(KSA_TZ).year
         filters = {
             "invoice_type": invoice_type,
             "invoice_type_code": invoice_type_code,
@@ -94,7 +95,7 @@ class SaleInvoiceService:
 
     async def create_invoice_header(self, user_id: int, data: dict) -> SaleInvoiceHeaderOut:
         year = datetime.now(KSA_TZ).year
-        seq_number, invoice_number = await self.generate_invoice_number(user_id, data["invoice_type"], data["invoice_type_code"], year)
+        seq_number, invoice_number = await self.generate_invoice_number(user_id, data["invoice_type"], data["invoice_type_code"])
         data.update({"year": year, "seq_number": seq_number, "invoice_number": invoice_number})
         invoice = await self.sale_invoice_repository.create_invoice(self.user.id, data)
         return SaleInvoiceHeaderOut.model_validate(invoice)
