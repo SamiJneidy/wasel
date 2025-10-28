@@ -10,11 +10,12 @@ from src.zatca.services import ZatcaService
 from src.csid.services import CSIDService
 from src.customers.services import CustomerService
 from src.items.services import ItemService
-from src.core.enums import InvoicingType, Stage, TaxExemptionReasonCode, PartyIdentificationScheme, InvoiceType, InvoiceTypeCode, PaymentMeansCode, TaxCategory
+from src.core.enums import DocumentType, InvoicingType, Stage, TaxExemptionReasonCode, PartyIdentificationScheme, InvoiceType, InvoiceTypeCode, PaymentMeansCode, TaxCategory
 from .schemas import (
     PagintationParams,
     SaleInvoiceFilters,
     SaleInvoiceCreate,
+    SaleInvoiceUpdate,
     SuccessfulResponse,
     SaleInvoiceLineCreate, SaleInvoiceLineOut,
     SaleInvoiceHeaderOut, SaleInvoiceCreate, SaleInvoiceOut,
@@ -23,7 +24,7 @@ from .schemas import (
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from .repositories import SaleInvoiceRepository
-from .exceptions import BaseAppException, InvoiceNotFoundException, InvoiceSigningError, IntegrityErrorException, raise_integrity_error
+from .exceptions import BaseAppException, InvoiceNotFoundException, InvoiceSigningError, IntegrityErrorException, InvoiceUpdateNotAllowed, raise_integrity_error
 from .utils.invoice_helper import invoice_helper
 from src.core.utils.math_helper import round_decimal
 from decimal import Decimal
@@ -53,14 +54,22 @@ class SaleInvoiceService:
         return icv+1
 
 
-    async def generate_invoice_number(self, user_id: int, invoice_type: InvoiceType, invoice_type_code: InvoiceTypeCode) -> str:
+    async def generate_invoice_number(self, user_id: int, docuemnt_type: DocumentType, invoice_type: InvoiceType, invoice_type_code: InvoiceTypeCode) -> str:
         """Returns the sequence number along with the formatted invoice number."""
         year = datetime.now(KSA_TZ).year
-        filters = {
-            "invoice_type": invoice_type,
-            "invoice_type_code": invoice_type_code,
-            "year": year
-        }
+        if docuemnt_type == DocumentType.INVOICE:
+            filters = {
+                "document_type": docuemnt_type,
+                "invoice_type": invoice_type,
+                "invoice_type_code": invoice_type_code,
+                "year": year
+            }
+        if docuemnt_type == DocumentType.QUOTATION:
+            filters = {
+                "document_type": docuemnt_type,
+                "year": year
+            }
+        
         last_invoice = await self.sale_invoice_repository.get_last_invoice(user_id, self.user.stage, filters)
         seq_number = (last_invoice.seq_number if last_invoice else 0) + 1
         return seq_number, invoice_helper.format_invoice_number(invoice_type, invoice_type_code, year, seq_number)
@@ -81,13 +90,17 @@ class SaleInvoiceService:
         return await self.customer_service.get(db_invoice.customer_id)
 
 
-    async def get_invoice_header(self, invoice_id: int) -> SaleInvoiceHeaderOut:
+    async def get_invoice_header(self, invoice_id: int) -> SaleInvoiceHeaderOut | None:
         invoice_header = await self.sale_invoice_repository.get_invoice(self.user.id, invoice_id)
+        if not invoice_header:
+            return None
         return SaleInvoiceHeaderOut.model_validate(invoice_header)
 
 
     async def get_invoice(self, invoice_id: int) -> SaleInvoiceOut:
         invoice_header = await self.get_invoice_header(invoice_id)
+        if not invoice_header:
+            raise InvoiceNotFoundException()
         invoice_lines = await self.get_invoice_lines(invoice_id)
         invoice_customer = await self.get_invoice_customer(invoice_id)
         return SaleInvoiceOut(invoice_lines=invoice_lines, customer=invoice_customer, **invoice_header.model_dump())
@@ -95,8 +108,13 @@ class SaleInvoiceService:
 
     async def create_invoice_header(self, user_id: int, data: dict) -> SaleInvoiceHeaderOut:
         year = datetime.now(KSA_TZ).year
-        seq_number, invoice_number = await self.generate_invoice_number(user_id, data["invoice_type"], data["invoice_type_code"])
-        data.update({"year": year, "seq_number": seq_number, "invoice_number": invoice_number})
+        seq_number, invoice_number = await self.generate_invoice_number(user_id, data["document_type"], data["invoice_type"], data["invoice_type_code"])
+        data.update({
+            "year": year, 
+            "seq_number": seq_number, 
+            "invoice_number": invoice_number,
+            "is_locked": True if data["document_type"] == DocumentType.INVOICE else False
+        })
         invoice = await self.sale_invoice_repository.create_invoice(self.user.id, data)
         return SaleInvoiceHeaderOut.model_validate(invoice)
 
@@ -264,7 +282,8 @@ class SaleInvoiceService:
             "zatca_response": zatca_response,
             "invoice_hash": invoice_request.get("invoiceHash"),
             "signed_xml_base64": base64_invoice,
-            "base64_qr_code": invoice_helper.extract_base64_qr_code(base64_invoice)
+            "base64_qr_code": invoice_helper.extract_base64_qr_code(base64_invoice),
+            "is_locked": True,
         }
         await self.sale_invoice_repository.update_invoice(invoice_id=invoice_header.id, data=to_update)
             
@@ -285,8 +304,11 @@ class SaleInvoiceService:
             invoice = await self.create_invoice_header(self.user.id, invoice_dict)
             # Create invoice lines
             await self.create_invoice_lines(invoice.id, invoice_lines)
+            
             # Sign the invoice and send it to zatca
-            await self.sign_and_send_to_zatca(invoice.id)
+            if data.document_type == DocumentType.INVOICE:
+                await self.sign_and_send_to_zatca(invoice.id)
+            
             self.db.commit()
             return await self.get_invoice(invoice.id)
         
@@ -297,6 +319,54 @@ class SaleInvoiceService:
             self.db.rollback()
             raise e
     
+
+    async def update_invoice(self, invoice_id: int, data: SaleInvoiceUpdate) -> SaleInvoiceOut:
+        try:
+            db_invoice = await self.get_invoice_header(invoice_id)
+            if not db_invoice:
+                raise InvoiceNotFoundException()
+            if db_invoice.is_locked == True or db_invoice.document_type == DocumentType.INVOICE:
+                raise InvoiceUpdateNotAllowed()
+            
+            # Calculate invoice amounts
+            invoice_dict = await self.calculate_amounts(data)
+
+            invoice_lines = invoice_dict.pop("invoice_lines")
+            await self.sale_invoice_repository.update_invoice(invoice_id, invoice_dict)
+            await self.sale_invoice_repository.delete_invoice_lines(invoice_id)
+            await self.create_invoice_lines(invoice_id, invoice_lines)
+
+            # Sign the invoice and send it to zatca
+            if data.is_locked == True:
+                await self.sign_and_send_to_zatca(invoice_id)
+            self.db.commit()
+            return await self.get_invoice(invoice_id)
+        
+        except IntegrityError as e:
+            self.db.rollback()
+            raise_integrity_error(e)
+        except Exception as e:
+            self.db.rollback()
+            raise e
+    
+
+    async def delete_invoice(self, invoice_id: int) -> None:
+        try:
+            db_invoice = await self.get_invoice_header(invoice_id)
+            if not db_invoice:
+                raise InvoiceNotFoundException()
+            if db_invoice.is_locked == True or db_invoice.document_type == DocumentType.INVOICE:
+                raise InvoiceUpdateNotAllowed()
+            await self.sale_invoice_repository.delete_invoice(invoice_id)
+            return None
+        
+        except IntegrityError as e:
+            self.db.rollback()
+            raise_integrity_error(e)
+        except Exception as e:
+            self.db.rollback()
+            raise e
+
 
     async def get_invoices(self, pagination: PagintationParams, filters: SaleInvoiceFilters) -> tuple[int, list[SaleInvoiceOut]]:
         total, invoices = await self.sale_invoice_repository.get_invoices_by_user_id(self.user.id, self.user.stage, pagination.skip, pagination.limit, filters.model_dump(exclude_none=True))

@@ -6,6 +6,7 @@ from .schemas import (
     GetInvoiceNumberRequest,
     GetInvoiceNumberResponse,
     SaleInvoiceFilters,
+    SaleInvoiceUpdate,
     SingleObjectResponse,
     SuccessfulResponse,
     SaleInvoiceCreate,
@@ -44,6 +45,38 @@ async def create_invoice(
     data = await invoice_service.create_invoice(body)
     return SingleObjectResponse(data=data)
 
+
+@router.put(
+    path="/{id}",
+    status_code=status.HTTP_200_OK,
+    response_model=SingleObjectResponse[SaleInvoiceOut],
+    responses=RESPONSES["create_invoice"],
+    summary=SUMMARIES["create_invoice"],
+    description=DOCSTRINGS["create_invoice"],
+)
+async def update_invoice(
+    id: int,
+    body: SaleInvoiceUpdate,
+    invoice_service: Annotated[SaleInvoiceService, Depends(get_invoice_service)],
+    current_user: Annotated[UserOut, Depends(get_current_user)],
+) -> SingleObjectResponse[SaleInvoiceOut]:
+    data = await invoice_service.update_invoice(id, body)
+    return SingleObjectResponse(data=data)
+
+
+@router.delete(
+    path="/{id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses=RESPONSES["create_invoice"],
+    summary=SUMMARIES["create_invoice"],
+    description=DOCSTRINGS["create_invoice"],
+)
+async def delete_invoice(
+    id: int,
+    invoice_service: Annotated[SaleInvoiceService, Depends(get_invoice_service)],
+    current_user: Annotated[UserOut, Depends(get_current_user)],
+) -> None:
+    await invoice_service.delete_invoice(id)
 
 
 @router.get(

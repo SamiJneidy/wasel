@@ -67,11 +67,20 @@ class SaleInvoiceRepository:
         invoice.created_by = user_id
         self.db.add(invoice)
         self.db.flush()
-        return invoice      
-    
+        return invoice
+
     async def update_invoice(self, invoice_id: int, data: dict) -> None:
         stmt = update(SaleInvoice).where(SaleInvoice.id==invoice_id).values(**data)
         self.db.execute(stmt)
+
+    async def delete_invoice(self, invoice_id: int) -> None:
+        stmt = delete(SaleInvoice).where(SaleInvoice.id==invoice_id)
+        self.db.execute(stmt)
+        # No need to manually delete invoice lines since they will be deleted by on delete cascade
+
+
+    async def delete_invoice_lines(self, invoice_id: int) -> None:
+        self.db.execute(delete(SaleInvoiceLine).where(SaleInvoiceLine.invoice_id==invoice_id))
 
     async def count_invoices(self, user_id: int, stage: Stage) -> int:
         stmt = select(func.count()).select_from(SaleInvoice).where(and_(SaleInvoice.user_id==user_id, SaleInvoice.stage==stage))

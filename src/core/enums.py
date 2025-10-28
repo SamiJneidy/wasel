@@ -88,6 +88,10 @@ class TaxCategory(str, Enum):
     E = "E"
     O = "O"
 
+class DocumentType(str, Enum):
+    INVOICE = "invoice"
+    QUOTATION = "quotation"
+
 class Stage(str, Enum):
     PRODUCTION = "PRODUCTION"
     COMPLIANCE = "COMPLIANCE"

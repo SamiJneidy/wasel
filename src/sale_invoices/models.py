@@ -2,7 +2,7 @@ from sqlalchemy import BOOLEAN, Column, Integer, String, UUID, Date, Text, DECIM
 from sqlalchemy.orm import relationship
 from src.core.database import Base
 from src.core.models import AuditMixin
-from src.core.enums import InvoiceType, InvoiceTypeCode, PaymentMeansCode, TaxExemptionReasonCode, Stage
+from src.core.enums import InvoiceType, InvoiceTypeCode, PaymentMeansCode, TaxExemptionReasonCode, Stage, DocumentType
 
 
 class SaleInvoice(Base, AuditMixin):
@@ -39,6 +39,8 @@ class SaleInvoice(Base, AuditMixin):
     stage = Column(Enum(Stage), nullable=True)
     zatca_response = Column(Text, nullable=True)
     status_code = Column(String(5), nullable=True)
+    document_type = Column(Enum(DocumentType, native_enum=False), nullable=True)
+    is_locked = Column(BOOLEAN, nullable=True)
     user = relationship("User", foreign_keys=[user_id], remote_side="User.id")
 
 
@@ -48,7 +50,7 @@ class SaleInvoiceLine(Base):
     invoice_id = Column(Integer, ForeignKey('sale_invoices.id', ondelete="CASCADE"), nullable=False)
     item_id = Column(Integer, ForeignKey('items.id', ondelete="RESTRICT"), nullable=False)
     item_price = Column(DECIMAL(scale=2), nullable=False)
-    price_includes_tax = Column(BOOLEAN)
+    price_includes_tax = Column(BOOLEAN, nullable=True)
     price_discount = Column(DECIMAL(scale=2), nullable=False)
     quantity = Column(DECIMAL(scale=6), nullable=False)
     discount_amount = Column(DECIMAL(scale=2), nullable=False)

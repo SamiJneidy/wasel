@@ -12,3 +12,9 @@ class InvoiceSigningError(BaseAppException):
     def __init__(self, detail: str | None = "An error has occurred when signing the invoice", status_code: int = status.HTTP_400_BAD_REQUEST):
         super().__init__(detail, status_code)
     
+
+class InvoiceUpdateNotAllowed(BaseAppException):
+    """Raised when attempting to update a locked invoice"""
+    def __init__(self, detail: str | None = "Not allowed. Updates are permitted on quotations not on sale invoices.", status_code: int = status.HTTP_403_FORBIDDEN):
+        super().__init__(detail, status_code)
+    

@@ -6,7 +6,7 @@ from src.core.schemas import AuditTimeMixin, SingleObjectResponse, SuccessfulRes
 from src.users.schemas import UserOut
 from src.customers.schemas import CustomerOut
 from src.core.config import settings
-from src.core.enums import TaxExemptionReasonCode, PartyIdentificationScheme, InvoiceType, InvoiceTypeCode, PaymentMeansCode, TaxCategory
+from src.core.enums import DocumentType, TaxExemptionReasonCode, PartyIdentificationScheme, InvoiceType, InvoiceTypeCode, PaymentMeansCode, TaxCategory
 from typing import Optional, Annotated, Self, Union
 from decimal import Decimal
 import uuid
@@ -91,6 +91,7 @@ class SaleInvoiceLineOut(BaseModel):
 
 
 class SaleInvoiceHeaderBase(BaseModel):
+    document_type: DocumentType = Field(...)
     invoice_type: InvoiceType = Field(...)
     invoice_type_code: InvoiceTypeCode = Field(...)
     issue_date: date = Field(..., description="Date in format YYYY-MM-DD", example="2025-01-24")
@@ -107,6 +108,7 @@ class SaleInvoiceHeaderBase(BaseModel):
 class SaleInvoiceHeaderOut(SaleInvoiceHeaderBase):
     id: int
     invoice_number: str = Field(...)
+    is_locked: bool = Field(...)
     line_extension_amount: Decimal = Field(..., description="Total amount before taxes and discounts", example=1000.00)
     taxable_amount: Decimal = Field(..., description="Amount subject to taxation", example=950.00)
     tax_amount: Decimal = Field(..., description="Total tax amount", example=142.50)
@@ -155,6 +157,8 @@ class SaleInvoiceCreate(SaleInvoiceHeaderBase):
     def validate_model(self) -> Self:
         if self.invoice_type == InvoiceType.STANDARD and self.customer_id is None:
             raise ValueError("The customer is mandatory for standard invoices")
+        if self.document_type == DocumentType.QUOTATION and self.invoice_type_code != InvoiceTypeCode.INVOICE:
+            raise ValueError("Credit notes and debit notes can only be issued for invoices not for quotations") 
         return self
     
 
@@ -183,7 +187,16 @@ class SaleInvoiceFilters(BaseModel):
             return datetime.strptime(str(value), "%Y-%m-%d").date()
         except Exception as e:
             raise ValueError("The input should be a valid date in the format YYYY-MM-DD") 
-        
+
+
+class SaleInvoiceUpdate(SaleInvoiceCreate):
+    is_locked: bool
+
+    @model_validator(mode="after")
+    def validate_model(self) -> Self:
+        if self.document_type == DocumentType.INVOICE:
+            raise ValueError("Document type cannot be changed") 
+        return self
 
 class GetInvoiceNumberRequest(BaseModel):
     invoice_type: InvoiceType
