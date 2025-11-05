@@ -115,10 +115,10 @@ class SaleInvoiceHeaderOut(SaleInvoiceHeaderBase):
     tax_inclusive_amount: Decimal = Field(..., description="Total amount including taxes", example=1092.50)
     payable_amount: Decimal = Field(..., description="Final amount to be paid", example=1092.50)
     pih: Optional[str] = None 
-    icv: int
+    icv: Optional[int] = None
     base64_qr_code: Optional[str] = None
     invoice_hash: Optional[str] = None
-    uuid: uuid.UUID
+    uuid: Optional[uuid.UUID]
     model_config = ConfigDict(from_attributes=True)
 
 class SaleInvoiceCreate(SaleInvoiceHeaderBase):
@@ -171,6 +171,7 @@ class SaleInvoiceOut(SaleInvoiceHeaderOut):
 
 
 class SaleInvoiceFilters(BaseModel):
+    document_type: DocumentType
     customer_id: Optional[int] = Field(None)
     invoice_type: Optional[InvoiceType] = Field(None, description="Standard or Simplified")
     invoice_type_code: Optional[InvoiceTypeCode] = Field(None, description="Invoice, Credit Note or Debit Note")

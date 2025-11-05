@@ -1,6 +1,6 @@
 from math import ceil
 from fastapi import APIRouter, status
-from src.core.enums import Stage
+from src.core.enums import DocumentType, Stage
 from .services import SaleInvoiceService
 from .schemas import (
     GetInvoiceNumberRequest,
@@ -28,57 +28,6 @@ router = APIRouter(
     tags=["Sale Invoices"],
 )
 
-
-@router.post(
-    path="/",
-    status_code=status.HTTP_201_CREATED,
-    response_model=SingleObjectResponse[SaleInvoiceOut],
-    responses=RESPONSES["create_invoice"],
-    summary=SUMMARIES["create_invoice"],
-    description=DOCSTRINGS["create_invoice"],
-)
-async def create_invoice(
-    body: SaleInvoiceCreate,
-    invoice_service: Annotated[SaleInvoiceService, Depends(get_invoice_service)],
-    current_user: Annotated[UserOut, Depends(get_current_user)],
-) -> SingleObjectResponse[SaleInvoiceOut]:
-    data = await invoice_service.create_invoice(body)
-    return SingleObjectResponse(data=data)
-
-
-@router.put(
-    path="/{id}",
-    status_code=status.HTTP_200_OK,
-    response_model=SingleObjectResponse[SaleInvoiceOut],
-    responses=RESPONSES["create_invoice"],
-    summary=SUMMARIES["create_invoice"],
-    description=DOCSTRINGS["create_invoice"],
-)
-async def update_invoice(
-    id: int,
-    body: SaleInvoiceUpdate,
-    invoice_service: Annotated[SaleInvoiceService, Depends(get_invoice_service)],
-    current_user: Annotated[UserOut, Depends(get_current_user)],
-) -> SingleObjectResponse[SaleInvoiceOut]:
-    data = await invoice_service.update_invoice(id, body)
-    return SingleObjectResponse(data=data)
-
-
-@router.delete(
-    path="/{id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-    responses=RESPONSES["create_invoice"],
-    summary=SUMMARIES["create_invoice"],
-    description=DOCSTRINGS["create_invoice"],
-)
-async def delete_invoice(
-    id: int,
-    invoice_service: Annotated[SaleInvoiceService, Depends(get_invoice_service)],
-    current_user: Annotated[UserOut, Depends(get_current_user)],
-) -> None:
-    await invoice_service.delete_invoice(id)
-
-
 @router.get(
     path="/{id}",
     response_model=SingleObjectResponse[SaleInvoiceOut],
@@ -93,22 +42,6 @@ async def get_invoice(
 ) -> SingleObjectResponse[SaleInvoiceOut]:
     invoice = await invoice_service.get_invoice(id)
     return SingleObjectResponse(data=invoice)
-
-
-@router.post(
-    path="/generate-invoice-number",
-    response_model=SingleObjectResponse[GetInvoiceNumberResponse],
-    responses=RESPONSES["generate_invoice_number"],
-    summary=SUMMARIES["generate_invoice_number"],
-    description=DOCSTRINGS["generate_invoice_number"],
-)
-async def generate_invoice_number(
-    data: GetInvoiceNumberRequest,
-    invoice_service: Annotated[SaleInvoiceService, Depends(get_invoice_service)],
-    current_user: Annotated[UserOut, Depends(get_current_user)],
-) -> SingleObjectResponse[SaleInvoiceOut]:
-    seq_number, invoice_number = await invoice_service.generate_invoice_number(current_user.id, data.invoice_type, data.invoice_type_code)
-    return SingleObjectResponse(data=GetInvoiceNumberResponse(invoice_number=invoice_number))
 
 
 @router.get(
@@ -132,3 +65,89 @@ async def get_invoices(
         page=pagination.page,
         limit=pagination.limit
     )
+
+
+@router.post(
+    path="/",
+    status_code=status.HTTP_201_CREATED,
+    response_model=SingleObjectResponse[SaleInvoiceOut],
+    responses=RESPONSES["create_invoice"],
+    summary=SUMMARIES["create_invoice"],
+    description=DOCSTRINGS["create_invoice"],
+)
+async def create_invoice(
+    body: SaleInvoiceCreate,
+    invoice_service: Annotated[SaleInvoiceService, Depends(get_invoice_service)],
+    current_user: Annotated[UserOut, Depends(get_current_user)],
+) -> SingleObjectResponse[SaleInvoiceOut]:
+    if body.document_type == DocumentType.INVOICE:
+        data = await invoice_service.create_invoice(body)
+    else:
+        data = await invoice_service.create_quotation(body)
+    return SingleObjectResponse(data=data)
+
+
+@router.post(
+    path="/generate-invoice-number",
+    response_model=SingleObjectResponse[GetInvoiceNumberResponse],
+    responses=RESPONSES["generate_invoice_number"],
+    summary=SUMMARIES["generate_invoice_number"],
+    description=DOCSTRINGS["generate_invoice_number"],
+)
+async def generate_invoice_number(
+    data: GetInvoiceNumberRequest,
+    invoice_service: Annotated[SaleInvoiceService, Depends(get_invoice_service)],
+    current_user: Annotated[UserOut, Depends(get_current_user)],
+) -> SingleObjectResponse[SaleInvoiceOut]:
+    seq_number, invoice_number = await invoice_service.generate_invoice_number(current_user.id, data.invoice_type, data.invoice_type_code)
+    return SingleObjectResponse(data=GetInvoiceNumberResponse(invoice_number=invoice_number))
+
+
+@router.post(
+    path="/quotations/convert/{id}",
+    status_code=status.HTTP_200_OK,
+    response_model=SingleObjectResponse[SaleInvoiceOut],
+    responses=RESPONSES["create_invoice"],
+    summary=SUMMARIES["create_invoice"],
+    description=DOCSTRINGS["create_invoice"],
+)
+async def convert_quotation(
+    id: int,
+    invoice_service: Annotated[SaleInvoiceService, Depends(get_invoice_service)],
+    current_user: Annotated[UserOut, Depends(get_current_user)],
+) -> SingleObjectResponse[SaleInvoiceOut]:
+    data = await invoice_service.convert_quotation(id)
+    return SingleObjectResponse(data=data)
+
+
+@router.put(
+    path="/quotations/{id}",
+    status_code=status.HTTP_200_OK,
+    response_model=SingleObjectResponse[SaleInvoiceOut],
+    responses=RESPONSES["create_invoice"],
+    summary=SUMMARIES["create_invoice"],
+    description=DOCSTRINGS["create_invoice"],
+)
+async def update_invoice(
+    id: int,
+    body: SaleInvoiceUpdate,
+    invoice_service: Annotated[SaleInvoiceService, Depends(get_invoice_service)],
+    current_user: Annotated[UserOut, Depends(get_current_user)],
+) -> SingleObjectResponse[SaleInvoiceOut]:
+    data = await invoice_service.update_quotation(id, body)
+    return SingleObjectResponse(data=data)
+
+
+@router.delete(
+    path="/quotations/{id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses=RESPONSES["create_invoice"],
+    summary=SUMMARIES["create_invoice"],
+    description=DOCSTRINGS["create_invoice"],
+)
+async def delete_invoice(
+    id: int,
+    invoice_service: Annotated[SaleInvoiceService, Depends(get_invoice_service)],
+    current_user: Annotated[UserOut, Depends(get_current_user)],
+) -> None:
+    await invoice_service.delete_quotation(id)
