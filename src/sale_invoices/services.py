@@ -316,7 +316,7 @@ class SaleInvoiceService:
             # Calculate invoice amounts
             invoice_dict = await self.calculate_amounts(data)
             invoice_lines = invoice_dict.pop("invoice_lines")
-            invoice_dict.update({"is_locked": False})
+            invoice_dict.update({"is_locked": False, "stage": self.user.stage})
             # Create invoice header
             invoice = await self.create_invoice_header(self.user.id, invoice_dict)
             # Create invoice lines
