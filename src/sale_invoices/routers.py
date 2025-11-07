@@ -99,7 +99,7 @@ async def generate_invoice_number(
     invoice_service: Annotated[SaleInvoiceService, Depends(get_invoice_service)],
     current_user: Annotated[UserOut, Depends(get_current_user)],
 ) -> SingleObjectResponse[SaleInvoiceOut]:
-    seq_number, invoice_number = await invoice_service.generate_invoice_number(current_user.id, data.invoice_type, data.invoice_type_code)
+    seq_number, invoice_number = await invoice_service.generate_invoice_number(current_user.id, data.document_type, data.invoice_type, data.invoice_type_code)
     return SingleObjectResponse(data=GetInvoiceNumberResponse(invoice_number=invoice_number))
 
 

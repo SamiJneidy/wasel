@@ -200,6 +200,7 @@ class SaleInvoiceUpdate(SaleInvoiceCreate):
         return self
 
 class GetInvoiceNumberRequest(BaseModel):
+    document_type: DocumentType
     invoice_type: InvoiceType
     invoice_type_code: InvoiceTypeCode
 

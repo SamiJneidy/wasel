@@ -95,3 +95,8 @@ class DocumentType(str, Enum):
 class Stage(str, Enum):
     PRODUCTION = "PRODUCTION"
     COMPLIANCE = "COMPLIANCE"
+
+class TaxScheme(str, Enum):
+    NONE = "NONE"
+    ZATCA_PHASE1 = "ZATCA_PHASE1"
+    ZATCA_PHASE2 = "ZATCA_PHASE2"
