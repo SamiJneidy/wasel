@@ -198,8 +198,40 @@ class AuthService:
         """Creates a refresh token."""
         token_payload.iat = datetime.now(tz=timezone.utc)
         token_payload.exp = datetime.now(tz=timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRATION_DAYS)
-        to_encode = token_payload.model_dump()
-        return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+        payload = token_payload.model_dump()
+        return TokenService.create_refresh_token(payload)
+
+
+    def create_access_token_and_set_cookie(self, response: Response, email: str, access_path: str = "/") -> None:
+        payload = TokenPayload(sub=email)
+        access_token = self.create_access_token(payload)
+        self.set_access_token_cookie(response, access_token, access_path)
+
+
+    def create_refresh_token_and_set_cookie(self, response: Response, email: str, refresh_path: str = "/") -> None:
+        payload = TokenPayload(sub=email)
+        refresh_token = self.create_refresh_token(payload)
+        self.set_refresh_token_cookie(response, refresh_token, refresh_path)
+
+
+    def create_tokens_and_set_cookies(self, response: Response, email: str, access_path: str = "/", refresh_path: str = "/") -> None:
+        """Sets the refresh token cookie. The cookie will be set based on the current environment. The 'path' argument will not be used in development environment."""
+        self.create_access_token_and_set_cookie(response, email, access_path)
+        self.create_refresh_token_and_set_cookie(response, email, refresh_path)
+
+    
+    def refresh(self, response: Response, refresh_token: str) -> None:
+        """Refreshes an expired access token using a valid refresh token and returns the new access token."""
+        email = TokenService.verify_token(refresh_token)
+        self.create_access_token_and_set_cookie(response, email, "/")
+    
+
+    def set_access_token_cookie(self, response: Response, access_token: str, access_path: str = "/") -> None:
+        TokenService.set_access_token_cookie(response, access_token, access_path)
+
+
+    def set_refresh_token_cookie(self, response: Response, refresh_token: str, refresh_path: str = "/") -> None:
+        TokenService.set_refresh_token_cookie(response, refresh_token, refresh_path)
 
 
     async def get_user_from_token(self, token: str) -> UserOut:
@@ -207,19 +239,3 @@ class AuthService:
         email = await TokenService.verify_token(token)
         user = await self.user_service.get_by_email(email)
         return user
-
-
-    async def refresh(self, refresh_token: str) -> str:
-        """Refreshes an expired access token using a valid refresh token and returns the new access token."""
-        email = TokenService.verify_token(refresh_token)
-        token_payload = TokenPayload(sub=email)
-        access_token = self.create_access_token(token_payload)
-        return access_token
-
-
-    async def set_token_cookies(self, email: str, response: Response, refresh_path: str) -> None:
-        """Sets the refresh token cookie. The cookie will be set based on the current environment. The 'path' argument will not be used in development environment."""
-        token_payload = TokenPayload(sub=email)
-        access_token = self.create_access_token(token_payload)
-        refresh_token = self.create_refresh_token(token_payload)
-        TokenService.set_token_cookies(access_token, refresh_token, response, refresh_path)

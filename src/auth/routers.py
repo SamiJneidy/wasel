@@ -93,7 +93,7 @@ async def login(
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> SingleObjectResponse[LoginResponse]:
     data = await auth_service.login(body)
-    await auth_service.set_token_cookies(body.email, response, "/api/v1/auth/refresh")
+    auth_service.create_tokens_and_set_cookies(response, body.email, "/", "/api/v1/auth/refresh")
     return SingleObjectResponse(data=data)
 
 
@@ -112,18 +112,19 @@ async def get_me(
 
 @router.post(
     "/refresh",
-    response_model=SingleObjectResponse[TokenRefreshResponse],
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_model=None,
     responses=RESPONSES["refresh"],
     summary=SUMMARIES["refresh"],
     description=DOCSTRINGS["refresh"],
 )
 async def refresh(
+    response: Response,
     request: Request,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
-) -> SingleObjectResponse[TokenRefreshResponse]:
+) -> None:
     refresh_token = request.cookies.get("refresh_token")
-    access_token = await auth_service.refresh(refresh_token)
-    return SingleObjectResponse(data=TokenRefreshResponse(access_token=access_token))
+    auth_service.refresh(response, refresh_token)
 
 
 # -----------------------------------------------------------------------------
@@ -259,7 +260,7 @@ async def swaggerlogin(
 ) -> dict[str, str]:
     from .schemas import TokenPayload
     login_data = LoginRequest(email=login_credentials.username,password=login_credentials.password,)
-    login_response: LoginResponse = await auth_service.login(login_data)
+    login_response: LoginResponse = auth_service.login(login_data)
     access_token = auth_service.create_access_token(TokenPayload(sub=login_credentials.username))
     return {
         "access_token": access_token,

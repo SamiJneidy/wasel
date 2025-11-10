@@ -32,15 +32,13 @@ class TokenService:
 
 
     @classmethod
-    def refresh(self, refresh_token: str, payload: dict) -> str:
-        """Refreshes an expired access token using a valid refresh token and returns the new access token."""
-        email = self.verify_token(refresh_token)
-        return self.create_access_token(payload)
-
+    def set_token_cookies(self, response: Response, access_token: str, refresh_token: str, access_path: str = "/", refresh_path: str = "/") -> None:
+        self.set_access_token_cookie(response, access_token, access_path)
+        self.set_refresh_token_cookie(response, refresh_token, refresh_path)
+    
 
     @classmethod
-    def set_token_cookies(self, access_token: str, refresh_token: str, response: Response, refresh_path: str) -> None:
-        """Sets the refresh token cookie. The cookie will be set based on the current environment. The 'path' argument will not be used in development environment."""
+    def set_access_token_cookie(self, response: Response, access_token: str, access_path: str) -> None:
         response.set_cookie(
             key="access_token",
             value=access_token,
@@ -48,8 +46,12 @@ class TokenService:
             secure=True if settings.ENVIRONMENT == "PRODUCTION" else False,
             samesite="lax",
             max_age=settings.ACCESS_TOKEN_EXPIRATION_MINUTES * 60,
-            path="/"
+            path=access_path
         )
+
+
+    @classmethod
+    def set_refresh_token_cookie(self, response: Response, refresh_token: str, refresh_path: str) -> None:
         response.set_cookie(
             key="refresh_token",
             value=refresh_token,
