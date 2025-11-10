@@ -1,9 +1,9 @@
 from fastapi import APIRouter, status
-from .services import ItemService
+from .services import OrganizationService
 from .schemas import (
-    ItemCreate,
-    ItemUpdate,
-    ItemOut,
+    OrganizationCreate,
+    OrganizationUpdate,
+    OrganizationOut,
     UserOut,
     ObjectListResponse,
     SingleObjectResponse,
@@ -11,92 +11,77 @@ from .schemas import (
 from .dependencies import (
     Annotated,
     Depends,
-    get_item_service,
-    get_current_user,
+    get_organization_service,
 )
-from src.docs.items import RESPONSES, DOCSTRINGS, SUMMARIES
+from src.core.dependencies import get_current_user
+from src.docs.organizations import RESPONSES, DOCSTRINGS, SUMMARIES
 
 router = APIRouter(
-    prefix="/items",
-    tags=["Items"],
+    prefix="/organizations",
+    tags=["Organizations"],
 )
 
 
 @router.post(
     path="/",
     status_code=status.HTTP_201_CREATED,
-    response_model=SingleObjectResponse[ItemOut],
-    responses=RESPONSES["create_item"],
-    summary=SUMMARIES["create_item"],
-    description=DOCSTRINGS["create_item"],
+    response_model=SingleObjectResponse[OrganizationOut],
+    # responses=RESPONSES["create_organization"],
+    # summary=SUMMARIES["create_organization"],
+    # description=DOCSTRINGS["create_organization"],
 )
-async def create_item(
-    body: ItemCreate,
-    item_service: Annotated[ItemService, Depends(get_item_service)],
+async def create_organization(
+    body: OrganizationCreate,
+    organization_service: Annotated[OrganizationService, Depends(get_organization_service)],
     current_user: Annotated[UserOut, Depends(get_current_user)],
-) -> ItemOut:
-    data = await item_service.create(body)
+) -> OrganizationOut:
+    data = await organization_service.create_organization(body)
     return SingleObjectResponse(data=data)
 
 
 @router.patch(
     path="/{id}",
-    response_model=SingleObjectResponse[ItemOut],
-    responses=RESPONSES["update_item"],
-    summary=SUMMARIES["update_item"],
-    description=DOCSTRINGS["update_item"],
+    response_model=SingleObjectResponse[OrganizationOut],
+    # responses=RESPONSES["update_organization"],
+    # summary=SUMMARIES["update_organization"],
+    # description=DOCSTRINGS["update_organization"],
 )
-async def update_item(
+async def update_organization(
     id: int,
-    body: ItemUpdate,
-    item_service: Annotated[ItemService, Depends(get_item_service)],
+    body: OrganizationUpdate,
+    organization_service: Annotated[OrganizationService, Depends(get_organization_service)],
     current_user: Annotated[UserOut, Depends(get_current_user)],
-) -> ItemOut:
-    data = await item_service.update(id, body)
+) -> OrganizationOut:
+    data = await organization_service.update_organization(id, body)
     return SingleObjectResponse(data=data)
 
 
 @router.delete(
     path="/{id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    responses=RESPONSES["delete_item"],
-    summary=SUMMARIES["delete_item"],
-    description=DOCSTRINGS["delete_item"],
+    # responses=RESPONSES["delete_organization"],
+    # summary=SUMMARIES["delete_organization"],
+    # description=DOCSTRINGS["delete_organization"],
 )
-async def delete_item(
+async def delete_organization(
     id: int,
-    item_service: Annotated[ItemService, Depends(get_item_service)],
+    organization_service: Annotated[OrganizationService, Depends(get_organization_service)],
     current_user: Annotated[UserOut, Depends(get_current_user)],
 ) -> None:
-    return await item_service.delete(id)
-
-
-@router.get(
-    path="/",
-    response_model=ObjectListResponse[ItemOut],
-    responses=RESPONSES["get_items_for_user"],
-    summary=SUMMARIES["get_items_for_user"],
-    description=DOCSTRINGS["get_items_for_user"],
-)
-async def get_items_for_user(
-    item_service: Annotated[ItemService, Depends(get_item_service)],
-    current_user: Annotated[UserOut, Depends(get_current_user)],
-) -> ObjectListResponse[ItemOut]:
-    data = await item_service.get_items_for_user()
-    return ObjectListResponse(data=data)
+    return await organization_service.delete_organization(id)
 
 
 @router.get(
     path="/{id}",
-    response_model=SingleObjectResponse[ItemOut],
-    responses=RESPONSES["get_item"],
-    summary=SUMMARIES["get_item"],
-    description=DOCSTRINGS["get_item"],
+    response_model=SingleObjectResponse[OrganizationOut],
+    # responses=RESPONSES["get_organization"],
+    # summary=SUMMARIES["get_organization"],
+    # description=DOCSTRINGS["get_organization"],
 )
-async def get_item(
+async def get_organization(
     id: int,
-    item_service: Annotated[ItemService, Depends(get_item_service)],
+    organization_service: Annotated[OrganizationService, Depends(get_organization_service)],
     current_user: Annotated[UserOut, Depends(get_current_user)],
-) -> ItemOut:
-    data = await item_service.get(id)
+) -> OrganizationOut:
+    data = await organization_service.get_organization(id)
     return SingleObjectResponse(data=data)

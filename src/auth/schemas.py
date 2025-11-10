@@ -3,6 +3,7 @@ from pydantic import BaseModel, EmailStr, StringConstraints, ConfigDict, Field, 
 from datetime import datetime
 from src.core.schemas import BaseSchema, SingleObjectResponse, SuccessfulResponse, ErrorResponse
 from src.users.schemas import UserOut, UserUpdate
+from src.organizations.schemas import OrganizationCreate, OrganizationOut
 from src.core.enums import OTPStatus, OTPUsage, UserRole, UserStatus
 
 # Authentication
@@ -39,11 +40,11 @@ class SignUpResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class SignUpCompleteRequest(UserUpdate):
+class SignUpCompleteRequest(OrganizationCreate):
     pass
 
 
-class SignUpCompleteResponse(UserOut):
+class SignUpCompleteResponse(OrganizationOut):
     pass
 
 

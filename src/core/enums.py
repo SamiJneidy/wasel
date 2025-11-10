@@ -24,9 +24,12 @@ class InvoiceTypeCode(str, Enum):
     INVOICE = "388"
 
 class UserRole(str, Enum):
-    CLIENT = "client"
-    ADMIN = "admin"              # Manages users, settings, etc.
     SUPER_ADMIN = "super_admin"  # Full system access (rarely used)
+    ADMIN = "admin"              # Manages users, settings, etc.
+
+class UserType(str, Enum):
+    CLIENT = "client"
+    DEVELOPR = "DEVELOPER"
 
 class UserStatus(str, Enum):
     PENDING = "pending"          # Awaiting email/phone verification

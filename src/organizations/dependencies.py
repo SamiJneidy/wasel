@@ -1,22 +1,20 @@
 from fastapi import Depends
 from sqlalchemy.orm import Session
 from typing import Annotated
-from src.users.schemas import UserOut
 from .repositories import OrganizationRepository
 from .services import OrganizationService
+from src.branches.dependencies import BranchRepository, get_branch_repository
 from src.core.database import get_db
-from src.auth.dependencies import get_current_user
 
 
 def get_organization_repository(
     db: Annotated[Session, Depends(get_db)],
-    user: Annotated[UserOut, Depends(get_current_user)]
 ) -> OrganizationRepository:
-    return OrganizationRepository(db, user)
+    return OrganizationRepository(db)
 
 
 def get_organization_service(
     organization_repo: Annotated[OrganizationRepository, Depends(get_organization_repository)],
+    branch_repo: Annotated[BranchRepository, Depends(get_branch_repository)],
 ) -> OrganizationService:
-    
-    return OrganizationService(organization_repo)
+    return OrganizationService(organization_repo, branch_repo)

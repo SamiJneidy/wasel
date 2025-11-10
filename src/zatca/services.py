@@ -3,7 +3,7 @@ from httpx import BasicAuth
 from fastapi import status
 from .schemas import ZatcaCSIDResponse, ZatcaSimplifiedInvoiceResponse, ZatcaStandardInvoiceResponse, ZatcaComplianceInvoiceResponse
 from src.core.config import settings
-from src.core.utils import AsyncRequestService
+from src.core.services import AsyncRequestService
 from src.core.enums import InvoiceType
 from .exceptions import CSIDNotIssuedException, ZatcaRequestFailedException, InvoiceNotAcceptedException
 from .utils import extract_error_message_from_response

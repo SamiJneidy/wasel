@@ -1,2 +1,2 @@
-from .otp import OTPService
-from .auth import AuthService
+from .otp_service import OTPService
+from .auth_service import AuthService
