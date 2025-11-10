@@ -1,13 +1,12 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_, select, insert, update, delete
 from datetime import datetime
-from .models import Organization
+from .models import Organization, Branch
 from src.users.schemas import UserOut
 
 class OrganizationRepository:
-    def __init__(self, db: Session, user: UserOut):
+    def __init__(self, db: Session):
         self.db = db
-        self.user = user
     
     async def get(self, id: int) -> Organization | None:
         return self.db.query(Organization).filter(Organization.id==id).first()
@@ -21,7 +20,7 @@ class OrganizationRepository:
         self.db.commit()
         self.db.refresh(organization)
         return organization
-
+    
     async def update(self, id: int, data: dict) -> Organization | None:
         stmt = update(Organization).where(Organization.id==id).values(**data)
         self.db.execute(stmt)

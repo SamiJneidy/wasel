@@ -5,13 +5,16 @@ from src.users.schemas import UserOut
 from .repositories import CustomerRepository
 from .services import CustomerService
 from src.core.database import get_db
-from src.auth.dependencies import get_current_user
+from src.users.dependencies import UserService, get_user_service
+from src.core.dependencies import get_current_user
 
 
-def get_customer_repository(
+async def get_customer_repository(
     db: Annotated[Session, Depends(get_db)],
-    user: Annotated[UserOut, Depends(get_current_user)]
+    user_email: Annotated[str, Depends(get_current_user)],
+    user_service: Annotated[UserService, Depends(get_user_service)],
 ) -> CustomerRepository:
+    user = await user_service.get_by_email(user_email)
     return CustomerRepository(db, user)
 
 

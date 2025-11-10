@@ -1,7 +1,7 @@
 from fastapi import Depends
 from typing import Annotated
 from .services import ZatcaService
-from src.core.utils import AsyncRequestService
+from src.core.services import AsyncRequestService
 from src.core.dependencies import get_request_service
 
 

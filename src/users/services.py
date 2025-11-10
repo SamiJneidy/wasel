@@ -1,7 +1,7 @@
 from datetime import datetime
 from src.core.enums import UserStatus
 from .repositories import UserRepository
-from .schemas import UserOut, UserUpdate, UserInDB, StageSwitchResponse
+from .schemas import UserOut, UserUpdate, UserInDB
 from .exceptions import UserNotFoundException, UserNotActiveException
 
 class UserService:
