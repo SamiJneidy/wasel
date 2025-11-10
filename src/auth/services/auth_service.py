@@ -110,12 +110,10 @@ class AuthService:
             if db_user.invalid_login_attempts >= settings.MAXIMUM_NUMBER_OF_INVALID_LOGIN_ATTEMPTS:
                 await self.user_service.update_user_status(credentials.email, UserStatus.DISABLED)
             raise InvalidCredentialsException()
-        token_payload = TokenPayload(sub=credentials.email)
-        access_token = self.create_access_token(token_payload)
         await self.user_service.reset_invalid_login_attempts(credentials.email)
         await self.user_service.update_last_login(credentials.email, datetime.utcnow())
         user = await self.user_service.get_by_email(db_user.email)
-        return LoginResponse(user=user, access_token=access_token)
+        return LoginResponse(user=user)
 
 
     async def request_email_verification_otp(self, data: RequestEmailVerificationOTPRequest) -> RequestEmailVerificationOTPResponse:
@@ -219,8 +217,9 @@ class AuthService:
         return access_token
 
 
-    async def set_refresh_token_cookie(self, email: str, response: Response, path: str) -> None:
+    async def set_token_cookies(self, email: str, response: Response, refresh_path: str) -> None:
         """Sets the refresh token cookie. The cookie will be set based on the current environment. The 'path' argument will not be used in development environment."""
         token_payload = TokenPayload(sub=email)
+        access_token = self.create_access_token(token_payload)
         refresh_token = self.create_refresh_token(token_payload)
-        TokenService.set_refresh_token_cookie(refresh_token, response, path)
+        TokenService.set_token_cookies(access_token, refresh_token, response, refresh_path)

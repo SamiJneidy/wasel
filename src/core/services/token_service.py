@@ -39,8 +39,17 @@ class TokenService:
 
 
     @classmethod
-    def set_refresh_token_cookie(self, refresh_token: str, response: Response, path: str) -> None:
+    def set_token_cookies(self, access_token: str, refresh_token: str, response: Response, refresh_path: str) -> None:
         """Sets the refresh token cookie. The cookie will be set based on the current environment. The 'path' argument will not be used in development environment."""
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            secure=True if settings.ENVIRONMENT == "PRODUCTION" else False,
+            samesite="lax",
+            max_age=settings.ACCESS_TOKEN_EXPIRATION_MINUTES * 60,
+            path="/"
+        )
         response.set_cookie(
             key="refresh_token",
             value=refresh_token,
@@ -48,5 +57,5 @@ class TokenService:
             secure=True if settings.ENVIRONMENT == "PRODUCTION" else False,
             samesite="lax",
             max_age=settings.REFRESH_TOKEN_EXPIRATION_DAYS * 24 * 60 * 60,
-            path=path if settings.ENVIRONMENT == "PRODUCTION" else "/"
+            path=refresh_path if settings.ENVIRONMENT == "PRODUCTION" else "/"
         )

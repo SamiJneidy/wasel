@@ -21,4 +21,4 @@ async def get_branch_service(
     user_service: Annotated[UserService, Depends(get_user_service)],
 ) -> BranchService:
     user = await user_service.get_by_email(user_email)
-    return BranchService(branch_repo)
+    return BranchService(branch_repo, user)

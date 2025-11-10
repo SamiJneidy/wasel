@@ -93,7 +93,7 @@ async def login(
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> SingleObjectResponse[LoginResponse]:
     data = await auth_service.login(body)
-    await auth_service.set_refresh_token_cookie(body.email, response, "/api/v1/auth/refresh")
+    await auth_service.set_token_cookies(body.email, response, "/api/v1/auth/refresh")
     return SingleObjectResponse(data=data)
 
 
@@ -257,12 +257,11 @@ async def swaggerlogin(
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
     login_credentials: OAuth2PasswordRequestForm = Depends(),
 ) -> dict[str, str]:
-    login_data = LoginRequest(
-        email=login_credentials.username,
-        password=login_credentials.password,
-    )
+    from .schemas import TokenPayload
+    login_data = LoginRequest(email=login_credentials.username,password=login_credentials.password,)
     login_response: LoginResponse = await auth_service.login(login_data)
+    access_token = auth_service.create_access_token(TokenPayload(sub=login_credentials.username))
     return {
-        "access_token": login_response.access_token,
+        "access_token": access_token,
         "token_type": "bearer",
     }

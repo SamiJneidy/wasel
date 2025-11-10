@@ -11,8 +11,8 @@ class BranchRepository:
     async def get(self, id: int) -> Branch | None:
         return self.db.query(Branch).filter(Branch.id==id).first()
     
-    async def get_branches_for_branch(self, branch_id: int) -> list[Branch]:
-        return self.db.query(Branch).filter(Branch.branch_id==branch_id).all()
+    async def get_branches_for_organization(self, organization_id: int) -> list[Branch]:
+        return self.db.query(Branch).filter(Branch.organization_id==organization_id).all()
 
     async def create(self, data: dict) -> Branch | None:
         branch = Branch(**data)

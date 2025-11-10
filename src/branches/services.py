@@ -15,13 +15,13 @@ class BranchService:
             raise BranchNotFoundException()
         return BranchOut.model_validate(branch)
     
-    async def get_branches_for_organization(self, organization_id: int) -> BranchOut:
-        branches = await self.branch_repo.get_branches_for_organization(organization_id)
+    async def get_branches_for_organization(self) -> BranchOut:
+        branches = await self.branch_repo.get_branches_for_organization(self.user.organization_id)
         return [BranchOut.model_validate(branch) for branch in branches]
     
-    async def create_branch(self, organization_id: int, data: BranchCreate) -> BranchOut:
+    async def create_branch(self, data: BranchCreate) -> BranchOut:
         data_dict = data.model_dump()
-        data_dict.update({"organization_id": organization_id})
+        data_dict.update({"organization_id": self.user.organization_id})
         branch = await self.branch_repo.create(data_dict)
         return BranchOut.model_validate(branch)
     

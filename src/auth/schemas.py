@@ -55,7 +55,6 @@ class LoginRequest(BaseModel):
 
 class LoginResponse(BaseModel):
     user: UserOut
-    access_token: str
 
 
 class RequestEmailVerificationOTPRequest(BaseModel):

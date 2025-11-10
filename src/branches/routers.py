@@ -28,22 +28,22 @@ router = APIRouter(
     # summary=SUMMARIES["get_branches_for_user"],
     # description=DOCSTRINGS["get_branches_for_user"],
 )
-async def get_branches_for_organization(
+async def get_branches_for_branch(
     branch_service: Annotated[BranchService, Depends(get_branch_service)],
     current_user: Annotated[UserOut, Depends(get_current_user)],
 ) -> ObjectListResponse[BranchOut]:
-    data = await branch_service.get_branches_for_organization(current_user.organization_id)
+    data = await branch_service.get_branches_for_branch()
     return ObjectListResponse(data=data)
 
 
 @router.get(
     path="/{id}",
     response_model=SingleObjectResponse[BranchOut],
-    # responses=RESPONSES["get_organization"],
-    # summary=SUMMARIES["get_organization"],
-    # description=DOCSTRINGS["get_organization"],
+    # responses=RESPONSES["get_branch"],
+    # summary=SUMMARIES["get_branch"],
+    # description=DOCSTRINGS["get_branch"],
 )
-async def get_organization(
+async def get_branch(
     id: int,
     branch_service: Annotated[BranchService, Depends(get_branch_service)],
     current_user: Annotated[UserOut, Depends(get_current_user)],
@@ -56,9 +56,9 @@ async def get_organization(
     path="/",
     status_code=status.HTTP_201_CREATED,
     response_model=SingleObjectResponse[BranchOut],
-    # responses=RESPONSES["create_organization"],
-    # summary=SUMMARIES["create_organization"],
-    # description=DOCSTRINGS["create_organization"],
+    # responses=RESPONSES["create_branch"],
+    # summary=SUMMARIES["create_branch"],
+    # description=DOCSTRINGS["create_branch"],
 )
 async def create_branch(
     body: BranchCreate,
@@ -72,11 +72,11 @@ async def create_branch(
 @router.patch(
     path="/{id}",
     response_model=SingleObjectResponse[BranchOut],
-    # responses=RESPONSES["update_organization"],
-    # summary=SUMMARIES["update_organization"],
-    # description=DOCSTRINGS["update_organization"],
+    # responses=RESPONSES["update_branch"],
+    # summary=SUMMARIES["update_branch"],
+    # description=DOCSTRINGS["update_branch"],
 )
-async def update_organization(
+async def update_branch(
     id: int,
     body: BranchUpdate,
     branch_service: Annotated[BranchService, Depends(get_branch_service)],
@@ -89,11 +89,11 @@ async def update_organization(
 @router.delete(
     path="/{id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    # responses=RESPONSES["delete_organization"],
-    # summary=SUMMARIES["delete_organization"],
-    # description=DOCSTRINGS["delete_organization"],
+    # responses=RESPONSES["delete_branch"],
+    # summary=SUMMARIES["delete_branch"],
+    # description=DOCSTRINGS["delete_branch"],
 )
-async def delete_organization(
+async def delete_branch(
     id: int,
     branch_service: Annotated[BranchService, Depends(get_branch_service)],
     current_user: Annotated[UserOut, Depends(get_current_user)],
