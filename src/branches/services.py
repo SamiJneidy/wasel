@@ -19,9 +19,9 @@ class BranchService:
         branches = await self.branch_repo.get_branches_for_organization(self.user.organization_id)
         return [BranchOut.model_validate(branch) for branch in branches]
     
-    async def create_branch(self, data: BranchCreate) -> BranchOut:
+    async def create_branch(self, data: BranchCreate, is_main_branch: bool = False) -> BranchOut:
         data_dict = data.model_dump()
-        data_dict.update({"organization_id": self.user.organization_id})
+        data_dict.update({"organization_id": self.user.organization_id, "is_main_branch": is_main_branch})
         branch = await self.branch_repo.create(data_dict)
         return BranchOut.model_validate(branch)
     

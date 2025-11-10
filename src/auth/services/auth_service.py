@@ -91,7 +91,7 @@ class AuthService:
         #     data_dict.update({"organization_unit_name": data.registration_name})
         org_data = OrganizationCreate(**data.model_dump())
         org_out = await self.organization_service.create_organization_and_main_branch(org_data)
-        await self.user_service.update_by_email(email, {"is_completed": True})
+        await self.user_service.update_by_email(email, {"is_completed": True, "organization_id": org_out.id})
         return SignUpCompleteResponse(**org_out.model_dump())
         
 

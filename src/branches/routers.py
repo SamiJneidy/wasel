@@ -28,11 +28,11 @@ router = APIRouter(
     # summary=SUMMARIES["get_branches_for_user"],
     # description=DOCSTRINGS["get_branches_for_user"],
 )
-async def get_branches_for_branch(
+async def get_branches_for_organization(
     branch_service: Annotated[BranchService, Depends(get_branch_service)],
     current_user: Annotated[UserOut, Depends(get_current_user)],
 ) -> ObjectListResponse[BranchOut]:
-    data = await branch_service.get_branches_for_branch()
+    data = await branch_service.get_branches_for_organization()
     return ObjectListResponse(data=data)
 
 

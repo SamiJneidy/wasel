@@ -76,7 +76,7 @@ async def sign_up_complete(
     current_user_email: Annotated[UserOut, Depends(get_current_user)],
 ) -> SingleObjectResponse[SignUpCompleteResponse]:
     data = await auth_service.sign_up_complete(current_user_email, body)
-    await auth_service.set_refresh_token_cookie(current_user_email, response, "/api/v1/auth/refresh")
+    # await auth_service.set_token_cookies(current_user_email, response, "/api/v1/auth/refresh")
     return SingleObjectResponse(data=data)
 
 
