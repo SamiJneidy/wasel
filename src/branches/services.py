@@ -1,5 +1,6 @@
 from src.core.config import settings
-from .schemas import BranchOut, BranchCreate, BranchUpdate, UserOut
+from src.users.schemas import UserOut
+from .schemas import BranchOut, BranchCreate, BranchUpdate
 from .repositories import BranchRepository
 from .exceptions import BranchNotFoundException
 

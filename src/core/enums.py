@@ -1,13 +1,13 @@
 from enum import Enum
 
 class Gender(str, Enum):
-    MALE = "male"
-    FEMALE = "female"
-    OTHER = "other"
+    MALE = "MALE"
+    FEMALE = "FEMALE"
+    OTHER = "OTHER"
 
 class CSIDType(str, Enum):
-    PRODUCTION = "production"
-    COMPLIANCE = "compliance"
+    PRODUCTION = "PRODUCTION"
+    COMPLIANCE = "COMPLIANCE"
 
 class InvoicingType(str, Enum):
     STANDARD = "1000"
@@ -24,29 +24,29 @@ class InvoiceTypeCode(str, Enum):
     INVOICE = "388"
 
 class UserRole(str, Enum):
-    SUPER_ADMIN = "super_admin"  # Full system access (rarely used)
-    ADMIN = "admin"              # Manages users, settings, etc.
+    SUPER_ADMIN = "SUPER_ADMIN"  # Full system access (rarely used)
+    ADMIN = "ADMIN"              # Manages users, settings, etc.
 
 class UserType(str, Enum):
-    CLIENT = "client"
+    CLIENT = "CLIENT"
     DEVELOPR = "DEVELOPER"
 
 class UserStatus(str, Enum):
-    PENDING = "pending"          # Awaiting email/phone verification
-    ACTIVE = "active"            # Verified and fully accessible
-    BLOCKED = "blocked"          # Temporary suspension (e.g., too many failed logins)
-    DISABLED = "disabled"        # Manual deactivation by admin (reversible)
-    DELETED = "deleted"          # Soft-deleted (GDPR compliance; irreversible)
+    PENDING = "PENDING"          # Awaiting email/phone verification
+    ACTIVE = "ACTIVE"            # Verified and fully accessible
+    BLOCKED = "BLOCKED"          # Temporary suspension (e.g., too many failed logins)
+    DISABLED = "DISABLED"        # Manual deactivation by admin (reversible)
+    DELETED = "DELETED"          # Soft-deleted (GDPR compliance; irreversible)
 
 class OTPStatus(str, Enum):
-    PENDING = "pending"
-    VERIFIED = "verified"
-    EXPIRED = "expired"
+    PENDING = "PENDING"
+    VERIFIED = "VERIFIED"
+    EXPIRED = "EXPIRED"
 
 class OTPUsage(str, Enum):
-    LOGIN = "login"
-    PASSWORD_RESET = "password_reset"
-    EMAIL_VERIFICATION = "email_verification"
+    LOGIN = "LOGIN"
+    PASSWORD_RESET = "PASSWORD_RESET"
+    EMAIL_VERIFICATION = "EMAIL_VERIFICATION"
 
 class PartyIdentificationScheme(str, Enum):
     CRN = "CRN"
@@ -92,8 +92,8 @@ class TaxCategory(str, Enum):
     O = "O"
 
 class DocumentType(str, Enum):
-    INVOICE = "invoice"
-    QUOTATION = "quotation"
+    INVOICE = "INVOICE"
+    QUOTATION = "QUOTATION"
 
 class Stage(str, Enum):
     PRODUCTION = "PRODUCTION"

@@ -1,10 +1,10 @@
 from fastapi import APIRouter, status
 from .services import BranchService
+from src.users.schemas import UserOut
 from .schemas import (
     BranchCreate,
     BranchUpdate,
     BranchOut,
-    UserOut,
     ObjectListResponse,
     SingleObjectResponse,
 )

@@ -2,7 +2,6 @@ from pydantic import BaseModel, EmailStr, StringConstraints, ConfigDict, constr,
 from datetime import datetime
 from decimal import Decimal
 from src.core.schemas import AuditTimeMixin, ObjectListResponse, SingleObjectResponse
-from src.users.schemas import UserOut
 from src.core.enums import TaxScheme, UnitCodes
 from typing import Optional
 

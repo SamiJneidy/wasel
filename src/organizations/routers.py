@@ -1,10 +1,10 @@
 from fastapi import APIRouter, status
 from .services import OrganizationService
+from src.users.schemas import UserOut
 from .schemas import (
     OrganizationCreate,
     OrganizationUpdate,
     OrganizationOut,
-    UserOut,
     ObjectListResponse,
     SingleObjectResponse,
 )

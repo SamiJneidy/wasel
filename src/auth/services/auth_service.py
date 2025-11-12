@@ -74,7 +74,12 @@ class AuthService:
             pass
         data.password = hash_password(data.password)
         user_dict: dict = data.model_dump(exclude={"confirm_password"})
-        user_dict.update({"role": UserRole.SUPER_ADMIN, "type": UserType.CLIENT, "status": UserStatus.PENDING, "is_completed": False})
+        user_dict.update({
+            "type": UserType.CLIENT, 
+            "role": UserRole.SUPER_ADMIN, 
+            "status": UserStatus.PENDING, 
+            "is_completed": False
+        })
         user = await self.user_service.create_user_after_signup(user_dict)
         email_verification_otp_request = RequestEmailVerificationOTPRequest(email=data.email)
         await self.request_email_verification_otp(email_verification_otp_request)
@@ -129,6 +134,8 @@ class AuthService:
         await self.email_service.send_email_verification_otp(data.email, otp.code)
         return RequestEmailVerificationOTPResponse(email=data.email)
     
+
+    # async def create_invitation(self, data: )
 
     async def request_password_reset_otp(self, data: RequestPasswordResetOTPRequest) -> RequestPasswordResetOTPResponse:
         """Request an OTP code for password reset."""

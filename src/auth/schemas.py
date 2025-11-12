@@ -1,4 +1,4 @@
-from typing import Self
+from typing import Optional, Self
 from pydantic import BaseModel, EmailStr, StringConstraints, ConfigDict, Field, model_validator
 from datetime import datetime
 from src.core.schemas import BaseSchema, SingleObjectResponse, SuccessfulResponse, ErrorResponse
@@ -24,6 +24,8 @@ class TokenRefreshResponse(BaseModel):
 
 
 class SignUp(BaseModel):
+    name: str = Field(..., example="Sami")
+    phone: Optional[str] = Field(None)
     email: EmailStr = Field(..., example="user@example.com")
     password: str = Field(..., example="abcABC123", min_length=8, description="The password must be a minimum of 8 characters in length, containing both uppercase and lowercase English letters and at least one numeric digit.")
     confirm_password: str = Field(..., example="abcABC123", min_length=8, description="The password must be a minimum of 8 characters in length, containing both uppercase and lowercase English letters and at least one numeric digit.")
