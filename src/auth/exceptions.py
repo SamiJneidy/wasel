@@ -12,7 +12,7 @@ from src.users.exceptions import (
 # Auth
 class PasswordResetNotAllowedException(BaseAppException):
     """Raised when trying to reset the password without verifying the OTP code or the email is blocked."""
-    def __init__(self, detail: str | None = "Password reset not allowed. This may haapen because of invlid or expired OTP code or for other security issues. Please request a new OTP code and try again.", status_code: int = status.HTTP_401_UNAUTHORIZED):
+    def __init__(self, detail: str | None = "Password reset not allowed. This may happen because of invlid or expired OTP code or for other security issues. Please request a new OTP code and try again.", status_code: int = status.HTTP_401_UNAUTHORIZED):
         super().__init__(detail, status_code)
 
 class PasswordsDontMatchException(BaseAppException):
@@ -35,6 +35,10 @@ class InvalidTokenException(BaseAppException):
     def __init__(self, detail: str | None = "Invalid token", status_code: int = status.HTTP_401_UNAUTHORIZED):
         super().__init__(detail, status_code)
 
+class InvitationNotAllowedException(BaseAppException):
+    """Raised when trying to send an invitation to an invalid user."""
+    def __init__(self, detail: str | None = "Invitation not allowed. This may happen because the user is already set up or blocked.", status_code: int = status.HTTP_403_FORBIDDEN):
+        super().__init__(detail, status_code)
 
 
 # OTP

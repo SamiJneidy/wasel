@@ -3,15 +3,17 @@ from datetime import datetime
 from src.core.schemas import AuditTimeMixin
 from src.organizations.schemas import OrganizationOut
 from src.core.enums import UserRole, UserStatus, UserType
-from typing import Optional
+from typing import Optional, Self
 
 class UserBase(BaseModel):
-    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    name: str = Field(None, min_length=1, max_length=100)
     phone: Optional[str] = Field(None, min_length=1, max_length=100)
     email: str = Field(..., min_length=5, max_length=100, example="user@example.com")
+    role: UserRole
 
 class UserUpdate(UserBase):
     pass
+
 
 class UserOut(UserBase):
     id: int
@@ -24,7 +26,7 @@ class UserOut(UserBase):
     model_config = ConfigDict(from_attributes=True)
 
 class UserInDB(UserOut):
-    password: str
+    password: Optional[str] = None
     last_login: Optional[datetime]
     invalid_login_attempts: int
     role: UserRole

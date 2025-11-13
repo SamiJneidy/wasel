@@ -8,14 +8,14 @@ from ...auth.exceptions import InvalidTokenException
 class TokenService:
     
     @classmethod
-    def create_access_token(self, payload: dict) -> str:
+    def create_token(self, payload: dict) -> str:
         """Creates an access token."""
         return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
-    @classmethod
-    def create_refresh_token(self, payload: dict) -> str:
-        """Creates a refresh token."""
-        return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    # @classmethod
+    # def create_refresh_token(self, payload: dict) -> str:
+    #     """Creates a refresh token."""
+    #     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
     @classmethod

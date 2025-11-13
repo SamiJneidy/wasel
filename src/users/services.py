@@ -35,8 +35,7 @@ class UserService:
         return UserInDB.model_validate(db_user)
 
 
-    async def create_user_after_signup(self, data: dict) -> UserOut:
-        """Creates an initial user after signup. The user will need verification to continue the sigup process. This methos accepts the data as 'dict'."""
+    async def create_user(self, data: dict) -> UserOut:
         db_user = await self.user_repo.create(data)
         if not db_user:
             raise UserNotFoundException()

@@ -3,6 +3,7 @@ from fastapi_mail import FastMail, MessageSchema
 from pydantic import EmailStr
 from src.core.config import mail_config, settings
 from src.auth.exceptions import OTPCouldNotBeSentException
+from ..exceptions.email_exceptions import EmailCouldNotBeSentException
 
 
 class EmailService:
@@ -40,3 +41,15 @@ class EmailService:
             )
         except Exception as e:
             raise OTPCouldNotBeSentException()
+        
+    
+    async def send_user_invitation(self, email: str, url: str) -> None:
+        """Send an OTP code for password reset."""
+        try:
+            await self.send_email(
+                to=[email],
+                subject="Invite To Wasel",
+                body=f"Please click on the following link to finsih your account setup: {url}. Don't share this link with anyone.",
+            )
+        except Exception as e:
+            raise EmailCouldNotBeSentException()

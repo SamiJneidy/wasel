@@ -10,7 +10,7 @@ class User(Base, AuditTimeMixin):
     organization_id = Column(Integer, ForeignKey('organizations.id'), nullable=True)
     name = Column(String(100), nullable=True)
     email = Column(String(100), unique=True, nullable=False, index=True)
-    password = Column(String, nullable=False)
+    password = Column(String, nullable=True)
     phone = Column(String(20), nullable=True)
     last_login = Column(DateTime, nullable=True)
     invalid_login_attempts = Column(Integer, nullable=False, server_default=text("0"))

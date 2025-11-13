@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Request, Response, status, Depends
+from fastapi import APIRouter, Query, Request, Response, status, Depends
 from fastapi.security import OAuth2PasswordRequestForm
 from redis.asyncio import Redis
 
 from .services.auth_service import AuthService
 from .schemas import (
+    InvitationAcceptRequest,
+    InviteUserRequest,
     LoginRequest,
     LoginResponse,
     SignUp,
@@ -77,6 +79,56 @@ async def sign_up_complete(
 ) -> SingleObjectResponse[SignUpCompleteResponse]:
     data = await auth_service.sign_up_complete(current_user_email, body)
     # await auth_service.set_token_cookies(current_user_email, response, "/api/v1/auth/refresh")
+    return SingleObjectResponse(data=data)
+
+
+@router.post(
+    "/invitations/invite",
+    response_model=SingleObjectResponse[UserOut],
+    # responses=RESPONSES["sign_up_complete"],
+    # summary=SUMMARIES["sign_up_complete"],
+    # description=DOCSTRINGS["sign_up_complete"],
+)
+async def invite_user(
+    request: Request,
+    body: InviteUserRequest,
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
+    current_user_email: Annotated[UserOut, Depends(get_current_user)],
+) -> SingleObjectResponse[UserOut]:
+    data = await auth_service.invite_user(current_user_email, request.base_url, body)
+    return SingleObjectResponse(data=data)
+
+
+
+@router.post(
+    "/invitations/resend",
+    response_model=SingleObjectResponse[UserOut],
+    # responses=RESPONSES["sign_up_complete"],
+    # summary=SUMMARIES["sign_up_complete"],
+    # description=DOCSTRINGS["sign_up_complete"],
+)
+async def resend_invitation(
+    request: Request,
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
+    current_user_email: Annotated[UserOut, Depends(get_current_user)],
+    email: str = Query(description="Email of the user to send invitation to."),
+) -> SingleObjectResponse[UserOut]:
+    data = await auth_service.send_invitation(email, request.base_url)
+    return SingleObjectResponse(data=data)
+
+
+@router.post(
+    "/invitations/accept",
+    response_model=SingleObjectResponse[UserOut],
+    # responses=RESPONSES["sign_up_complete"],
+    # summary=SUMMARIES["sign_up_complete"],
+    # description=DOCSTRINGS["sign_up_complete"],
+)
+async def accept_invitation(
+    body: InvitationAcceptRequest,
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
+) -> SingleObjectResponse[UserOut]:
+    data = await auth_service.accept_invitation(body)
     return SingleObjectResponse(data=data)
 
 

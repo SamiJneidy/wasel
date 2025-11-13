@@ -10,3 +10,5 @@ passwords/
 signer-v4/
 __pycache__
 int.xml
+inv.xml
+inv.py

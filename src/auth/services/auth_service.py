@@ -12,6 +12,8 @@ from .otp_service import OTPService
 from ..repositories import AuthenticationRepository
 from ..utils import hash_password, verify_password
 from ..schemas import (
+    InvitationAcceptRequest,
+    InviteUserRequest,
     LoginRequest,
     LoginResponse,
     OTPCreate,
@@ -47,6 +49,7 @@ from ..exceptions import (
     UserBlockedException,
     UserDisabledException,
     UserNotVerifiedException,
+    InvitationNotAllowedException
 )
 
 
@@ -80,7 +83,7 @@ class AuthService:
             "status": UserStatus.PENDING, 
             "is_completed": False
         })
-        user = await self.user_service.create_user_after_signup(user_dict)
+        user = await self.user_service.create_user(user_dict)
         email_verification_otp_request = RequestEmailVerificationOTPRequest(email=data.email)
         await self.request_email_verification_otp(email_verification_otp_request)
         return user
@@ -121,6 +124,50 @@ class AuthService:
         return LoginResponse(user=user)
 
 
+    async def invite_user(self, current_user_email: str, host_url: str, data: InviteUserRequest) -> UserOut:
+        try:
+            user = await self.user_service.get_by_email(data.email)
+            raise EmailAlreadyInUseException()
+        except UserNotFoundException:
+            pass
+        current_user = await self.user_service.get_by_email(current_user_email)
+        user_dict = data.model_dump()
+        user_dict.update({
+            "organization_id": current_user.organization.id,
+            "type": UserType.CLIENT, 
+            "status": UserStatus.PENDING, 
+            "is_completed": False
+        })
+        await self.user_service.create_user(user_dict)
+        await self.send_invitation(data.email, host_url)
+        return await self.user_service.get_by_email(data.email)
+
+
+    async def send_invitation(self, email: str, host_url: str) -> UserOut:
+        user = await self.user_service.get_by_email(email)
+        if user.is_completed == True or user.status != UserStatus.PENDING:
+            raise InvitationNotAllowedException()
+        payload = TokenPayload(sub=email)
+        token = self.create_user_invitation_token(payload)
+        url = f"{host_url}/users/invite/?token={token}"
+        await self.email_service.send_user_invitation(email, url)
+        return user
+
+
+    async def accept_invitation(self, data: InvitationAcceptRequest) -> UserOut:
+        user = await self.get_user_from_token(data.token)
+        if user.is_completed == True or user.status != UserStatus.PENDING:
+            raise EmailAlreadyInUseException()
+        data.password = hash_password(data.password)
+        data_dict = data.model_dump(exclude={"confirm_password", "token"})
+        data_dict.update({
+            "status": UserStatus.ACTIVE, 
+            "is_completed": True
+        })
+        await self.user_service.update_by_email(user.email, data_dict)
+        return await self.user_service.get_by_email(user.email)
+
+
     async def request_email_verification_otp(self, data: RequestEmailVerificationOTPRequest) -> RequestEmailVerificationOTPResponse:
         """Creates an OTP code for email verification and sends it to the email. This function will not work for blocked users."""
         user = await self.user_service.get_by_email(data.email)
@@ -134,8 +181,6 @@ class AuthService:
         await self.email_service.send_email_verification_otp(data.email, otp.code)
         return RequestEmailVerificationOTPResponse(email=data.email)
     
-
-    # async def create_invitation(self, data: )
 
     async def request_password_reset_otp(self, data: RequestPasswordResetOTPRequest) -> RequestPasswordResetOTPResponse:
         """Request an OTP code for password reset."""
@@ -198,7 +243,7 @@ class AuthService:
         token_payload.iat = datetime.now(tz=timezone.utc)
         token_payload.exp = datetime.now(tz=timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRATION_MINUTES)
         payload = token_payload.model_dump()
-        return TokenService.create_access_token(payload)
+        return TokenService.create_token(payload)
 
 
     def create_refresh_token(self, token_payload: TokenPayload) -> str:
@@ -206,7 +251,15 @@ class AuthService:
         token_payload.iat = datetime.now(tz=timezone.utc)
         token_payload.exp = datetime.now(tz=timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRATION_DAYS)
         payload = token_payload.model_dump()
-        return TokenService.create_refresh_token(payload)
+        return TokenService.create_token(payload)
+
+
+    def create_user_invitation_token(self, token_payload: TokenPayload) -> str:
+        """Creates a token for user invitation."""
+        token_payload.iat = datetime.now(tz=timezone.utc)
+        token_payload.exp = datetime.now(tz=timezone.utc) + timedelta(days=settings.USER_INVITATION_OTP_EXPIRATION_MINUTES)
+        payload = token_payload.model_dump()
+        return TokenService.create_token(payload)
 
 
     def create_access_token_and_set_cookie(self, response: Response, email: str, access_path: str = "/") -> None:
@@ -243,6 +296,6 @@ class AuthService:
 
     async def get_user_from_token(self, token: str) -> UserOut:
         """Extracts user from a valid token."""
-        email = await TokenService.verify_token(token)
+        email = TokenService.verify_token(token)
         user = await self.user_service.get_by_email(email)
         return user

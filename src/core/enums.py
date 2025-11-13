@@ -26,6 +26,8 @@ class InvoiceTypeCode(str, Enum):
 class UserRole(str, Enum):
     SUPER_ADMIN = "SUPER_ADMIN"  # Full system access (rarely used)
     ADMIN = "ADMIN"              # Manages users, settings, etc.
+    SALESMAN = "SALESMAN"
+    ACCOUNTANT = "ACCOUNTANT"
 
 class UserType(str, Enum):
     CLIENT = "CLIENT"
