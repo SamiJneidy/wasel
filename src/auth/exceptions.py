@@ -6,6 +6,7 @@ from src.users.exceptions import (
     UserBlockedException, 
     UserDisabledException, 
     UserNotVerifiedException,
+    UserAlreadyExistsException
 )
 
 
@@ -25,19 +26,9 @@ class InvalidCredentialsException(BaseAppException):
     def __init__(self, detail: str | None = "Invalid credentials", status_code: int = status.HTTP_401_UNAUTHORIZED):
         super().__init__(detail, status_code)
 
-class EmailAlreadyInUseException(BaseAppException):
-    """Raised when the email is already in use."""
-    def __init__(self, detail: str | None = "Email already in use", status_code: int = status.HTTP_409_CONFLICT):
-        super().__init__(detail, status_code)
-
 class InvalidTokenException(BaseAppException):
     """Raised the token is invalid or expired."""
     def __init__(self, detail: str | None = "Invalid token", status_code: int = status.HTTP_401_UNAUTHORIZED):
-        super().__init__(detail, status_code)
-
-class InvitationNotAllowedException(BaseAppException):
-    """Raised when trying to send an invitation to an invalid user."""
-    def __init__(self, detail: str | None = "Invitation not allowed. This may happen because the user is already set up or blocked.", status_code: int = status.HTTP_403_FORBIDDEN):
         super().__init__(detail, status_code)
 
 

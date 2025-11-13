@@ -31,3 +31,22 @@ class UserInDB(UserOut):
     invalid_login_attempts: int
     role: UserRole
     model_config = ConfigDict(from_attributes=True)
+
+
+class UserInviteRequest(BaseModel):
+    name: str
+    email: EmailStr
+    phone: Optional[str] = None
+    role: UserRole
+
+    @field_validator("role", mode="after")
+    def check_role(cls, value):
+        if value == UserRole.SUPER_ADMIN:
+            raise ValueError("Role cannot be SUPER_ADMIN")
+        return value
+    
+
+class UserInviteTokenPayload(BaseModel):
+    sub: str
+    iat: datetime | None = None
+    exp: datetime | None = None

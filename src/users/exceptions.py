@@ -1,6 +1,11 @@
 from fastapi import status
 from src.core.exceptions.exceptions import BaseAppException
 
+class UserAlreadyExistsException(BaseAppException):
+    """Raised when the email is already in use."""
+    def __init__(self, detail: str | None = "Email already in use", status_code: int = status.HTTP_409_CONFLICT):
+        super().__init__(detail, status_code)
+
 class UserNotFoundException(BaseAppException):
     """Raised when the user is not found."""
     def __init__(self, detail: str | None = "User not found", status_code: int = status.HTTP_404_NOT_FOUND):
@@ -34,4 +39,9 @@ class UserNotPendingException(BaseAppException):
 class UserNotVerifiedException(BaseAppException):
     """Raised when the user's email is not verified."""
     def __init__(self, detail: str | None = "Your account is not verified. Verify your account and try again.", status_code: int = status.HTTP_403_FORBIDDEN):
+        super().__init__(detail, status_code)
+
+class InvitationNotAllowedException(BaseAppException):
+    """Raised when trying to send an invitation to an invalid user."""
+    def __init__(self, detail: str | None = "Invitation not allowed. This may happen because the user is already set up or blocked.", status_code: int = status.HTTP_403_FORBIDDEN):
         super().__init__(detail, status_code)

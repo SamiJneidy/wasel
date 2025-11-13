@@ -35,32 +35,7 @@ class SignUp(BaseModel):
         if self.password != self.confirm_password:
             raise ValueError("Passwords do not match")
         return self
-    
-
-class InviteUserRequest(BaseModel):
-    name: str
-    email: EmailStr
-    phone: Optional[str] = None
-    role: UserRole
-
-    @field_validator("role", mode="after")
-    def check_role(cls, value):
-        if value == UserRole.SUPER_ADMIN:
-            raise ValueError("Role cannot be SUPER_ADMIN")
-        return value
-    
-
-class InvitationAcceptRequest(BaseModel):
-    token: str
-    password: str = Field(..., example="abcABC123", min_length=8, description="The password must be a minimum of 8 characters in length, containing both uppercase and lowercase English letters and at least one numeric digit.")
-    confirm_password: str = Field(..., example="abcABC123", min_length=8, description="The password must be a minimum of 8 characters in length, containing both uppercase and lowercase English letters and at least one numeric digit.")
-    
-    @model_validator(mode="after")
-    def check_passwords_match(self) -> Self:
-        if self.password != self.confirm_password:
-            raise ValueError("Passwords do not match")
-        return self
-    
+        
 
 class SignUpResponse(BaseModel):
     email: EmailStr = Field(..., example="user@example.com")
@@ -73,6 +48,18 @@ class SignUpCompleteRequest(OrganizationCreate):
 
 class SignUpCompleteResponse(OrganizationOut):
     pass
+
+
+class UserInviteAcceptRequest(BaseModel):
+    token: str
+    password: str = Field(..., example="abcABC123", min_length=8, description="The password must be a minimum of 8 characters in length, containing both uppercase and lowercase English letters and at least one numeric digit.")
+    confirm_password: str = Field(..., example="abcABC123", min_length=8, description="The password must be a minimum of 8 characters in length, containing both uppercase and lowercase English letters and at least one numeric digit.")
+    
+    @model_validator(mode="after")
+    def check_passwords_match(self) -> Self:
+        if self.password != self.confirm_password:
+            raise ValueError("Passwords do not match")
+        return self
 
 
 class LoginRequest(BaseModel):

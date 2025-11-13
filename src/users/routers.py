@@ -1,7 +1,8 @@
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Query, Request, status
 from src.core.schemas import SingleObjectResponse
 from .services import UserService
 from .schemas import (
+    UserInviteRequest,
     UserOut,
 )
 from .dependencies import (
@@ -46,6 +47,41 @@ async def get_user_by_email(
 ) -> SingleObjectResponse[UserOut]:
     data = await user_service.get_by_email(email)
     return SingleObjectResponse[UserOut](data=data)
+
+
+@router.post(
+    "/invite",
+    response_model=SingleObjectResponse[UserOut],
+    # responses=RESPONSES["sign_up_complete"],
+    # summary=SUMMARIES["sign_up_complete"],
+    # description=DOCSTRINGS["sign_up_complete"],
+)
+async def invite_user(
+    request: Request,
+    body: UserInviteRequest,
+    user_service: Annotated[UserService, Depends(get_user_service)],
+    current_user_email: Annotated[UserOut, Depends(get_current_user)],
+) -> SingleObjectResponse[UserOut]:
+    data = await user_service.invite_user(current_user_email, request.base_url, body)
+    return SingleObjectResponse(data=data)
+
+
+
+@router.post(
+    "/invite/resend",
+    response_model=SingleObjectResponse[UserOut],
+    # responses=RESPONSES["sign_up_complete"],
+    # summary=SUMMARIES["sign_up_complete"],
+    # description=DOCSTRINGS["sign_up_complete"],
+)
+async def resend_invitation(
+    request: Request,
+    user_service: Annotated[UserService, Depends(get_user_service)],
+    current_user_email: Annotated[UserOut, Depends(get_current_user)],
+    email: str = Query(description="Email of the user to send invitation to."),
+) -> SingleObjectResponse[UserOut]:
+    data = await user_service.send_invitation(email, request.base_url)
+    return SingleObjectResponse(data=data)
 
 
 @router.delete(

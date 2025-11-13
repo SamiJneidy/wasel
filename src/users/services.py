@@ -1,14 +1,15 @@
-from datetime import datetime
-from src.core.enums import UserStatus
+from datetime import datetime, timedelta, timezone
+from src.core.enums import UserStatus, UserType
+from src.core.services import EmailService, TokenService
+from src.core.config import settings
 from .repositories import UserRepository
-from .schemas import UserOut, UserUpdate, UserInDB
-from .exceptions import UserNotFoundException, UserNotActiveException
+from .schemas import UserOut, UserUpdate, UserInDB, UserInviteRequest, UserInviteTokenPayload
+from .exceptions import InvitationNotAllowedException, UserNotFoundException, UserNotActiveException, UserAlreadyExistsException
 
 class UserService:
-    def __init__(self, 
-        user_repo: UserRepository,
-    ):
+    def __init__(self, user_repo: UserRepository, email_service: EmailService):
         self.user_repo = user_repo
+        self.email_service = email_service
 
     
     async def get(self, id: int) -> UserOut:
@@ -49,6 +50,40 @@ class UserService:
             raise UserNotFoundException()
         return UserOut.model_validate(db_user)
     
+
+    async def invite_user(self, current_user_email: str, host_url: str, data: UserInviteRequest) -> UserOut:
+        try:
+            user = await self.get_by_email(data.email)
+            raise UserAlreadyExistsException()
+        except UserNotFoundException:
+            pass
+        current_user = await self.get_by_email(current_user_email)
+        user_dict = data.model_dump()
+        user_dict.update({
+            "organization_id": current_user.organization.id,
+            "type": UserType.CLIENT, 
+            "status": UserStatus.PENDING, 
+            "is_completed": False
+        })
+        await self.create_user(user_dict)
+        await self.send_invitation(data.email, host_url)
+        return await self.get_by_email(data.email)
+
+
+    async def send_invitation(self, email: str, host_url: str) -> UserOut:
+        user = await self.get_by_email(email)
+        if user.is_completed == True or user.status != UserStatus.PENDING:
+            raise InvitationNotAllowedException()
+        payload = UserInviteTokenPayload(
+            sub=email, 
+            iat = datetime.now(tz=timezone.utc),
+            exp=datetime.now(tz=timezone.utc) + timedelta(minutes=settings.USER_INVITATION_TOKEN_EXPIRATION_MINUTES)
+        )
+        token = TokenService.create_token(payload.model_dump())
+        url = f"{host_url}users/invite/?token={token}"
+        await self.email_service.send_user_invitation(email, url)
+        return user
+
     
     async def increment_invlaid_login_attempts(self, email: str) -> UserInDB:
         """Increments the number of invalid login attempts for a user by 1."""
