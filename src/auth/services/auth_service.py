@@ -16,8 +16,6 @@ from ..schemas import (
     LoginResponse,
     OTPCreate,
     SignUp, 
-    SignUpResponse,
-    TokenRefreshResponse,
     VerifyEmailRequest,
     VerifyEmailResponse,
     ResetPasswordRequest,
@@ -28,8 +26,8 @@ from ..schemas import (
     RequestPasswordResetOTPResponse,
     VerifyPasswordResetOTPRequest,
     VerifyPasswordResetOTPResponse,
-    TokenPayload,
-    TokenResponse,
+    AccessTokenPayload,
+    RefreshTokenPayload,
     OTPOut,
     SignUpCompleteRequest,
     SignUpCompleteResponse,
@@ -115,7 +113,7 @@ class AuthService:
 
 
     async def login(self, credentials: LoginRequest) -> LoginResponse:
-        db_user = await self.user_service.get_user_in_db(credentials.email)
+        db_user = await self.user_service.get_by_email(credentials.email)
         if db_user.status == UserStatus.DISABLED:
             raise UserDisabledException()
         if db_user.status == UserStatus.BLOCKED:
@@ -125,7 +123,7 @@ class AuthService:
         if db_user.status != UserStatus.ACTIVE:
             raise UserNotActiveException()
         if not verify_password(credentials.password, db_user.password):
-            db_user: UserInDB = await self.user_service.increment_invlaid_login_attempts(credentials.email)
+            db_user: UserInDB = await self.user_service.increment_invalid_login_attempts(credentials.email)
             if db_user.invalid_login_attempts >= settings.MAXIMUM_NUMBER_OF_INVALID_LOGIN_ATTEMPTS:
                 await self.user_service.update_user_status(credentials.email, UserStatus.DISABLED)
             raise InvalidCredentialsException()
@@ -151,7 +149,7 @@ class AuthService:
 
     async def request_password_reset_otp(self, data: RequestPasswordResetOTPRequest) -> RequestPasswordResetOTPResponse:
         """Request an OTP code for password reset."""
-        user = await self.user_service.get_user_in_db(data.email)
+        user = await self.user_service.get_by_email(data.email)
         if user.status == UserStatus.PENDING:
             raise UserNotVerifiedException()
         if user.status == UserStatus.BLOCKED:
@@ -185,12 +183,10 @@ class AuthService:
     async def verify_email_after_signup(self, data: VerifyEmailRequest) -> LoginResponse:
         """Verifies email account after signup. The function will create access and refresh token after finishing the verificaion successfully."""
         await self.verify_email_verification_otp(data)
-        token_payload = TokenPayload(sub=data.email)
-        access_token = self.create_access_token(token_payload)
         await self.user_service.reset_invalid_login_attempts(data.email)
         await self.user_service.update_last_login(data.email, datetime.utcnow())
         user = await self.user_service.get_by_email(data.email)
-        return LoginResponse(user=user, access_token=access_token)
+        return LoginResponse(user=user)
     
 
     async def reset_password(self, data: ResetPasswordRequest) -> ResetPasswordResponse:
@@ -205,7 +201,7 @@ class AuthService:
         return ResetPasswordResponse(email=data.email)
 
 
-    def create_access_token(self, token_payload: TokenPayload) -> str:
+    def create_access_token(self, token_payload: AccessTokenPayload) -> str:
         """Creates an access token."""
         token_payload.iat = datetime.now(tz=timezone.utc)
         token_payload.exp = datetime.now(tz=timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRATION_MINUTES)
@@ -213,7 +209,7 @@ class AuthService:
         return TokenService.create_token(payload)
 
 
-    def create_refresh_token(self, token_payload: TokenPayload) -> str:
+    def create_refresh_token(self, token_payload: RefreshTokenPayload) -> str:
         """Creates a refresh token."""
         token_payload.iat = datetime.now(tz=timezone.utc)
         token_payload.exp = datetime.now(tz=timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRATION_DAYS)
@@ -222,13 +218,13 @@ class AuthService:
 
 
     def create_access_token_and_set_cookie(self, response: Response, email: str, access_path: str = "/") -> None:
-        payload = TokenPayload(sub=email)
+        payload = AccessTokenPayload(sub=email)
         access_token = self.create_access_token(payload)
         self.set_access_token_cookie(response, access_token, access_path)
 
 
     def create_refresh_token_and_set_cookie(self, response: Response, email: str, refresh_path: str = "/") -> None:
-        payload = TokenPayload(sub=email)
+        payload = RefreshTokenPayload(sub=email)
         refresh_token = self.create_refresh_token(payload)
         self.set_refresh_token_cookie(response, refresh_token, refresh_path)
 

@@ -1,27 +1,12 @@
 from typing import Optional, Self
 from pydantic import BaseModel, EmailStr, StringConstraints, ConfigDict, Field, field_validator, model_validator
 from datetime import datetime
-from src.core.schemas import BaseSchema, SingleObjectResponse, SuccessfulResponse, ErrorResponse
+from src.core.schemas import SingleObjectResponse, SuccessfulResponse, ErrorResponse, AccessTokenPayload, RefreshTokenPayload
 from src.users.schemas import UserOut, UserUpdate
 from src.organizations.schemas import OrganizationCreate, OrganizationOut
 from src.core.enums import OTPStatus, OTPUsage, UserRole, UserStatus
 
 # Authentication
-
-class TokenPayload(BaseModel):
-    sub: str
-    iat: datetime | None = None
-    exp: datetime | None = None
-
-
-class TokenResponse(BaseModel):
-    access_token: str
-    refresh_token: str
-
-
-class TokenRefreshResponse(BaseModel):
-    access_token: str
-
 
 class SignUp(BaseModel):
     name: str = Field(..., example="Sami")

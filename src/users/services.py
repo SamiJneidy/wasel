@@ -1,127 +1,129 @@
+from typing import Dict, Any
 from datetime import datetime, timedelta, timezone
-from src.core.enums import UserStatus, UserType
+from .repositories import UserRepository
+from .schemas import (
+    UserOut,
+    UserUpdate,
+    UserInDB,
+    UserInvite,
+    UserInviteTokenPayload,
+    UserCreate,
+)
+from .exceptions import (
+    InvitationNotAllowedException,
+    UserNotFoundException,
+    UserNotActiveException,
+    UserAlreadyExistsException,
+)
 from src.core.services import EmailService, TokenService
 from src.core.config import settings
-from .repositories import UserRepository
-from .schemas import UserOut, UserUpdate, UserInDB, UserInviteRequest, UserInviteTokenPayload
-from .exceptions import InvitationNotAllowedException, UserNotFoundException, UserNotActiveException, UserAlreadyExistsException
+from src.core.enums import UserStatus, UserType
+
 
 class UserService:
-    def __init__(self, user_repo: UserRepository, email_service: EmailService):
+    def __init__(
+        self,
+        user_repo: UserRepository,
+        email_service: EmailService,
+        token_service: TokenService,
+    ):
         self.user_repo = user_repo
         self.email_service = email_service
+        self.token_service = token_service
 
-    
-    async def get(self, id: int) -> UserOut:
-        """Returns user by id."""
-        db_user = await self.user_repo.get(id)
-        if not db_user:
-            raise UserNotFoundException()
-        return UserOut.model_validate(db_user)
-    
-
-    async def get_by_email(self, email: str) -> UserOut:
-        """Returns user by email."""
-        db_user = await self.user_repo.get_by_email(email)
-        if not db_user:
-            raise UserNotFoundException()
-        return UserOut.model_validate(db_user)
-
-    
-    async def get_user_in_db(self, email: str) -> UserInDB:
-        """Returns full user object. This may leak sensitive information."""
+    async def _get_or_raise_by_email(self, email: str) -> UserInDB:
         db_user = await self.user_repo.get_by_email(email)
         if not db_user:
             raise UserNotFoundException()
         return UserInDB.model_validate(db_user)
 
-
-    async def create_user(self, data: dict) -> UserOut:
-        db_user = await self.user_repo.create(data)
+    async def _get_or_raise_by_id(self, id: int) -> UserInDB:
+        db_user = await self.user_repo.get(id)
         if not db_user:
             raise UserNotFoundException()
-        return UserOut.model_validate(db_user)
+        return UserInDB.model_validate(db_user)
 
+    async def get(self, id: int) -> UserInDB:
+        return await self._get_or_raise_by_id(id)
 
-    async def update_by_email(self, email: str, data: dict) -> UserOut:
-        """Updates a user. This methods accepts the data as 'dict'."""
-        db_user = await self.user_repo.update_by_email(email, data)
-        if not db_user:
-            raise UserNotFoundException()
-        return UserOut.model_validate(db_user)
-    
+    async def get_by_email(self, email: str) -> UserInDB:
+        return await self._get_or_raise_by_email(email)
 
-    async def invite_user(self, current_user_email: str, host_url: str, data: UserInviteRequest) -> UserOut:
-        try:
-            user = await self.get_by_email(data.email)
+    async def create_user(self, payload: UserCreate) -> UserInDB:
+        existing = await self.user_repo.get_by_email(payload.email)
+        if existing:
             raise UserAlreadyExistsException()
-        except UserNotFoundException:
-            pass
-        current_user = await self.get_by_email(current_user_email)
-        user_dict = data.model_dump()
-        user_dict.update({
-            "organization_id": current_user.organization.id,
-            "type": UserType.CLIENT, 
-            "status": UserStatus.PENDING, 
-            "is_completed": False
-        })
-        await self.create_user(user_dict)
-        await self.send_invitation(data.email, host_url)
-        return await self.get_by_email(data.email)
+        data = payload.model_dump()
+        data.setdefault("status", UserStatus.PENDING)
+        data.setdefault("type", UserType.CLIENT)
+        user = await self.user_repo.create(data)
+        return UserInDB.model_validate(user)
 
+    async def update_by_email(self, email: str, update_data: Dict[str, Any]) -> UserInDB:
+        db_user = await self.user_repo.update_by_email(email, update_data)
+        if not db_user:
+            raise UserNotFoundException()
+        return UserInDB.model_validate(db_user)
 
-    async def send_invitation(self, email: str, host_url: str) -> UserOut:
+    async def invite_user(self, current_user: UserInDB, host_url: str, invite: UserInvite) -> UserInDB:
+        if await self.user_repo.get_by_email(invite.email):
+            raise UserAlreadyExistsException()
+        create_payload = {
+            **invite.model_dump(exclude_none=True),
+            "organization_id": current_user.organization_id,
+            "type": UserType.CLIENT,
+            "status": UserStatus.PENDING,
+            "is_completed": False,
+        }
+        user = await self.user_repo.create(create_payload)
+        await self.send_invitation(current_user, invite.email, host_url)
+        return UserInDB.model_validate(user)
+
+    async def send_invitation(self, inviter: UserInDB, email: str, host_url: str) -> None:
         user = await self.get_by_email(email)
-        if user.is_completed == True or user.status != UserStatus.PENDING:
+        if user.is_completed or user.status != UserStatus.PENDING:
             raise InvitationNotAllowedException()
+        now = datetime.now(tz=timezone.utc)
         payload = UserInviteTokenPayload(
-            sub=email, 
-            iat = datetime.now(tz=timezone.utc),
-            exp=datetime.now(tz=timezone.utc) + timedelta(minutes=settings.USER_INVITATION_TOKEN_EXPIRATION_MINUTES)
+            sub=email,
+            iat=now,
+            exp=now + timedelta(minutes=settings.USER_INVITATION_TOKEN_EXPIRATION_MINUTES),
+            invited_by=inviter.id,
+            organization_id=inviter.organization_id,
+            scope="invitation",
         )
-        token = TokenService.create_token(payload.model_dump())
+        token = self.token_service.create_token(payload.model_dump())
+        if not host_url.endswith("/"):
+            host_url = host_url + "/"
         url = f"{host_url}users/invite/?token={token}"
         await self.email_service.send_user_invitation(email, url)
-        return user
+        return None
 
-    
-    async def increment_invlaid_login_attempts(self, email: str) -> UserInDB:
-        """Increments the number of invalid login attempts for a user by 1."""
+    async def increment_invalid_login_attempts(self, email: str) -> UserInDB:
         db_user = await self.user_repo.increment_invalid_login_attempts(email)
         if not db_user:
             raise UserNotFoundException()
         return UserInDB.model_validate(db_user)
-    
-    
-    async def reset_invalid_login_attempts(self, email: str) -> UserOut:
-        """Resets the number of invalid login attempts for a user to zero."""
+
+    async def reset_invalid_login_attempts(self, email: str) -> UserInDB:
         db_user = await self.user_repo.reset_invalid_login_attempts(email)
         if not db_user:
             raise UserNotFoundException()
-        return UserOut.model_validate(db_user)
-    
-    
-    async def update_user_status(self, email: str, status: UserStatus) -> UserOut:
-        """Updates user status."""
+        return UserInDB.model_validate(db_user)
+
+    async def update_user_status(self, email: str, status: UserStatus) -> UserInDB:
         db_user = await self.user_repo.update_user_status(email, status)
         if not db_user:
             raise UserNotFoundException()
-        return UserOut.model_validate(db_user)
-    
-    
-    async def update_last_login(self, email: str, last_login: datetime) -> UserOut:
-        """Updates user status."""
+        return UserInDB.model_validate(db_user)
+
+    async def update_last_login(self, email: str, last_login: datetime) -> UserInDB:
         db_user = await self.user_repo.update_last_login(email, last_login)
         if not db_user:
             raise UserNotFoundException()
-        return UserOut.model_validate(db_user)
-    
+        return UserInDB.model_validate(db_user)
 
     async def delete_user(self, email: str) -> None:
-        """Deletes a user (NOT A SOFT DELETE)."""
-        db_user = await self.get_by_email(email)
-        if not db_user:
-            raise UserNotFoundException()
-        await self.user_repo.delete(email)
+        await self._get_or_raise_by_email(email)
+        await self.user_repo.delete_by_email(email)
         return None
-    

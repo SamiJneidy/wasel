@@ -8,7 +8,7 @@ class BranchRepository:
     def __init__(self, db: Session):
         self.db = db
     
-    async def get(self, id: int) -> Branch | None:
+    async def get(self,  id: int) -> Branch | None:
         return self.db.query(Branch).filter(Branch.id==id).first()
     
     async def get_branches_for_organization(self, organization_id: int) -> list[Branch]:

@@ -1,18 +1,43 @@
 from pydantic import BaseModel, EmailStr, StringConstraints, ConfigDict, constr, Field, field_validator, model_validator
 from datetime import datetime
-from src.core.schemas import AuditTimeMixin
+from src.core.schemas import AuditTimeMixin, UserInviteTokenPayload
 from src.organizations.schemas import OrganizationOut
 from src.core.enums import UserRole, UserStatus, UserType
 from typing import Optional, Self
 
+class UserInDB(BaseModel, AuditTimeMixin):
+    id: int
+    organization_id: Optional[int] = None
+    name: str
+    phone: Optional[str] = None
+    email: EmailStr
+    password: str
+    role: UserRole
+    is_completed: bool
+    status: UserStatus
+    type: UserType
+    last_login: Optional[datetime] = None
+    invalid_login_attempts: int = 0
+    model_config = ConfigDict(from_attributes=True)
+
+    
 class UserBase(BaseModel):
-    name: str = Field(None, min_length=1, max_length=100)
+    name: str = Field(..., min_length=1, max_length=100)
     phone: Optional[str] = Field(None, min_length=1, max_length=100)
     email: str = Field(..., min_length=5, max_length=100, example="user@example.com")
-    role: UserRole
+    role: UserRole = Field(..., example=UserRole.SALESMAN) 
 
-class UserUpdate(UserBase):
-    pass
+
+class UserCreate(UserBase):
+    organization_id: Optional[int] = None
+    password: str = Field(..., min_length=8, max_length=128)
+
+
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[EmailStr] = None
+    role: Optional[UserRole] = None
 
 
 class UserOut(UserBase):
@@ -20,20 +45,12 @@ class UserOut(UserBase):
     organization: Optional[OrganizationOut] = None
     is_completed: bool
     status: UserStatus
-    role: UserRole
     type: UserType
     last_login: Optional[datetime]
     model_config = ConfigDict(from_attributes=True)
 
-class UserInDB(UserOut):
-    password: Optional[str] = None
-    last_login: Optional[datetime]
-    invalid_login_attempts: int
-    role: UserRole
-    model_config = ConfigDict(from_attributes=True)
 
-
-class UserInviteRequest(BaseModel):
+class UserInvite(BaseModel):
     name: str
     email: EmailStr
     phone: Optional[str] = None
@@ -43,10 +60,8 @@ class UserInviteRequest(BaseModel):
     def check_role(cls, value):
         if value == UserRole.SUPER_ADMIN:
             raise ValueError("Role cannot be SUPER_ADMIN")
-        return value
-    
+        return value   
 
-class UserInviteTokenPayload(BaseModel):
-    sub: str
-    iat: datetime | None = None
-    exp: datetime | None = None
+    @field_validator("email", mode="after")
+    def normalize_email(cls, value: str) -> str:
+        return value.strip().lower() 
