@@ -110,9 +110,7 @@ async def login(
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> SingleObjectResponse[LoginResponse]:
     data = await auth_service.login(body)
-    auth_service.create_tokens_and_set_cookies(
-        response, body.email, "/", "/api/v1/auth/refresh"
-    )
+    auth_service.create_tokens_and_set_cookies(response, body.email)
     return SingleObjectResponse(data=data)
 
 

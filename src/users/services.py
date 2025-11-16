@@ -80,7 +80,7 @@ class UserService:
             exp=datetime.now(tz=timezone.utc) + timedelta(minutes=settings.USER_INVITATION_TOKEN_EXPIRATION_MINUTES)
         )
         token = TokenService.create_token(payload.model_dump())
-        url = f"{host_url}users/invite/?token={token}"
+        url = f"{host_url}user-onboarding?token={token}"
         await self.email_service.send_user_invitation(email, url)
         return user
 
