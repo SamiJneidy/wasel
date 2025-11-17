@@ -1,6 +1,6 @@
 import jwt
 from datetime import datetime, timedelta, timezone
-from fastapi import Response
+from fastapi import Request, Response
 from src.core.enums import OTPStatus, OTPUsage, UserRole, UserStatus, UserType, Stage
 from src.core.services import TokenService, EmailService
 from src.users.schemas import UserInDB, UserOut
@@ -221,36 +221,36 @@ class AuthService:
         return TokenService.create_token(payload)
 
 
-    def create_access_token_and_set_cookie(self, response: Response, email: str, access_path: str = "/") -> None:
+    def create_access_token_and_set_cookie(self, request: Request, response: Response, email: str, access_path: str = "/") -> None:
         payload = TokenPayload(sub=email)
         access_token = self.create_access_token(payload)
-        self.set_access_token_cookie(response, access_token, access_path)
+        self.set_access_token_cookie(request, response, access_token, access_path)
 
 
-    def create_refresh_token_and_set_cookie(self, response: Response, email: str, refresh_path: str = "/") -> None:
+    def create_refresh_token_and_set_cookie(self, request: Request, response: Response, email: str, refresh_path: str = "/") -> None:
         payload = TokenPayload(sub=email)
         refresh_token = self.create_refresh_token(payload)
-        self.set_refresh_token_cookie(response, refresh_token, refresh_path)
+        self.set_refresh_token_cookie(request, response, refresh_token, refresh_path)
 
 
-    def create_tokens_and_set_cookies(self, response: Response, email: str, access_path: str = "/", refresh_path: str = "/") -> None:
+    def create_tokens_and_set_cookies(self, request: Request, response: Response, email: str, access_path: str = "/", refresh_path: str = "/") -> None:
         """Sets the refresh token cookie. The cookie will be set based on the current environment. The 'path' argument will not be used in development environment."""
-        self.create_access_token_and_set_cookie(response, email, access_path)
-        self.create_refresh_token_and_set_cookie(response, email, refresh_path)
+        self.create_access_token_and_set_cookie(request, response, email, access_path)
+        self.create_refresh_token_and_set_cookie(request, response, email, refresh_path)
 
     
-    def refresh(self, response: Response, refresh_token: str) -> None:
+    def refresh(self, request: Request, response: Response, refresh_token: str) -> None:
         """Refreshes an expired access token using a valid refresh token and returns the new access token."""
         email = TokenService.verify_token(refresh_token)
-        self.create_access_token_and_set_cookie(response, email, "/")
+        self.create_access_token_and_set_cookie(request, response, email, "/")
     
 
-    def set_access_token_cookie(self, response: Response, access_token: str, access_path: str = "/") -> None:
-        TokenService.set_access_token_cookie(response, access_token, access_path)
+    def set_access_token_cookie(self, request: Request, response: Response, access_token: str, access_path: str = "/") -> None:
+        TokenService.set_access_token_cookie(request, response, access_token, access_path)
 
 
-    def set_refresh_token_cookie(self, response: Response, refresh_token: str, refresh_path: str = "/") -> None:
-        TokenService.set_refresh_token_cookie(response, refresh_token, refresh_path)
+    def set_refresh_token_cookie(self, request: Request, response: Response, refresh_token: str, refresh_path: str = "/") -> None:
+        TokenService.set_refresh_token_cookie(request, response, refresh_token, refresh_path)
 
 
     async def get_user_from_token(self, token: str) -> UserOut:

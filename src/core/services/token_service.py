@@ -1,6 +1,6 @@
 import jwt
 from datetime import datetime, timedelta, timezone
-from fastapi import Response
+from fastapi import Request, Response
 from src.core.config import settings
 from ...auth.exceptions import InvalidTokenException
 
@@ -38,12 +38,14 @@ class TokenService:
     
 
     @classmethod
-    def set_access_token_cookie(self, response: Response, access_token: str, access_path: str) -> None:
+    def set_access_token_cookie(self, request: Request, response: Response, access_token: str, access_path: str) -> None:
+        origin = request.headers.get("origin")
+        is_local = origin.startswith("http://localhost") or origin.startswith("http://127.0.0.1")
         response.set_cookie(
             key="access_token",
             value=access_token,
             httponly=True,
-            secure=True if settings.ENVIRONMENT == "PRODUCTION" else False,
+            secure=settings.ENVIRONMENT == "PRODUCTION" and not is_local,
             samesite="lax",
             max_age=settings.ACCESS_TOKEN_EXPIRATION_MINUTES * 60,
             path=access_path
@@ -51,12 +53,14 @@ class TokenService:
 
 
     @classmethod
-    def set_refresh_token_cookie(self, response: Response, refresh_token: str, refresh_path: str) -> None:
+    def set_refresh_token_cookie(self, request: Request, response: Response, refresh_token: str, refresh_path: str) -> None:
+        origin = request.headers.get("origin")
+        is_local = origin.startswith("http://localhost") or origin.startswith("http://127.0.0.1")
         response.set_cookie(
             key="refresh_token",
             value=refresh_token,
             httponly=True,
-            secure=True if settings.ENVIRONMENT == "PRODUCTION" else False,
+            secure=settings.ENVIRONMENT == "PRODUCTION" and not is_local,
             samesite="lax",
             max_age=settings.REFRESH_TOKEN_EXPIRATION_DAYS * 24 * 60 * 60,
             path=refresh_path if settings.ENVIRONMENT == "PRODUCTION" else "/"

@@ -105,12 +105,13 @@ async def accept_invitation(
     description=DOCSTRINGS["login"],
 )
 async def login(
+    request: Request,
     response: Response,
     body: LoginRequest,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> SingleObjectResponse[LoginResponse]:
     data = await auth_service.login(body)
-    auth_service.create_tokens_and_set_cookies(response, body.email)
+    auth_service.create_tokens_and_set_cookies(request, response, body.email)
     return SingleObjectResponse(data=data)
 
 
@@ -135,12 +136,12 @@ async def get_me(
     description=DOCSTRINGS["refresh"],
 )
 async def refresh(
-    response: Response,
     request: Request,
+    response: Response,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> None:
     refresh_token = request.cookies.get("refresh_token")
-    await auth_service.refresh(response, refresh_token)
+    await auth_service.refresh(request, response, refresh_token)
 
 
 # ---------------------------------------------------------------------
