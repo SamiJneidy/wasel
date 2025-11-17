@@ -74,10 +74,11 @@ async def signup(
     description=DOCSTRINGS["sign_up_complete"],
 )
 async def sign_up_complete(
+    request: Request,
     response: Response,
     body: SignUpCompleteRequest,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
-    current_user_email: Annotated[UserOut, Depends(get_current_user)],
+    current_user_email: Annotated[str, Depends(get_current_user)],
 ) -> SingleObjectResponse[SignUpCompleteResponse]:
     data = await auth_service.sign_up_complete(current_user_email, body)
     return SingleObjectResponse(data=data)
