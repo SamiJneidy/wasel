@@ -155,10 +155,13 @@ async def refresh(
     description=DOCSTRINGS["verify_email_after_signup"],
 )
 async def verify_email_after_signup(
+    request: Request,
+    response: Response,
     body: VerifyEmailRequest,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> SingleObjectResponse[LoginResponse]:
     data = await auth_service.verify_email_after_signup(body)
+    auth_service.create_tokens_and_set_cookies(request, response, body.email)
     return SingleObjectResponse(data=data)
 
 
