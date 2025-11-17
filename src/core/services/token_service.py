@@ -41,16 +41,14 @@ class TokenService:
     def set_access_token_cookie(self, request: Request, response: Response, access_token: str, access_path: str) -> None:
         origin = request.headers.get("origin") or ""
         is_local = origin.startswith("http://localhost") or origin.startswith("http://127.0.0.1")
-
         secure_flag = settings.ENVIRONMENT == "PRODUCTION" and not is_local
-        samesite_flag = "none" if settings.ENVIRONMENT == "PRODUCTION" else "lax"
 
         response.set_cookie(
             key="access_token",
             value=access_token,
             httponly=True,
             secure=secure_flag,
-            samesite=samesite_flag,
+            samesite="lax",
             max_age=settings.ACCESS_TOKEN_EXPIRATION_MINUTES * 60,
             path="/",
         )
@@ -60,16 +58,14 @@ class TokenService:
     def set_refresh_token_cookie(self, request: Request, response: Response, refresh_token: str, refresh_path: str) -> None:
         origin = request.headers.get("origin") or ""
         is_local = origin.startswith("http://localhost") or origin.startswith("http://127.0.0.1")
-
         secure_flag = settings.ENVIRONMENT == "PRODUCTION" and not is_local
-        samesite_flag = "none" if settings.ENVIRONMENT == "PRODUCTION" else "lax"
 
         response.set_cookie(
             key="refresh_token",
             value=refresh_token,
             httponly=True,
             secure=secure_flag,
-            samesite=samesite_flag,
+            samesite="lax",
             max_age=settings.REFRESH_TOKEN_EXPIRATION_DAYS * 24 * 60 * 60,
             path="/",
         )
