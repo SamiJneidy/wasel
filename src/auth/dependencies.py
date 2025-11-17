@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from typing import Annotated
 from redis.asyncio import Redis
 
-from .repositories import OTPRepository, AuthenticationRepository
+from .repositories import OTPRepository, AuthRepository
 from .services import AuthService, OTPService
 from src.core.dependencies import get_email_service, get_current_user, oauth2_scheme
 from src.core.config import settings
@@ -39,13 +39,13 @@ def get_otp_service(
 
 
 # Auth
-def get_auth_repository(db: Annotated[Session, Depends(get_db)]) -> AuthenticationRepository:
+def get_auth_repository(db: Annotated[Session, Depends(get_db)]) -> AuthRepository:
     """Returns authentication repository dependency."""
-    return AuthenticationRepository(db)
+    return AuthRepository(db)
 
 
 def get_auth_service(
-    authentication_repo: Annotated[AuthenticationRepository, Depends(get_auth_repository)],
+    authentication_repo: Annotated[AuthRepository, Depends(get_auth_repository)],
     user_service: Annotated[UserRepository, Depends(get_user_service)],
     otp_service: Annotated[OTPService, Depends(get_otp_service)],
     email_service: Annotated[EmailService, Depends(get_email_service)],

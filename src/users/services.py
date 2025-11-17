@@ -54,8 +54,6 @@ class UserService:
         if existing:
             raise UserAlreadyExistsException()
         data = payload.model_dump()
-        data.setdefault("status", UserStatus.PENDING)
-        data.setdefault("type", UserType.CLIENT)
         user = await self.user_repo.create(data)
         return UserInDB.model_validate(user)
 

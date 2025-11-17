@@ -31,7 +31,9 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     organization_id: Optional[int] = None
     password: str = Field(..., min_length=8, max_length=128)
-
+    status: UserStatus = UserStatus.PENDING
+    type: UserType = UserType.CLIENT
+    is_completed: bool = False
 
 class UserUpdate(BaseModel):
     name: Optional[str] = None

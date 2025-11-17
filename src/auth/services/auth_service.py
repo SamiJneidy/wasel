@@ -9,7 +9,7 @@ from src.users.services import UserService
 from src.organizations.services import OrganizationService
 from src.branches.services import BranchService
 from .otp_service import OTPService
-from ..repositories import AuthenticationRepository
+from ..repositories import AuthRepository
 from ..utils import hash_password, verify_password
 from ..schemas import (
     LoginRequest,
@@ -32,7 +32,8 @@ from ..schemas import (
     SignUpCompleteRequest,
     SignUpCompleteResponse,
     OrganizationCreate,
-    UserInviteAcceptRequest
+    UserInviteAcceptRequest,
+    UserCreate
 )
 from ..exceptions import (
     InvalidCredentialsException,
@@ -50,13 +51,13 @@ from ..exceptions import (
 
 class AuthService:
     def __init__(self, 
-        authentication_repo: AuthenticationRepository, 
+        auth_repo: AuthRepository, 
         user_service: UserService, 
         otp_service: OTPService, 
         email_service: EmailService,
         organization_service: OrganizationService,
     ) -> None:
-        self.authentication_repo = authentication_repo
+        self.auth_repo = auth_repo
         self.user_service = user_service
         self.otp_service = otp_service
         self.email_service = email_service
@@ -70,15 +71,15 @@ class AuthService:
             raise UserAlreadyExistsException()
         except UserNotFoundException:
             pass
-        data.password = hash_password(data.password)
-        user_dict: dict = data.model_dump(exclude={"confirm_password"})
-        user_dict.update({
-            "type": UserType.CLIENT, 
-            "role": UserRole.SUPER_ADMIN, 
-            "status": UserStatus.PENDING, 
-            "is_completed": False
-        })
-        user = await self.user_service.create_user(user_dict)
+        user_create = UserCreate(
+            **data.model_dump(exclude={"confirm_password"}),
+            password=hash_password(data.password),
+            type=UserType.CLIENT, 
+            role=UserRole.SUPER_ADMIN, 
+            status=UserStatus.PENDING, 
+            is_completed=False
+        )
+        user = await self.user_service.create_user(user_create)
         email_verification_otp_request = RequestEmailVerificationOTPRequest(email=data.email)
         await self.request_email_verification_otp(email_verification_otp_request)
         return user
