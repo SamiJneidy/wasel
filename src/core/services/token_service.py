@@ -65,7 +65,7 @@ class TokenService:
         samesite_flag = "none" if settings.ENVIRONMENT == "PRODUCTION" else "lax"
 
         response.set_cookie(
-            key="access_token",
+            key="refresh_token",
             value=refresh_token,
             httponly=True,
             secure=secure_flag,
