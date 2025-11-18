@@ -142,7 +142,7 @@ async def refresh(
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> None:
     refresh_token = request.cookies.get("refresh_token")
-    await auth_service.refresh(request, response, refresh_token)
+    auth_service.refresh(request, response, refresh_token)
 
 
 # ---------------------------------------------------------------------

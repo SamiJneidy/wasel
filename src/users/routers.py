@@ -60,7 +60,7 @@ async def invite_user(
     request: Request,
     body: UserInviteRequest,
     user_service: Annotated[UserService, Depends(get_user_service)],
-    current_user_email: Annotated[UserOut, Depends(get_current_user)],
+    current_user_email: Annotated[str, Depends(get_current_user)],
 ) -> SingleObjectResponse[UserOut]:
     data = await user_service.invite_user(current_user_email, request.base_url, body)
     return SingleObjectResponse(data=data)
