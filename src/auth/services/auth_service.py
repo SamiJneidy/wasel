@@ -242,7 +242,7 @@ class AuthService:
     def refresh(self, request: Request, response: Response, refresh_token: str) -> None:
         """Refreshes an expired access token using a valid refresh token and returns the new access token."""
         email = TokenService.verify_token(refresh_token)
-        self.create_refresh_token_and_set_cookie(request, response, email, "/")
+        self.create_access_token_and_set_cookie(request, response, email, "/")
     
 
     def set_access_token_cookie(self, request: Request, response: Response, access_token: str, access_path: str = "/") -> None:

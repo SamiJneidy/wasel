@@ -20,4 +20,5 @@ async def get_current_user(
 ) -> str:
     """Returns the email of the current user logged in."""
     token = request.cookies.get("access_token", "NO_TOKEN")
+    print(token)
     return TokenService.verify_token(token)

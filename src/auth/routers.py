@@ -7,6 +7,8 @@ from fastapi import (
 )
 from fastapi.security import OAuth2PasswordRequestForm
 from redis.asyncio import Redis
+
+from src.users.dependencies import UserService, get_user_service
 from .services.auth_service import AuthService
 from .schemas import (
     UserInviteAcceptRequest,
@@ -124,8 +126,10 @@ async def login(
     description=DOCSTRINGS["get_me"],
 )
 async def get_me(
-    current_user: Annotated[UserOut, Depends(get_current_user)],
+    current_user_email: Annotated[str, Depends(get_current_user)],
+    user_service: Annotated[UserService, Depends(get_user_service)],
 ) -> SingleObjectResponse[UserOut]:
+    current_user = await user_service.get_by_email(current_user_email)
     return SingleObjectResponse(data=current_user)
 
 
