@@ -16,6 +16,10 @@ class UserRepository:
         """Get user by email."""
         return self.db.query(User).filter(User.email==email).first()
 
+    async def get_users_by_org(self, org_id: int) -> User | None:
+        """Get user by email."""
+        return self.db.query(User).filter(User.organization_id==org_id).all()
+    
     async def create(self, data: dict) -> User | None:
         """Create a new user."""
         user = User(**data)

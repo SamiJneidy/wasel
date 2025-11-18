@@ -15,7 +15,7 @@ class User(Base, AuditTimeMixin):
     last_login = Column(DateTime, nullable=True)
     invalid_login_attempts = Column(Integer, nullable=False, server_default=text("0"))
     type = Column(String(50), nullable=True)
-    role = Column(Enum(UserRole), nullable=False)
+    role = Column(String, nullable=False)
     status = Column(Enum(UserStatus), nullable=False)
     is_completed = Column(Boolean, nullable=False)
 

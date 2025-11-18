@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Query, Request, status
-from src.core.schemas import SingleObjectResponse
+from src.core.schemas import SingleObjectResponse, ObjectListResponse
 from .services import UserService
 from .schemas import (
     UserInviteRequest,
@@ -17,6 +17,22 @@ router = APIRouter(
     prefix="/users", 
     tags=["Users"],
 )
+
+
+@router.get(
+    path="/",
+    response_model=ObjectListResponse[UserOut],
+    # responses=RESPONSES["get_user_by_email"],
+    # summary=SUMMARIES["get_user_by_email"],
+    # description=DOCSTRINGS["get_user_by_email"],
+)
+async def get_users(  
+    current_user_email: Annotated[str, Depends(get_current_user)],
+    user_service: Annotated[UserService, Depends(get_user_service)],
+) -> ObjectListResponse[UserOut]:
+    current_user = await user_service.get_by_email(current_user_email)
+    data = await user_service.get_users_by_org(current_user.organization.id)
+    return ObjectListResponse(data=data)
 
 
 @router.get(

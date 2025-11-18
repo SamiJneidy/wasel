@@ -27,6 +27,10 @@ class UserService:
             raise UserNotFoundException()
         return UserOut.model_validate(db_user)
 
+    async def get_users_by_org(self, org_id: int) -> list[UserOut]:
+        """Returns user by email."""
+        users = await self.user_repo.get_users_by_org(org_id)
+        return [UserOut.model_validate(user) for user in users]
     
     async def get_user_in_db(self, email: str) -> UserInDB:
         """Returns full user object. This may leak sensitive information."""
