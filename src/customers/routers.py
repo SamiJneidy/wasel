@@ -84,7 +84,7 @@ async def delete_customer(
 
 
 @router.get(
-    path="/",
+    path="",
     response_model=PaginatedResponse[CustomerOut],
     responses=RESPONSES["get_customers_for_user"],
     summary=SUMMARIES["get_customers_for_user"],
