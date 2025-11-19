@@ -1,5 +1,7 @@
 from math import ceil
 from fastapi import APIRouter, status
+
+from src.users.dependencies import UserService, get_user_service
 from .services import CustomerService
 from .schemas import (
     CustomerCreate,
@@ -36,10 +38,12 @@ router = APIRouter(
 )
 async def create_customer(
     body: CustomerCreate,
+    user_service: Annotated[UserService, Depends(get_user_service)],
     customer_service: Annotated[CustomerService, Depends(get_customer_service)],
-    current_user: Annotated[UserOut, Depends(get_current_user)],
+    current_user_email: Annotated[str, Depends(get_current_user)],
 ) -> SingleObjectResponse[CustomerOut]:
-    data = await customer_service.create(body)
+    current_user = await user_service.get_by_email(current_user_email)
+    data = await customer_service.create(current_user.id, body)
     return SingleObjectResponse(data=data)
 
 
@@ -53,10 +57,12 @@ async def create_customer(
 async def update_customer(
     id: int,
     body: CustomerUpdate,
+    user_service: Annotated[UserService, Depends(get_user_service)],
     customer_service: Annotated[CustomerService, Depends(get_customer_service)],
-    current_user: Annotated[UserOut, Depends(get_current_user)],
+    current_user_email: Annotated[str, Depends(get_current_user)],
 ) -> SingleObjectResponse[CustomerOut]:
-    data = await customer_service.update(id, body)
+    current_user = await user_service.get_by_email(current_user_email)
+    data = await customer_service.update(current_user.id, id, body)
     return SingleObjectResponse(data=data)
 
 
@@ -69,10 +75,12 @@ async def update_customer(
 )
 async def delete_customer(
     id: int,
+    user_service: Annotated[UserService, Depends(get_user_service)],
     customer_service: Annotated[CustomerService, Depends(get_customer_service)],
-    current_user: Annotated[UserOut, Depends(get_current_user)],
+    current_user_email: Annotated[str, Depends(get_current_user)],
 ) -> None:
-    return await customer_service.delete(id)
+    current_user = await user_service.get_by_email(current_user_email)
+    return await customer_service.delete(current_user.id, id)
 
 
 @router.get(
@@ -83,12 +91,14 @@ async def delete_customer(
     description=DOCSTRINGS["get_customers_for_user"],
 )
 async def get_customers_for_user(
+    user_service: Annotated[UserService, Depends(get_user_service)],
     customer_service: Annotated[CustomerService, Depends(get_customer_service)],
-    current_user: Annotated[UserOut, Depends(get_current_user)],
+    current_user_email: Annotated[str, Depends(get_current_user)],
     pagination_params: PagintationParams = Depends(),
     filters: CustomerFilters = Depends(),
 ) -> PaginatedResponse[CustomerOut]:
-    total_rows, data = await customer_service.get_customers_for_user(pagination_params, filters)
+    current_user = await user_service.get_by_email(current_user_email)
+    total_rows, data = await customer_service.get_customers_for_user(current_user.id, pagination_params, filters)
     return PaginatedResponse(
         data=data,
         total_rows=total_rows,
@@ -107,8 +117,10 @@ async def get_customers_for_user(
 )
 async def get_customer(
     id: int,
+    user_service: Annotated[UserService, Depends(get_user_service)],
     customer_service: Annotated[CustomerService, Depends(get_customer_service)],
-    current_user: Annotated[UserOut, Depends(get_current_user)],
+    current_user_email: Annotated[str, Depends(get_current_user)],
 ) -> SingleObjectResponse[CustomerOut]:
-    data = await customer_service.get(id)
+    current_user = await user_service.get_by_email(current_user_email)
+    data = await customer_service.get(current_user.id, id)
     return SingleObjectResponse(data=data)

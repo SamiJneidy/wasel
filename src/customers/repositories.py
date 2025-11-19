@@ -5,16 +5,16 @@ from .models import Customer
 from src.users.schemas import UserOut
 
 class CustomerRepository:
-    def __init__(self, db: Session, user: UserOut):
+    def __init__(self, db: Session):
         self.db = db
-        self.user = user
         
 
-    async def get(self, id: int) -> Customer | None:
-        return self.db.query(Customer).filter(Customer.id==id, Customer.user_id==self.user.id).first()
+    async def get(self, user_id: int, id: int) -> Customer | None:
+        return self.db.query(Customer).filter(Customer.id==id, Customer.user_id==user_id).first()
     
-    async def get_customers(self, skip: int = None, limit: int = None, filters: dict = {}) -> list[Customer]:
-        query = self.db.query(Customer).filter(Customer.user_id==self.user.id)
+    async def get_customers(self, user_id: int, skip: int = None, limit: int = None, filters: dict = {}) -> list[Customer]:
+        print(user_id)
+        query = self.db.query(Customer).filter(Customer.user_id==user_id)
         for k, v in filters.items():
             column = getattr(Customer, k, None)
             if column is not None:
@@ -27,23 +27,23 @@ class CustomerRepository:
             query = query.limit(limit)
         return total_rows, query.all()
 
-    async def create(self, data: dict) -> Customer | None:
+    async def create(self, user_id: int, data: dict) -> Customer | None:
         customer = Customer(**data)
-        customer.user_id = self.user.id
-        customer.created_by = self.user.id
+        customer.user_id = user_id
+        customer.created_by = user_id
         self.db.add(customer)
         self.db.commit()
         self.db.refresh(customer)
         return customer
 
-    async def update(self, id: int, data: dict) -> Customer | None:
-        stmt = update(Customer).where(Customer.id==id, Customer.user_id==self.user.id).values(updated_by=self.user.id, **data)
+    async def update(self, user_id: int, id: int, data: dict) -> Customer | None:
+        stmt = update(Customer).where(Customer.id==id, Customer.user_id==user_id).values(updated_by=user_id, **data)
         self.db.execute(stmt)
         self.db.commit()
         return await self.get(id)
     
-    async def delete(self, id: int) -> None:
-        customer = self.db.query(Customer).filter(Customer.id==id, Customer.user_id==self.user.id)
+    async def delete(self, user_id: int, id: int) -> None:
+        customer = self.db.query(Customer).filter(Customer.id==id, Customer.user_id==user_id)
         customer.delete()
         self.db.commit()
         return None

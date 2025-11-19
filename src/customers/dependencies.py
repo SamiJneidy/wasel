@@ -11,11 +11,8 @@ from src.core.dependencies import get_current_user
 
 async def get_customer_repository(
     db: Annotated[Session, Depends(get_db)],
-    user_email: Annotated[str, Depends(get_current_user)],
-    user_service: Annotated[UserService, Depends(get_user_service)],
 ) -> CustomerRepository:
-    user = await user_service.get_by_email(user_email)
-    return CustomerRepository(db, user)
+    return CustomerRepository(db)
 
 
 def get_customer_service(
