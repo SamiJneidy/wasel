@@ -5,6 +5,12 @@ class Gender(str, Enum):
     FEMALE = "FEMALE"
     OTHER = "OTHER"
 
+class TokenScope(str, Enum):
+    ACCESS = "ACCESS"
+    REFRESH = "REFRESH"
+    INVITE = "INVITE"
+    RESET_PASSWORD = "RESET_PASSWORD"
+
 class CSIDType(str, Enum):
     PRODUCTION = "PRODUCTION"
     COMPLIANCE = "COMPLIANCE"

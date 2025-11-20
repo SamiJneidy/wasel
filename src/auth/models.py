@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Enum as SQLEnum, func
 from sqlalchemy.orm import relationship
 from src.core.database import Base
-from src.core.enums import UserRole, UserStatus, OTPUsage, OTPStatus
+from src.core.enums import OTPUsage, OTPStatus
 from src.users.models import User
 
 class OTP(Base):

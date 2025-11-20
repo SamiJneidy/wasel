@@ -1,23 +1,21 @@
-import jwt
 from datetime import datetime, timedelta, timezone
 from fastapi import Request, Response
+from .token_service import TokenService
 from src.core.enums import OTPStatus, OTPUsage, UserRole, UserStatus, UserType, Stage
-from src.core.services import TokenService, EmailService
+from src.core.services import EmailService
 from src.users.schemas import UserInDB, UserOut
 from src.core.config import settings
 from src.users.services import UserService
 from src.organizations.services import OrganizationService
 from src.branches.services import BranchService
 from .otp_service import OTPService
-from ..repositories import AuthenticationRepository
+from ..repositories import AuthRepository
 from ..utils import hash_password, verify_password
 from ..schemas import (
     LoginRequest,
     LoginResponse,
     OTPCreate,
     SignUp, 
-    SignUpResponse,
-    TokenRefreshResponse,
     VerifyEmailRequest,
     VerifyEmailResponse,
     ResetPasswordRequest,
@@ -28,13 +26,14 @@ from ..schemas import (
     RequestPasswordResetOTPResponse,
     VerifyPasswordResetOTPRequest,
     VerifyPasswordResetOTPResponse,
-    TokenPayload,
-    TokenResponse,
+    AccessTokenPayload,
+    RefreshTokenPayload,
     OTPOut,
     SignUpCompleteRequest,
     SignUpCompleteResponse,
     OrganizationCreate,
-    UserInviteAcceptRequest
+    UserInviteAcceptRequest,
+    UserCreate
 )
 from ..exceptions import (
     InvalidCredentialsException,
@@ -52,13 +51,15 @@ from ..exceptions import (
 
 class AuthService:
     def __init__(self, 
-        authentication_repo: AuthenticationRepository, 
+        auth_repo: AuthRepository, 
+        token_service: TokenService,
         user_service: UserService, 
         otp_service: OTPService, 
         email_service: EmailService,
         organization_service: OrganizationService,
     ) -> None:
-        self.authentication_repo = authentication_repo
+        self.auth_repo = auth_repo
+        self.token_service = token_service
         self.user_service = user_service
         self.otp_service = otp_service
         self.email_service = email_service
@@ -72,15 +73,15 @@ class AuthService:
             raise UserAlreadyExistsException()
         except UserNotFoundException:
             pass
-        data.password = hash_password(data.password)
-        user_dict: dict = data.model_dump(exclude={"confirm_password"})
-        user_dict.update({
-            "type": UserType.CLIENT, 
-            "role": UserRole.SUPER_ADMIN, 
-            "status": UserStatus.PENDING, 
-            "is_completed": False
-        })
-        user = await self.user_service.create_user(user_dict)
+        user_create = UserCreate(
+            **data.model_dump(exclude={"confirm_password"}),
+            password=hash_password(data.password),
+            type=UserType.CLIENT, 
+            role=UserRole.SUPER_ADMIN, 
+            status=UserStatus.PENDING, 
+            is_completed=False
+        )
+        user = await self.user_service.create_user(user_create)
         email_verification_otp_request = RequestEmailVerificationOTPRequest(email=data.email)
         await self.request_email_verification_otp(email_verification_otp_request)
         return user
@@ -115,7 +116,7 @@ class AuthService:
 
 
     async def login(self, credentials: LoginRequest) -> LoginResponse:
-        db_user = await self.user_service.get_user_in_db(credentials.email)
+        db_user = await self.user_service.get_by_email(credentials.email)
         if db_user.status == UserStatus.DISABLED:
             raise UserDisabledException()
         if db_user.status == UserStatus.BLOCKED:
@@ -125,7 +126,7 @@ class AuthService:
         if db_user.status != UserStatus.ACTIVE:
             raise UserNotActiveException()
         if not verify_password(credentials.password, db_user.password):
-            db_user: UserInDB = await self.user_service.increment_invlaid_login_attempts(credentials.email)
+            db_user: UserInDB = await self.user_service.increment_invalid_login_attempts(credentials.email)
             if db_user.invalid_login_attempts >= settings.MAXIMUM_NUMBER_OF_INVALID_LOGIN_ATTEMPTS:
                 await self.user_service.update_user_status(credentials.email, UserStatus.DISABLED)
             raise InvalidCredentialsException()
@@ -151,7 +152,7 @@ class AuthService:
 
     async def request_password_reset_otp(self, data: RequestPasswordResetOTPRequest) -> RequestPasswordResetOTPResponse:
         """Request an OTP code for password reset."""
-        user = await self.user_service.get_user_in_db(data.email)
+        user = await self.user_service.get_by_email(data.email)
         if user.status == UserStatus.PENDING:
             raise UserNotVerifiedException()
         if user.status == UserStatus.BLOCKED:
@@ -185,12 +186,10 @@ class AuthService:
     async def verify_email_after_signup(self, data: VerifyEmailRequest) -> LoginResponse:
         """Verifies email account after signup. The function will create access and refresh token after finishing the verificaion successfully."""
         await self.verify_email_verification_otp(data)
-        token_payload = TokenPayload(sub=data.email)
-        access_token = self.create_access_token(token_payload)
         await self.user_service.reset_invalid_login_attempts(data.email)
         await self.user_service.update_last_login(data.email, datetime.utcnow())
         user = await self.user_service.get_by_email(data.email)
-        return LoginResponse(user=user, access_token=access_token)
+        return LoginResponse(user=user)
     
 
     async def reset_password(self, data: ResetPasswordRequest) -> ResetPasswordResponse:
@@ -205,30 +204,30 @@ class AuthService:
         return ResetPasswordResponse(email=data.email)
 
 
-    def create_access_token(self, token_payload: TokenPayload) -> str:
+    def create_access_token(self, token_payload: AccessTokenPayload) -> str:
         """Creates an access token."""
         token_payload.iat = datetime.now(tz=timezone.utc)
         token_payload.exp = datetime.now(tz=timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRATION_MINUTES)
         payload = token_payload.model_dump()
-        return TokenService.create_token(payload)
+        return self.token_service.create_token(payload)
 
 
-    def create_refresh_token(self, token_payload: TokenPayload) -> str:
+    def create_refresh_token(self, token_payload: RefreshTokenPayload) -> str:
         """Creates a refresh token."""
         token_payload.iat = datetime.now(tz=timezone.utc)
         token_payload.exp = datetime.now(tz=timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRATION_DAYS)
         payload = token_payload.model_dump()
-        return TokenService.create_token(payload)
+        return self.token_service.create_token(payload)
 
 
     def create_access_token_and_set_cookie(self, request: Request, response: Response, email: str, access_path: str = "/") -> None:
-        payload = TokenPayload(sub=email)
+        payload = AccessTokenPayload(sub=email)
         access_token = self.create_access_token(payload)
         self.set_access_token_cookie(request, response, access_token, access_path)
 
 
     def create_refresh_token_and_set_cookie(self, request: Request, response: Response, email: str, refresh_path: str = "/") -> None:
-        payload = TokenPayload(sub=email)
+        payload = RefreshTokenPayload(sub=email)
         refresh_token = self.create_refresh_token(payload)
         self.set_refresh_token_cookie(request, response, refresh_token, refresh_path)
 
@@ -241,20 +240,20 @@ class AuthService:
     
     def refresh(self, request: Request, response: Response, refresh_token: str) -> None:
         """Refreshes an expired access token using a valid refresh token and returns the new access token."""
-        email = TokenService.verify_token(refresh_token)
+        email = self.token_service.verify_token(refresh_token)
         self.create_access_token_and_set_cookie(request, response, email, "/")
     
 
     def set_access_token_cookie(self, request: Request, response: Response, access_token: str, access_path: str = "/") -> None:
-        TokenService.set_access_token_cookie(request, response, access_token, access_path)
+        self.token_service.set_access_token_cookie(request, response, access_token, access_path)
 
 
     def set_refresh_token_cookie(self, request: Request, response: Response, refresh_token: str, refresh_path: str = "/") -> None:
-        TokenService.set_refresh_token_cookie(request, response, refresh_token, refresh_path)
+        self.token_service.set_refresh_token_cookie(request, response, refresh_token, refresh_path)
 
 
     async def get_user_from_token(self, token: str) -> UserOut:
         """Extracts user from a valid token."""
-        email = TokenService.verify_token(token)
+        email = self.token_service.verify_token(token)
         user = await self.user_service.get_by_email(email)
         return user

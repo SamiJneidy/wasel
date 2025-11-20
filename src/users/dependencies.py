@@ -15,5 +15,5 @@ def get_user_service(
     user_repo: Annotated[UserRepository, Depends(get_user_repository)],
     email_service: Annotated[EmailService, Depends(get_email_service)],
 ) -> UserService:
-    """Returns otp service dependency"""
+    """Returns user service dependency"""
     return UserService(user_repo, email_service)

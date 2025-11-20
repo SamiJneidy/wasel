@@ -36,4 +36,18 @@ class BranchService:
         branch = await self.get_branch(id)
         await self.branch_repo.delete(id)
         return None
-    
+
+    async def get(self, current_user: UserOut, id: int) -> Branch | None:
+        return await self.repo.get(id)
+
+    async def get_branches_for_organization(self, current_user: UserOut, organization_id: int) -> list[Branch]:
+        return await self.repo.get_branches_for_organization(organization_id)
+
+    async def create(self, current_user: UserOut, data: dict) -> Branch | None:
+        return await self.repo.create(data)
+
+    async def update(self, current_user: UserOut, id: int, data: dict) -> Branch | None:
+        return await self.repo.update(id, data)
+
+    async def delete(self, current_user: UserOut, id: int) -> None:
+        return await self.repo.delete(id)

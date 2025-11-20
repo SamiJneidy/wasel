@@ -7,7 +7,9 @@ from ...auth.exceptions import InvalidTokenException
 
 class TokenService:
     
-    @classmethod
+    def __init__(self):
+        pass
+
     def create_token(self, payload: dict) -> str:
         """Creates an access token."""
         return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
@@ -18,7 +20,6 @@ class TokenService:
     #     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
-    @classmethod
     def verify_token(self, token: str) -> str:
         """Verifies if a token is valid or not and returns the user's email if the token was valid."""   
         try:
@@ -31,14 +32,12 @@ class TokenService:
             raise InvalidTokenException()
 
 
-    @classmethod
-    def set_token_cookies(self, response: Response, access_token: str, refresh_token: str, access_path: str = "/", refresh_path: str = "/") -> None:
-        self.set_access_token_cookie(response, access_token, access_path)
-        self.set_refresh_token_cookie(response, refresh_token, refresh_path)
+    def set_token_cookies(self, response: Response, access_token: str, refresh_token: str) -> None:
+        self.set_access_token_cookie(response, access_token)
+        self.set_refresh_token_cookie(response, refresh_token)
     
 
-    @classmethod
-    def set_access_token_cookie(self, request: Request, response: Response, access_token: str, access_path: str) -> None:
+    def set_access_token_cookie(self, request: Request, response: Response, access_token: str) -> None:
         origin = request.headers.get("origin") or ""
         is_local = origin.startswith("http://localhost") or origin.startswith("http://127.0.0.1")
         secure_flag = settings.ENVIRONMENT == "PRODUCTION" and not is_local
@@ -50,12 +49,11 @@ class TokenService:
             secure=secure_flag,
             samesite="lax",
             max_age=settings.ACCESS_TOKEN_EXPIRATION_MINUTES * 60,
-            path="/",
+            path="/"
         )
 
 
-    @classmethod
-    def set_refresh_token_cookie(self, request: Request, response: Response, refresh_token: str, refresh_path: str) -> None:
+    def set_refresh_token_cookie(self, request: Request, response: Response, refresh_token: str) -> None:
         origin = request.headers.get("origin") or ""
         is_local = origin.startswith("http://localhost") or origin.startswith("http://127.0.0.1")
         secure_flag = settings.ENVIRONMENT == "PRODUCTION" and not is_local
