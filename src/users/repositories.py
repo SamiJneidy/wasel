@@ -22,9 +22,10 @@ class UserRepository:
         result = await self.db.execute(stmt)
         return result.scalars().first()
 
-    async def get_users_by_org(self, org_id: int) -> User | None:
-        """Get user by email."""
-        return self.db.query(User).filter(User.organization_id==org_id).all()
+    async def get_users_by_org(self, org_id: int) -> list[User]:
+        stmt = select(User).where(User.organization_id==org_id)
+        result = await self.db.execute(stmt)
+        return result.scalars().all()
     
     async def create(self, data: dict) -> User:
         user = User(**data)

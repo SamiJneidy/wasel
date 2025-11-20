@@ -6,7 +6,7 @@ from .repositories import CSIDRepository, SaleInvoiceRepository
 from .services import CSIDService
 from src.zatca.dependencies import get_zatca_service, ZatcaService
 from src.users.dependencies import get_user_service, UserService
-from src.auth.dependencies import get_current_user
+from src.auth.dependencies.dependencies import get_current_user
 from src.core.database import get_db
 
 
