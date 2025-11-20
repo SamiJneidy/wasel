@@ -1,8 +1,8 @@
-import jwt
 from datetime import datetime, timedelta, timezone
 from fastapi import Response
+from .token_service import TokenService
 from src.core.enums import OTPStatus, OTPUsage, UserRole, UserStatus, UserType, Stage
-from src.core.services import TokenService, EmailService
+from src.core.services import EmailService
 from src.users.schemas import UserInDB, UserOut
 from src.core.config import settings
 from src.users.services import UserService
@@ -52,12 +52,14 @@ from ..exceptions import (
 class AuthService:
     def __init__(self, 
         auth_repo: AuthRepository, 
+        token_service: TokenService,
         user_service: UserService, 
         otp_service: OTPService, 
         email_service: EmailService,
         organization_service: OrganizationService,
     ) -> None:
         self.auth_repo = auth_repo
+        self.token_service = token_service
         self.user_service = user_service
         self.otp_service = otp_service
         self.email_service = email_service
@@ -207,7 +209,7 @@ class AuthService:
         token_payload.iat = datetime.now(tz=timezone.utc)
         token_payload.exp = datetime.now(tz=timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRATION_MINUTES)
         payload = token_payload.model_dump()
-        return TokenService.create_token(payload)
+        return self.token_service.create_token(payload)
 
 
     def create_refresh_token(self, token_payload: RefreshTokenPayload) -> str:
@@ -215,7 +217,7 @@ class AuthService:
         token_payload.iat = datetime.now(tz=timezone.utc)
         token_payload.exp = datetime.now(tz=timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRATION_DAYS)
         payload = token_payload.model_dump()
-        return TokenService.create_token(payload)
+        return self.token_service.create_token(payload)
 
 
     def create_access_token_and_set_cookie(self, response: Response, email: str, access_path: str = "/") -> None:
@@ -238,20 +240,20 @@ class AuthService:
     
     def refresh(self, response: Response, refresh_token: str) -> None:
         """Refreshes an expired access token using a valid refresh token and returns the new access token."""
-        email = TokenService.verify_token(refresh_token)
+        email = self.token_service.verify_token(refresh_token)
         self.create_access_token_and_set_cookie(response, email, "/")
     
 
     def set_access_token_cookie(self, response: Response, access_token: str, access_path: str = "/") -> None:
-        TokenService.set_access_token_cookie(response, access_token, access_path)
+        self.token_service.set_access_token_cookie(response, access_token, access_path)
 
 
     def set_refresh_token_cookie(self, response: Response, refresh_token: str, refresh_path: str = "/") -> None:
-        TokenService.set_refresh_token_cookie(response, refresh_token, refresh_path)
+        self.token_service.set_refresh_token_cookie(response, refresh_token, refresh_path)
 
 
     async def get_user_from_token(self, token: str) -> UserOut:
         """Extracts user from a valid token."""
-        email = TokenService.verify_token(token)
+        email = self.token_service.verify_token(token)
         user = await self.user_service.get_by_email(email)
         return user

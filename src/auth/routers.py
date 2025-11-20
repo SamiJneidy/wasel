@@ -1,3 +1,4 @@
+from typing import Annotated
 from fastapi import (
     APIRouter,
     Depends,
@@ -30,7 +31,6 @@ from .schemas import (
     SuccessfulResponse,
 )
 from .dependencies import (
-    Annotated,
     get_auth_service,
     get_current_user,
     get_redis,
