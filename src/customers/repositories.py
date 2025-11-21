@@ -1,47 +1,74 @@
-from sqlalchemy.orm import Session
-from sqlalchemy import func, or_, select, insert, update, delete
-from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
+
+from sqlalchemy import delete, func, select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from .models import Customer
-from src.users.schemas import UserOut
+from src.users.schemas import UserOut  # assuming still needed
+
 
 class CustomerRepository:
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
-        
 
-    async def get(self, user_id: int, id: int) -> Customer | None:
-        return self.db.query(Customer).filter(Customer.id==id, Customer.user_id==user_id).first()
-    
-    async def get_customers(self, user_id: int, skip: int = None, limit: int = None, filters: dict = {}) -> list[Customer]:
-        query = self.db.query(Customer).filter(Customer.user_id==user_id)
+    async def get(self, user_id: int, id: int) -> Optional[Customer]:
+        stmt = (
+            select(Customer)
+            .where(Customer.id == id, Customer.user_id == user_id)
+        )
+        result = await self.db.execute(stmt)
+        return result.scalars().first()
+
+    async def get_customers(
+        self,
+        user_id: int,
+        skip: Optional[int] = None,
+        limit: Optional[int] = None,
+        filters: Dict[str, Any] = {},
+    ) -> Tuple[int, List[Customer]]:
+        stmt = select(Customer).where(Customer.user_id == user_id)
+        count_stmt = (select(func.count()).select_from(Customer).where(Customer.user_id == user_id))
         for k, v in filters.items():
             column = getattr(Customer, k, None)
-            if column is not None:
-                query = query.filter(func.lower(column).like(f"%{v.lower()}%"))
-        total_rows = query.count()
-        if skip:
-            query = query.offset(skip)
-        if limit:
-            query = query.limit(limit)
-        return total_rows, query.all()
+            if column is not None and isinstance(v, str):
+                stmt = stmt.where(func.lower(column).like(f"%{v.lower()}%"))
+                count_stmt = count_stmt.where(func.lower(column).like(f"%{v.lower()}%"))
 
-    async def create(self, user_id: int, data: dict) -> Customer | None:
+        count_result = await self.db.execute(count_stmt)
+        total_rows = count_result.scalars().first() or 0
+
+        # pagination
+        if skip is not None:
+            stmt = stmt.offset(skip)
+        if limit is not None:
+            stmt = stmt.limit(limit)
+
+        result = await self.db.execute(stmt)
+        customers = result.scalars().all()
+        return total_rows, customers
+
+    async def create(self, user_id: int, data: Dict[str, Any]) -> Optional[Customer]:
         customer = Customer(**data)
         customer.user_id = user_id
         customer.created_by = user_id
         self.db.add(customer)
-        self.db.commit()
-        self.db.refresh(customer)
+        await self.db.flush()
+        await self.db.refresh(customer)
         return customer
 
-    async def update(self, user_id: int, id: int, data: dict) -> Customer | None:
-        stmt = update(Customer).where(Customer.id==id, Customer.user_id==user_id).values(updated_by=user_id, **data)
-        self.db.execute(stmt)
-        self.db.commit()
-        return await self.get(id)
-    
+    async def update(self, user_id: int, id: int, data: Dict[str, Any]) -> Optional[Customer]:
+        stmt = (
+            update(Customer)
+            .where(Customer.id == id, Customer.user_id == user_id)
+            .values(updated_by=user_id, **data)
+            .returning(Customer)
+        )
+        result = await self.db.execute(stmt)
+        await self.db.flush()
+        return result.scalars().first()
+
     async def delete(self, user_id: int, id: int) -> None:
-        customer = self.db.query(Customer).filter(Customer.id==id, Customer.user_id==user_id)
-        customer.delete()
-        self.db.commit()
+        stmt = (delete(Customer).where(Customer.id == id, Customer.user_id == user_id))
+        result = await self.db.execute(stmt)
+        await self.db.flush()
         return None

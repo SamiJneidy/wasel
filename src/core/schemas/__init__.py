@@ -1,7 +1,7 @@
 from .common import (
     SingleObjectResponse, 
     PagintationParams, 
-    PagintationParams, 
+    PaginatedResponse, 
     ObjectListResponse, 
     SuccessfulResponse, 
     ErrorResponse, 

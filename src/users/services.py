@@ -82,18 +82,18 @@ class UserService:
             raise UserNotFoundException()
         return UserInDB.model_validate(db_user)
 
-    async def invite_user(self, current_user: UserInDB, host_url: str, invite: UserInvite) -> UserInDB:
+    async def invite_user(self, user: UserInDB, host_url: str, invite: UserInvite) -> UserInDB:
         if await self.user_repo.get_by_email(invite.email):
             raise UserAlreadyExistsException()
         create_payload = {
             **invite.model_dump(exclude_none=True),
-            "organization_id": current_user.organization_id,
+            "organization_id": user.organization_id,
             "type": UserType.CLIENT,
             "status": UserStatus.PENDING,
             "is_completed": False,
         }
         user = await self.user_repo.create(create_payload)
-        await self.send_invitation(current_user, invite.email, host_url)
+        await self.send_invitation(user, invite.email, host_url)
         return UserInDB.model_validate(user)
 
     async def send_invitation(self, inviter: UserInDB, email: str, host_url: str) -> None:

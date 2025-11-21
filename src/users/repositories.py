@@ -43,8 +43,7 @@ class UserRepository:
         )
         result = await self.db.execute(stmt)
         await self.db.flush()
-        row = result.fetchone()
-        return row[0] if row else None
+        return result.scalars().first()
 
     async def update_by_email(self, email: str, data: Dict[str, Any]) -> Optional[User]:
         stmt = (
@@ -55,8 +54,7 @@ class UserRepository:
         )
         result = await self.db.execute(stmt)
         await self.db.flush()
-        row = result.fetchone()
-        return row[0] if row else None
+        return result.scalars().first()
 
     async def increment_invalid_login_attempts(self, email: str) -> Optional[User]:
         stmt = (
@@ -67,8 +65,7 @@ class UserRepository:
         )
         result = await self.db.execute(stmt)
         await self.db.flush()
-        row = result.fetchone()
-        return row[0] if row else None
+        return result.scalars().first()
 
     async def reset_invalid_login_attempts(self, email: str) -> Optional[User]:
         stmt = (
@@ -79,8 +76,7 @@ class UserRepository:
         )
         result = await self.db.execute(stmt)
         await self.db.flush()
-        row = result.fetchone()
-        return row[0] if row else None
+        return result.scalars().first()
 
     async def update_user_status(self, email: str, status: UserStatus) -> Optional[User]:
         stmt = (
@@ -91,8 +87,7 @@ class UserRepository:
         )
         result = await self.db.execute(stmt)
         await self.db.flush()
-        row = result.fetchone()
-        return row[0] if row else None
+        return result.scalars().first()
 
     async def verify_user(self, email: str) -> Optional[User]:
         return await self.update_user_status(email, UserStatus.ACTIVE)
@@ -106,8 +101,7 @@ class UserRepository:
         )
         result = await self.db.execute(stmt)
         await self.db.flush()
-        row = result.fetchone()
-        return row[0] if row else None
+        return result.scalars().first()
 
     async def delete_by_email(self, email: str) -> None:
         stmt = delete(User).where(func.lower(User.email) == email.lower())
