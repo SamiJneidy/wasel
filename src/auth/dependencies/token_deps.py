@@ -1,8 +1,8 @@
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Annotated
-from ..repositories import TokenRepository
-from ..services import TokenService
+from ..repositories.token_repo import TokenRepository
+from ..services.token_service import TokenService
 from src.core.database import get_db
 
 def get_token_repository(db: Annotated[AsyncSession, Depends(get_db)]) -> TokenRepository:

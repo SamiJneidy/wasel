@@ -13,12 +13,10 @@ class CustomerRepository:
         return self.db.query(Customer).filter(Customer.id==id, Customer.user_id==user_id).first()
     
     async def get_customers(self, user_id: int, skip: int = None, limit: int = None, filters: dict = {}) -> list[Customer]:
-        print(user_id)
         query = self.db.query(Customer).filter(Customer.user_id==user_id)
         for k, v in filters.items():
             column = getattr(Customer, k, None)
             if column is not None:
-                print(k, v)
                 query = query.filter(func.lower(column).like(f"%{v.lower()}%"))
         total_rows = query.count()
         if skip:

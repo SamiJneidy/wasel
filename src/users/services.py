@@ -1,5 +1,7 @@
 from typing import Dict, Any
 from datetime import datetime, timedelta, timezone
+
+from src.organizations.exceptions import OrganizationNotFoundException
 from .repositories import UserRepository
 from .schemas import (
     UserOut,
@@ -15,7 +17,9 @@ from .exceptions import (
     UserNotActiveException,
     UserAlreadyExistsException,
 )
-from src.core.services import EmailService, TokenService
+from src.organizations.services import OrganizationService
+from src.auth.services.token_service import TokenService
+from src.core.services import EmailService
 from src.core.config import settings
 from src.core.enums import UserStatus, UserType
 
@@ -26,10 +30,12 @@ class UserService:
         user_repo: UserRepository,
         email_service: EmailService,
         token_service: TokenService,
+        organization_service: OrganizationService,
     ):
         self.user_repo = user_repo
         self.email_service = email_service
         self.token_service = token_service
+        self.organization_service = organization_service
 
     async def _get_or_raise_by_email(self, email: str) -> UserInDB:
         db_user = await self.user_repo.get_by_email(email)
@@ -46,9 +52,22 @@ class UserService:
     async def get(self, id: int) -> UserInDB:
         return await self._get_or_raise_by_id(id)
 
+    async def get_user_out(self, email: str) -> UserOut:
+        user = await self._get_or_raise_by_email(email)
+        user_out = UserOut.model_validate(user)
+        try:
+            user_org = await self.organization_service.get_organization(user.organization_id)
+        except OrganizationNotFoundException:
+            user_org = None
+        user_out.organization = user_org
+        return user_out
+
     async def get_by_email(self, email: str) -> UserInDB:
         return await self._get_or_raise_by_email(email)
 
+    async def get_users_by_org_id(self, org_id: int) -> UserInDB:
+        return await self.user_repo.get_users_by_org(org_id)
+    
     async def create_user(self, payload: UserCreate) -> UserInDB:
         existing = await self.user_repo.get_by_email(payload.email)
         if existing:

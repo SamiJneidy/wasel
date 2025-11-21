@@ -5,9 +5,9 @@ from typing import Annotated
 from redis.asyncio import Redis
 from .otp_deps import get_otp_service, OTPService
 from .token_deps import get_token_service, TokenService
-from ..repositories import AuthRepository
-from ..services import AuthService, OTPService
-from src.core.dependencies import get_email_service, oauth2_scheme
+from ..repositories.auth_repo import AuthRepository
+from ..services.auth_service import AuthService 
+from src.core.dependencies.email_deps import get_email_service
 from src.core.config import settings
 from src.core.database import get_db
 from src.organizations.dependencies import OrganizationService, get_organization_service
@@ -21,7 +21,6 @@ async def get_redis():
     finally:
         await redis.close()
 
-# Auth
 def get_auth_repository(db: Annotated[AsyncSession, Depends(get_db)]) -> AuthRepository:
     """Returns authentication repository dependency."""
     return AuthRepository(db)

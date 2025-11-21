@@ -1,6 +1,9 @@
-from fastapi import APIRouter, status
+from typing import Annotated
+
+from fastapi import APIRouter, status, Depends
+
 from .services import OrganizationService
-from src.users.schemas import UserOut
+from src.users.schemas import UserInDB
 from .schemas import (
     OrganizationCreate,
     OrganizationUpdate,
@@ -8,13 +11,10 @@ from .schemas import (
     ObjectListResponse,
     SingleObjectResponse,
 )
-from .dependencies import (
-    Annotated,
-    Depends,
-    get_organization_service,
-)
-from src.core.dependencies import get_current_user
+from .dependencies import get_organization_service
+from src.core.dependencies.shared import get_current_user
 from src.docs.organizations import RESPONSES, DOCSTRINGS, SUMMARIES
+
 
 router = APIRouter(
     prefix="/organizations",
@@ -33,9 +33,9 @@ router = APIRouter(
 async def create_organization(
     body: OrganizationCreate,
     organization_service: Annotated[OrganizationService, Depends(get_organization_service)],
-    current_user: Annotated[UserOut, Depends(get_current_user)],
-) -> OrganizationOut:
-    data = await organization_service.create_organization(body)
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
+) -> SingleObjectResponse[OrganizationOut]:
+    data = await organization_service.create_organization(current_user, body)
     return SingleObjectResponse(data=data)
 
 
@@ -50,9 +50,9 @@ async def update_organization(
     id: int,
     body: OrganizationUpdate,
     organization_service: Annotated[OrganizationService, Depends(get_organization_service)],
-    current_user: Annotated[UserOut, Depends(get_current_user)],
-) -> OrganizationOut:
-    data = await organization_service.update_organization(id, body)
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
+) -> SingleObjectResponse[OrganizationOut]:
+    data = await organization_service.update_organization(current_user, id, body)
     return SingleObjectResponse(data=data)
 
 
@@ -66,9 +66,10 @@ async def update_organization(
 async def delete_organization(
     id: int,
     organization_service: Annotated[OrganizationService, Depends(get_organization_service)],
-    current_user: Annotated[UserOut, Depends(get_current_user)],
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
 ) -> None:
-    return await organization_service.delete_organization(id)
+    await organization_service.delete_organization(current_user, id)
+    return None
 
 
 @router.get(
@@ -81,7 +82,7 @@ async def delete_organization(
 async def get_organization(
     id: int,
     organization_service: Annotated[OrganizationService, Depends(get_organization_service)],
-    current_user: Annotated[UserOut, Depends(get_current_user)],
-) -> OrganizationOut:
-    data = await organization_service.get_organization(id)
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
+) -> SingleObjectResponse[OrganizationOut]:
+    data = await organization_service.get_organization(current_user, id)
     return SingleObjectResponse(data=data)

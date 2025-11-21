@@ -1,6 +1,9 @@
-from fastapi import APIRouter, status
+from typing import Annotated
+
+from fastapi import APIRouter, status, Depends
+
 from .services import BranchService
-from src.users.schemas import UserOut
+from src.users.schemas import UserInDB
 from .schemas import (
     BranchCreate,
     BranchUpdate,
@@ -8,18 +11,15 @@ from .schemas import (
     ObjectListResponse,
     SingleObjectResponse,
 )
-from .dependencies import (
-    Annotated,
-    Depends,
-    get_branch_service,
-    get_current_user,
-)
+from .dependencies import get_branch_service
+from src.core.dependencies.shared import get_current_user
 from src.docs.branches import RESPONSES, DOCSTRINGS, SUMMARIES
 
 router = APIRouter(
     prefix="/branches",
-    tags=["Branchs"],
+    tags=["Branches"],
 )
+
 
 @router.get(
     path="/",
@@ -30,9 +30,9 @@ router = APIRouter(
 )
 async def get_branches_for_organization(
     branch_service: Annotated[BranchService, Depends(get_branch_service)],
-    current_user: Annotated[UserOut, Depends(get_current_user)],
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
 ) -> ObjectListResponse[BranchOut]:
-    data = await branch_service.get_branches_for_organization()
+    data = await branch_service.get_branches_for_organization(current_user)
     return ObjectListResponse(data=data)
 
 
@@ -46,9 +46,9 @@ async def get_branches_for_organization(
 async def get_branch(
     id: int,
     branch_service: Annotated[BranchService, Depends(get_branch_service)],
-    current_user: Annotated[UserOut, Depends(get_current_user)],
-) -> BranchOut:
-    data = await branch_service.get_branch(id)
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
+) -> SingleObjectResponse[BranchOut]:
+    data = await branch_service.get_branch(current_user, id)
     return SingleObjectResponse(data=data)
 
 
@@ -63,9 +63,9 @@ async def get_branch(
 async def create_branch(
     body: BranchCreate,
     branch_service: Annotated[BranchService, Depends(get_branch_service)],
-    current_user: Annotated[UserOut, Depends(get_current_user)],
-) -> BranchOut:
-    data = await branch_service.create_branch(body)
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
+) -> SingleObjectResponse[BranchOut]:
+    data = await branch_service.create_branch(current_user, body)
     return SingleObjectResponse(data=data)
 
 
@@ -80,9 +80,9 @@ async def update_branch(
     id: int,
     body: BranchUpdate,
     branch_service: Annotated[BranchService, Depends(get_branch_service)],
-    current_user: Annotated[UserOut, Depends(get_current_user)],
-) -> BranchOut:
-    data = await branch_service.update_branch(id, body)
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
+) -> SingleObjectResponse[BranchOut]:
+    data = await branch_service.update_branch(current_user, id, body)
     return SingleObjectResponse(data=data)
 
 
@@ -96,6 +96,7 @@ async def update_branch(
 async def delete_branch(
     id: int,
     branch_service: Annotated[BranchService, Depends(get_branch_service)],
-    current_user: Annotated[UserOut, Depends(get_current_user)],
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
 ) -> None:
-    return await branch_service.delete_branch(id)
+    await branch_service.delete_branch(current_user, id)
+    return None

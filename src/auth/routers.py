@@ -8,8 +8,6 @@ from fastapi import (
 )
 from fastapi.security import OAuth2PasswordRequestForm
 from redis.asyncio import Redis
-
-from src.users.dependencies import UserService, get_user_service
 from .services.auth_service import AuthService
 from .schemas import (
     UserInviteAcceptRequest,
@@ -29,15 +27,15 @@ from .schemas import (
     VerifyPasswordResetOTPRequest,
     VerifyPasswordResetOTPResponse,
     UserOut,
+    UserInDB,
     SingleObjectResponse,
     SuccessfulResponse,
 )
 from .dependencies import (
     get_auth_service,
-    get_current_user,
     get_redis,
-    oauth2_scheme,
 )
+from src.core.dependencies.shared import get_current_user, oauth2_scheme
 from src.docs.auth import RESPONSES, DOCSTRINGS, SUMMARIES
 
 
@@ -76,21 +74,19 @@ async def signup(
     description=DOCSTRINGS["sign_up_complete"],
 )
 async def sign_up_complete(
-    request: Request,
+    request: Request, 
     response: Response,
     body: SignUpCompleteRequest,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
-    current_user_email: Annotated[str, Depends(get_current_user)],
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
 ) -> SingleObjectResponse[SignUpCompleteResponse]:
-    data = await auth_service.sign_up_complete(current_user_email, body)
+    data = await auth_service.sign_up_complete(current_user.email, body)
     return SingleObjectResponse(data=data)
 
 
 @router.post(
     "/invitations/accept",
     response_model=SingleObjectResponse[UserOut],
-    summary="Accept user invitation",
-    description="Accepts a user invitation and activates the account.",
 )
 async def accept_invitation(
     body: UserInviteAcceptRequest,
@@ -126,11 +122,11 @@ async def login(
     description=DOCSTRINGS["get_me"],
 )
 async def get_me(
-    current_user_email: Annotated[str, Depends(get_current_user)],
-    user_service: Annotated[UserService, Depends(get_user_service)],
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> SingleObjectResponse[UserOut]:
-    current_user = await user_service.get_by_email(current_user_email)
-    return SingleObjectResponse(data=current_user)
+    data = await auth_service.get_me(current_user.email)
+    return SingleObjectResponse(data=data)
 
 
 @router.post(
@@ -196,8 +192,8 @@ async def reset_password(
     description=DOCSTRINGS["logout"],
 )
 async def logout(
-    token: str = Depends(oauth2_scheme),
-    redis: Redis = Depends(get_redis),
+    token: Annotated[str, Depends(oauth2_scheme)],
+    redis: Annotated[Redis, Depends(get_redis)],
 ) -> SuccessfulResponse:
     await redis.setex(f"blacklist:{token}", 600, "revoked")
     return SuccessfulResponse(detail="Logged out successfully")
@@ -276,17 +272,15 @@ async def verify_password_reset_otp(
     description=DOCSTRINGS["swaggerlogin"],
 )
 async def swaggerlogin(
+    request: Request,
+    response: Response,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
-    login_credentials: OAuth2PasswordRequestForm = Depends(),
+    login_credentials: Annotated[OAuth2PasswordRequestForm, Depends()],
 ) -> dict[str, str]:
-    from .schemas import TokenPayload
-
     login_data = LoginRequest(
         email=login_credentials.username,
         password=login_credentials.password,
     )
     login_response: LoginResponse = await auth_service.login(login_data)
-    access_token = auth_service.create_access_token(
-        TokenPayload(sub=login_credentials.username)
-    )
+    access_token, refresh_token = auth_service.create_tokens_and_set_cookies(request, response, login_data.email)
     return {"access_token": access_token, "token_type": "bearer"}

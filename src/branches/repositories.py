@@ -1,34 +1,46 @@
-from sqlalchemy.orm import Session
-from sqlalchemy import func, or_, select, insert, update, delete
-from datetime import datetime
+from typing import Optional, Dict, Any
+
+from sqlalchemy import select, update, delete
+from src.core.database import AsyncSession
+
 from .models import Branch
-from src.users.schemas import UserOut
+
 
 class BranchRepository:
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
-    
-    async def get(self,  id: int) -> Branch | None:
-        return self.db.query(Branch).filter(Branch.id==id).first()
-    
-    async def get_branches_for_organization(self, organization_id: int) -> list[Branch]:
-        return self.db.query(Branch).filter(Branch.organization_id==organization_id).all()
 
-    async def create(self, data: dict) -> Branch | None:
+    async def get(self, id: int) -> Optional[Branch]:
+        stmt = select(Branch).where(Branch.id == id)
+        result = await self.db.execute(stmt)
+        return result.scalars().first()
+
+    async def get_branches_for_organization(self, organization_id: int) -> list[Branch]:
+        stmt = select(Branch).where(Branch.organization_id == organization_id)
+        result = await self.db.execute(stmt)
+        return result.scalars().all()
+
+    async def create(self, data: Dict[str, Any]) -> Branch:
         branch = Branch(**data)
         self.db.add(branch)
-        self.db.commit()
-        self.db.refresh(branch)
+        await self.db.flush()
+        await self.db.refresh(branch)
         return branch
 
-    async def update(self, id: int, data: dict) -> Branch | None:
-        stmt = update(Branch).where(Branch.id==id).values(**data)
-        self.db.execute(stmt)
-        self.db.commit()
-        return await self.get(id)
-    
+    async def update(self, id: int, data: Dict[str, Any]) -> Optional[Branch]:
+        stmt = (
+            update(Branch)
+            .where(Branch.id == id)
+            .values(**data)
+            .returning(Branch)
+        )
+        result = await self.db.execute(stmt)
+        await self.db.flush()
+        row = result.fetchone()
+        return row[0] if row else None
+
     async def delete(self, id: int) -> None:
-        branch = self.db.query(Branch).filter(Branch.id==id)
-        branch.delete()
-        self.db.commit()
+        stmt = delete(Branch).where(Branch.id == id)
+        await self.db.execute(stmt)
+        await self.db.flush()
         return None

@@ -2,22 +2,18 @@ import jwt
 from datetime import datetime, timedelta, timezone
 from fastapi import Request, Response
 from src.core.config import settings
+from ..repositories.token_repo import TokenRepository
 from ...auth.exceptions import InvalidTokenException
 
 
 class TokenService:
     
-    def __init__(self):
-        pass
+    def __init__(self, token_repo: TokenRepository):
+        self.token_repo = token_repo
 
     def create_token(self, payload: dict) -> str:
         """Creates an access token."""
         return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-
-    # @classmethod
-    # def create_refresh_token(self, payload: dict) -> str:
-    #     """Creates a refresh token."""
-    #     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
     def verify_token(self, token: str) -> str:
@@ -41,7 +37,6 @@ class TokenService:
         origin = request.headers.get("origin") or ""
         is_local = origin.startswith("http://localhost") or origin.startswith("http://127.0.0.1")
         secure_flag = settings.ENVIRONMENT == "PRODUCTION" and not is_local
-
         response.set_cookie(
             key="access_token",
             value=access_token,
@@ -57,7 +52,6 @@ class TokenService:
         origin = request.headers.get("origin") or ""
         is_local = origin.startswith("http://localhost") or origin.startswith("http://127.0.0.1")
         secure_flag = settings.ENVIRONMENT == "PRODUCTION" and not is_local
-
         response.set_cookie(
             key="refresh_token",
             value=refresh_token,

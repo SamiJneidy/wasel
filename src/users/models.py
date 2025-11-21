@@ -18,6 +18,3 @@ class User(Base, AuditTimeMixin):
     role = Column(String, nullable=False)
     status = Column(Enum(UserStatus), nullable=False)
     is_completed = Column(Boolean, nullable=False)
-
-    organization = relationship("Organization")
-

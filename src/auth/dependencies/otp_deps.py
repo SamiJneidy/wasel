@@ -1,8 +1,8 @@
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Annotated
-from ..repositories import OTPRepository
-from ..services import OTPService
+from ..repositories.otp_repo import OTPRepository
+from ..services.otp_service import OTPService
 from src.core.database import get_db
 
 def get_otp_repository(db: Annotated[AsyncSession, Depends(get_db)]) -> OTPRepository:

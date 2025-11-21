@@ -1,10 +1,9 @@
-from fastapi import APIRouter, Query, Request, status
+from fastapi import APIRouter, Query, Request
+from typing import Annotated
 from src.core.schemas import SingleObjectResponse, ObjectListResponse
-from src.core.database import AsyncSession, get_db
-from .services import UserService
 from .schemas import UserInDB, UserInvite, UserOut
-from .dependencies import Annotated, Depends, get_user_service
-from src.core.dependencies import get_current_user
+from .dependencies import UserService, Depends, get_user_service
+from src.core.dependencies.shared import get_current_user
 from src.docs.users import RESPONSES, DOCSTRINGS, SUMMARIES
 
 router = APIRouter(
@@ -13,35 +12,21 @@ router = APIRouter(
 )
 
 
+# -----------------------
+# GET USERS OF AN ORGANIZATION BY ORG_ID
+# -----------------------
 @router.get(
-    path="/",
+    path="",
     response_model=ObjectListResponse[UserOut],
     # responses=RESPONSES["get_user_by_email"],
     # summary=SUMMARIES["get_user_by_email"],
     # description=DOCSTRINGS["get_user_by_email"],
 )
 async def get_users(  
-    current_user_email: Annotated[str, Depends(get_current_user)],
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
     user_service: Annotated[UserService, Depends(get_user_service)],
 ) -> ObjectListResponse[UserOut]:
-    current_user = await user_service.get_by_email(current_user_email)
-    data = await user_service.get_users_by_org(current_user.organization.id)
-    return ObjectListResponse(data=data)
-
-
-@router.get(
-    path="/",
-    response_model=ObjectListResponse[UserOut],
-    # responses=RESPONSES["get_user_by_email"],
-    # summary=SUMMARIES["get_user_by_email"],
-    # description=DOCSTRINGS["get_user_by_email"],
-)
-async def get_users(  
-    current_user_email: Annotated[str, Depends(get_current_user)],
-    user_service: Annotated[UserService, Depends(get_user_service)],
-) -> ObjectListResponse[UserOut]:
-    current_user = await user_service.get_by_email(current_user_email)
-    data = await user_service.get_users_by_org(current_user.organization.id)
+    data = await user_service.get_users_by_org_id(current_user.organization_id)
     return ObjectListResponse(data=data)
 
 
@@ -94,13 +79,11 @@ async def get_user_by_email(
 async def invite_user(
     request: Request,
     body: UserInvite,
-    db: Annotated[AsyncSession, Depends(get_db)],
     user_service: Annotated[UserService, Depends(get_user_service)],
     current_user: Annotated[UserInDB, Depends(get_current_user)],
 ) -> SingleObjectResponse[UserOut]:
     # Transaction ensures rollback if email sending or user creation fails
-    async with db.begin():
-        data = await user_service.invite_user(current_user, request.base_url, body)
+    data = await user_service.invite_user(current_user, request.base_url, body)
     return SingleObjectResponse(data=data)
 
 
@@ -116,13 +99,11 @@ async def invite_user(
 )
 async def resend_invitation(
     request: Request,
-    db: Annotated[AsyncSession, Depends(get_db)],
     user_service: Annotated[UserService, Depends(get_user_service)],
     current_user: Annotated[UserInDB, Depends(get_current_user)],
     email: str = Query(..., description="Email of the user to send invitation to."),
 ) -> SingleObjectResponse[UserOut]:
-    async with db.begin():
-        data = await user_service.send_invitation(current_user, email, request.base_url)
+    data = await user_service.send_invitation(current_user, email, request.base_url)
     return SingleObjectResponse(data=data)
 
 
@@ -131,7 +112,7 @@ async def resend_invitation(
 # -----------------------
 @router.delete(
     path="/",
-    status_code=status.HTTP_204_NO_CONTENT,
+    status_code=204,
     responses=RESPONSES["delete_user"],
     summary=SUMMARIES["delete_user"],
     description=DOCSTRINGS["delete_user"],
