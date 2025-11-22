@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr, StringConstraints, ConfigDict, constr, Field, field_validator, model_validator
 from datetime import datetime
-from src.core.schemas import AuditTimeMixin, UserInviteTokenPayload
+from src.core.schemas import AuditTimeMixin
 from src.organizations.schemas import OrganizationOut
 from src.core.enums import UserRole, UserStatus, UserType
 from typing import Optional, Self

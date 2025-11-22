@@ -6,10 +6,13 @@ from fastapi import (
     Response,
     status,
 )
+from src.core.enums import TokenScope
+from src.users.schemas import UserInDB, UserOut
+from src.core.schemas import SingleObjectResponse, SuccessfulResponse, ErrorResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from redis.asyncio import Redis
 from .services.auth_service import AuthService
-from .schemas import (
+from .schemas.auth_schemas import (
     UserInviteAcceptRequest,
     LoginRequest,
     LoginResponse,
@@ -26,16 +29,12 @@ from .schemas import (
     RequestPasswordResetOTPResponse,
     VerifyPasswordResetOTPRequest,
     VerifyPasswordResetOTPResponse,
-    UserOut,
-    UserInDB,
-    SingleObjectResponse,
-    SuccessfulResponse,
 )
 from .dependencies import (
     get_auth_service,
     get_redis,
 )
-from src.core.dependencies.shared import get_current_user, oauth2_scheme
+from src.core.dependencies.shared import get_current_user, get_current_user_from_sign_up_complete_token, oauth2_scheme
 from src.docs.auth import RESPONSES, DOCSTRINGS, SUMMARIES
 
 
@@ -62,7 +61,7 @@ async def signup(
     body: SignUp,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> SingleObjectResponse[UserOut]:
-    data = await auth_service.signup(body)
+    data = await auth_service.sign_up(body)
     return SingleObjectResponse(data=data)
 
 
@@ -78,9 +77,11 @@ async def sign_up_complete(
     response: Response,
     body: SignUpCompleteRequest,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    current_user: Annotated[UserInDB, Depends(get_current_user_from_sign_up_complete_token)],
 ) -> SingleObjectResponse[SignUpCompleteResponse]:
     data = await auth_service.sign_up_complete(current_user.email, body)
+    response.delete_cookie("sign_up_complete_token")
+    auth_service.create_tokens_and_set_cookies(request, response, current_user.email)
     return SingleObjectResponse(data=data)
 
 
@@ -162,7 +163,7 @@ async def verify_email_after_signup(
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> SingleObjectResponse[LoginResponse]:
     data = await auth_service.verify_email_after_signup(body)
-    auth_service.create_tokens_and_set_cookies(request, response, body.email)
+    auth_service.create_sign_up_complete_token_and_set_cookie(request, response, body.email)
     return SingleObjectResponse(data=data)
 
 
@@ -192,10 +193,11 @@ async def reset_password(
     description=DOCSTRINGS["logout"],
 )
 async def logout(
-    token: Annotated[str, Depends(oauth2_scheme)],
-    redis: Annotated[Redis, Depends(get_redis)],
+    request: Request,
+    response: Response,
 ) -> SuccessfulResponse:
-    await redis.setex(f"blacklist:{token}", 600, "revoked")
+    response.delete_cookie("access_token")
+    response.delete_cookie("refresh_token")
     return SuccessfulResponse(detail="Logged out successfully")
 
 

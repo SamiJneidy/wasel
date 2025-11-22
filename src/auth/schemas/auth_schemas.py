@@ -1,12 +1,10 @@
 from typing import Optional, Self
 from pydantic import BaseModel, EmailStr, StringConstraints, ConfigDict, Field, field_validator, model_validator
 from datetime import datetime
-from src.core.schemas import SingleObjectResponse, SuccessfulResponse, ErrorResponse, AccessTokenPayload, RefreshTokenPayload
+from src.core.schemas import SingleObjectResponse, SuccessfulResponse, ErrorResponse
 from src.users.schemas import UserCreate, UserUpdate, UserOut, UserInDB
 from src.organizations.schemas import OrganizationCreate, OrganizationOut
 from src.core.enums import OTPStatus, OTPUsage, UserRole, UserStatus
-
-# Authentication
 
 class SignUp(BaseModel):
     name: str = Field(..., example="Sami")
@@ -103,20 +101,3 @@ class ResetPasswordRequest(BaseModel):
 
 class ResetPasswordResponse(BaseModel):
     email: EmailStr = Field(..., example="user@example.com")
-
-
-# OTP
-class OTPBase(BaseModel):
-    email: EmailStr 
-    usage: OTPUsage 
-    expires_at: datetime
-
-
-class OTPCreate(OTPBase):
-    pass
-
-
-class OTPOut(OTPBase):
-    code: str
-    status: OTPStatus
-    model_config = ConfigDict(from_attributes=True)

@@ -9,6 +9,7 @@ class TokenScope(str, Enum):
     ACCESS = "ACCESS"
     REFRESH = "REFRESH"
     INVITE = "INVITE"
+    SIGN_UP_COMPLETE = "SIGN_UP_COMPLETE"
     RESET_PASSWORD = "RESET_PASSWORD"
 
 class CSIDType(str, Enum):

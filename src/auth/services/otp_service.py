@@ -3,7 +3,7 @@ from src.core.enums import OTPStatus, OTPUsage
 from src.core.config import settings
 from ..repositories import OTPRepository
 from ..utils import generate_random_code
-from ..schemas import (
+from ..schemas.otp_schemas import (
     OTPCreate,
     OTPOut, 
 )

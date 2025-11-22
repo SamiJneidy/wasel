@@ -8,9 +8,9 @@ from .schemas import (
     UserUpdate,
     UserInDB,
     UserInvite,
-    UserInviteTokenPayload,
     UserCreate,
 )
+from src.auth.schemas.token_schemas import UserInviteToken
 from .exceptions import (
     InvitationNotAllowedException,
     UserNotFoundException,
@@ -101,7 +101,7 @@ class UserService:
         if user.is_completed or user.status != UserStatus.PENDING:
             raise InvitationNotAllowedException()
         now = datetime.now(tz=timezone.utc)
-        payload = UserInviteTokenPayload(
+        payload = UserInviteToken(
             sub=email,
             iat=now,
             exp=now + timedelta(minutes=settings.USER_INVITATION_TOKEN_EXPIRATION_MINUTES),

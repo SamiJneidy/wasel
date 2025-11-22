@@ -13,10 +13,18 @@ from src.branches.services import BranchService
 from .otp_service import OTPService
 from ..repositories import AuthRepository
 from ..utils import hash_password, verify_password
-from ..schemas import (
+from ..schemas.token_schemas import (    
+    AccessToken,
+    RefreshToken,
+    SignUpCompleteToken,
+)
+from ..schemas.otp_schemas import (
+    OTPCreate,
+    OTPOut,
+)
+from ..schemas.auth_schemas import (
     LoginRequest,
     LoginResponse,
-    OTPCreate,
     SignUp, 
     VerifyEmailRequest,
     VerifyEmailResponse,
@@ -28,9 +36,6 @@ from ..schemas import (
     RequestPasswordResetOTPResponse,
     VerifyPasswordResetOTPRequest,
     VerifyPasswordResetOTPResponse,
-    AccessTokenPayload,
-    RefreshTokenPayload,
-    OTPOut,
     SignUpCompleteRequest,
     SignUpCompleteResponse,
     OrganizationCreate,
@@ -68,7 +73,7 @@ class AuthService:
         self.organization_service = organization_service
 
     
-    async def signup(self, data: SignUp) -> UserOut:
+    async def sign_up(self, data: SignUp) -> UserOut:
         """Sign up a new user using email and password. Any extra user fields can be updated from the user service in 'users' package."""
         try:
             user = await self.user_service.get_by_email(data.email)
@@ -211,36 +216,28 @@ class AuthService:
         return ResetPasswordResponse(email=data.email)
 
 
-    def create_access_token(self, token_payload: AccessTokenPayload) -> str:
-        """Creates an access token."""
-        token_payload.iat = datetime.now(tz=timezone.utc)
-        token_payload.exp = datetime.now(tz=timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRATION_MINUTES)
-        payload = token_payload.model_dump()
-        return self.token_service.create_token(payload)
-
-
-    def create_refresh_token(self, token_payload: RefreshTokenPayload) -> str:
-        """Creates a refresh token."""
-        token_payload.iat = datetime.now(tz=timezone.utc)
-        token_payload.exp = datetime.now(tz=timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRATION_DAYS)
-        payload = token_payload.model_dump()
-        return self.token_service.create_token(payload)
-
-
     def create_access_token_and_set_cookie(self, request: Request, response: Response, email: str) -> str:
         """Creates an access token and sets it in the response cookies. Returns the access token."""
-        payload = AccessTokenPayload(sub=email)
-        access_token = self.create_access_token(payload)
+        payload = AccessToken(sub=email)
+        access_token = self.token_service.create_access_token(payload)
         self.token_service.set_access_token_cookie(request, response, access_token)
         return access_token
 
 
     def create_refresh_token_and_set_cookie(self, request: Request, response: Response, email: str) -> str:
         """Creates a refresh token and sets it in the response cookies. Returns the refresh token."""
-        payload = RefreshTokenPayload(sub=email)
-        refresh_token = self.create_refresh_token(payload)
+        payload = RefreshToken(sub=email)
+        refresh_token = self.token_service.create_refresh_token(payload)
         self.token_service.set_refresh_token_cookie(request, response, refresh_token)
         return refresh_token
+
+
+    def create_sign_up_complete_token_and_set_cookie(self, request: Request, response: Response, email: str) -> str:
+        """Creates a refresh token and sets it in the response cookies. Returns the refresh token."""
+        payload = SignUpCompleteToken(sub=email)
+        token = self.token_service.create_sign_up_complete_token(payload)
+        self.token_service.set_sign_up_complete_token_cookie(request, response, token)
+        return token
 
 
     def create_tokens_and_set_cookies(self, request: Request, response: Response, email: str) -> tuple[str, str]:

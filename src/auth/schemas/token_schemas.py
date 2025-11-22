@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
-from ..enums import TokenScope
+from src.core.enums import TokenScope
 from typing import Optional
 
 class TokenPayloadBase(BaseModel):
@@ -10,19 +10,23 @@ class TokenPayloadBase(BaseModel):
     exp: Optional[datetime] = None
 
 
-class AccessTokenPayload(TokenPayloadBase):
+class AccessToken(TokenPayloadBase):
     scope: TokenScope = TokenScope.ACCESS
 
 
-class RefreshTokenPayload(TokenPayloadBase):
+class RefreshToken(TokenPayloadBase):
     scope: TokenScope = TokenScope.REFRESH
 
 
-class UserInviteTokenPayload(TokenPayloadBase):
+class SignUpCompleteToken(TokenPayloadBase):
+    scope: TokenScope = TokenScope.SIGN_UP_COMPLETE
+
+
+class UserInviteToken(TokenPayloadBase):
     invited_by: int
     organization_id: int
     scope: TokenScope = TokenScope.INVITE
 
 
-class ResetPasswordTokenPayload(TokenPayloadBase):
+class PasswordResetToken(TokenPayloadBase):
     scope: TokenScope = TokenScope.RESET_PASSWORD
