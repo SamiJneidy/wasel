@@ -76,7 +76,7 @@ class AuthService:
         except UserNotFoundException:
             pass
         user_create = UserCreate(
-            **data.model_dump(exclude={"confirm_password"}),
+            **data.model_dump(exclude={"password", "confirm_password"}),
             password=hash_password(data.password),
             type=UserType.CLIENT, 
             role=UserRole.SUPER_ADMIN, 
