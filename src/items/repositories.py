@@ -1,37 +1,89 @@
-from sqlalchemy.orm import Session
-from sqlalchemy import func, or_, select, insert, update, delete
-from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
+
+from sqlalchemy import delete, func, select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from .models import Item
-from src.users.schemas import UserOut
+
 
 class ItemRepository:
-    def __init__(self, db: Session, user: UserOut):
+    def __init__(self, db: AsyncSession):
         self.db = db
-        self.user = user
-    
-    async def get(self, id: int) -> Item | None:
-        return self.db.query(Item).filter(Item.id==id, Item.user_id==self.user.id).first()
-    
-    async def get_items(self) -> list[Item]:
-        return self.db.query(Item).filter(Item.user_id==self.user.id).all()
 
-    async def create(self, data: dict) -> Item | None:
+    async def get(self, organization_id: int, id: int) -> Optional[Item]:
+        stmt = (
+            select(Item)
+            .where(Item.id == id, Item.organization_id == organization_id)
+        )
+        result = await self.db.execute(stmt)
+        return result.scalars().first()
+
+    async def get_items(
+        self,
+        organization_id: int,
+        skip: Optional[int] = None,
+        limit: Optional[int] = None,
+        filters: Dict[str, Any] = {},
+    ) -> Tuple[int, List[Item]]:
+        stmt = select(Item).where(Item.organization_id == organization_id)
+        count_stmt = (
+            select(func.count())
+            .select_from(Item)
+            .where(Item.organization_id == organization_id)
+        )
+
+        for k, v in filters.items():
+            column = getattr(Item, k, None)
+            if column is not None:
+                if isinstance(v, str):
+                    stmt = stmt.where(func.lower(column).like(f"%{v.lower()}%"))
+                    count_stmt = count_stmt.where(func.lower(column).like(f"%{v.lower()}%"))
+                else:
+                    stmt = stmt.where(column == v)
+                    count_stmt = count_stmt.where(column == v)
+
+        # total count
+        count_result = await self.db.execute(count_stmt)
+        total_rows = count_result.scalars().first() or 0
+
+        # pagination
+        if skip is not None:
+            stmt = stmt.offset(skip)
+        if limit is not None:
+            stmt = stmt.limit(limit)
+
+        result = await self.db.execute(stmt)
+        items = result.scalars().all()
+        return total_rows, items
+
+    async def create(self, organization_id: int, user_id: int, data: Dict[str, Any]) -> Optional[Item]:
         item = Item(**data)
-        item.user_id = self.user.id
-        item.created_by = self.user.id
+        item.organization_id = organization_id
+        item.created_by = user_id
         self.db.add(item)
-        self.db.commit()
-        self.db.refresh(item)
+        await self.db.flush()
+        await self.db.refresh(item)
         return item
 
-    async def update(self, id: int, data: dict) -> Item | None:
-        stmt = update(Item).where(Item.id==id, Item.user_id==self.user.id).values(updated_by=self.user.id, **data)
-        self.db.execute(stmt)
-        self.db.commit()
-        return await self.get(id)
-    
-    async def delete(self, id: int) -> None:
-        item = self.db.query(Item).filter(Item.id==id, Item.user_id==self.user.id)
-        item.delete()
-        self.db.commit()
+    async def update(
+        self,
+        organization_id: int,
+        user_id: int,
+        id: int,
+        data: Dict[str, Any],
+    ) -> Optional[Item]:
+        stmt = (
+            update(Item)
+            .where(Item.id == id, Item.organization_id == organization_id)
+            .values(updated_by=user_id, **data)
+            .returning(Item)
+        )
+        result = await self.db.execute(stmt)
+        await self.db.flush()
+        return result.scalars().first()
+
+    async def delete(self, organization_id: int, id: int) -> None:
+        stmt = delete(Item).where(Item.id == id, Item.organization_id == organization_id)
+        await self.db.execute(stmt)
+        await self.db.flush()
         return None

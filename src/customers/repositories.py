@@ -4,36 +4,38 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .models import Customer
-from src.users.schemas import UserOut  # assuming still needed
 
 
 class CustomerRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get(self, user_id: int, id: int) -> Optional[Customer]:
+    async def get(self, organization_id: int, id: int) -> Optional[Customer]:
         stmt = (
             select(Customer)
-            .where(Customer.id == id, Customer.user_id == user_id)
+            .where(Customer.id == id, Customer.organization_id == organization_id)
         )
         result = await self.db.execute(stmt)
         return result.scalars().first()
 
     async def get_customers(
         self,
-        user_id: int,
+        organization_id: int,
         skip: Optional[int] = None,
         limit: Optional[int] = None,
         filters: Dict[str, Any] = {},
     ) -> Tuple[int, List[Customer]]:
-        stmt = select(Customer).where(Customer.user_id == user_id)
-        count_stmt = (select(func.count()).select_from(Customer).where(Customer.user_id == user_id))
+        stmt = select(Customer).where(Customer.organization_id == organization_id)
+        count_stmt = (select(func.count()).select_from(Customer).where(Customer.organization_id == organization_id))
         for k, v in filters.items():
             column = getattr(Customer, k, None)
-            if column is not None and isinstance(v, str):
-                stmt = stmt.where(func.lower(column).like(f"%{v.lower()}%"))
-                count_stmt = count_stmt.where(func.lower(column).like(f"%{v.lower()}%"))
-
+            if column is not None:
+                if isinstance(v, str):
+                    stmt = stmt.where(func.lower(column).like(f"%{v.lower()}%"))
+                    count_stmt = count_stmt.where(func.lower(column).like(f"%{v.lower()}%"))
+                else:
+                    stmt = stmt.where(column == v)
+                    count_stmt = count_stmt.where(column == v)
         count_result = await self.db.execute(count_stmt)
         total_rows = count_result.scalars().first() or 0
 
@@ -47,19 +49,19 @@ class CustomerRepository:
         customers = result.scalars().all()
         return total_rows, customers
 
-    async def create(self, user_id: int, data: Dict[str, Any]) -> Optional[Customer]:
+    async def create(self, organization_id: int, user_id: int, data: Dict[str, Any]) -> Optional[Customer]:
         customer = Customer(**data)
-        customer.user_id = user_id
+        customer.organization_id = organization_id
         customer.created_by = user_id
         self.db.add(customer)
         await self.db.flush()
         await self.db.refresh(customer)
         return customer
 
-    async def update(self, user_id: int, id: int, data: Dict[str, Any]) -> Optional[Customer]:
+    async def update(self, organization_id: int, user_id: int, id: int, data: Dict[str, Any]) -> Optional[Customer]:
         stmt = (
             update(Customer)
-            .where(Customer.id == id, Customer.user_id == user_id)
+            .where(Customer.id == id, Customer.organization_id == organization_id)
             .values(updated_by=user_id, **data)
             .returning(Customer)
         )
@@ -67,8 +69,8 @@ class CustomerRepository:
         await self.db.flush()
         return result.scalars().first()
 
-    async def delete(self, user_id: int, id: int) -> None:
-        stmt = (delete(Customer).where(Customer.id == id, Customer.user_id == user_id))
+    async def delete(self, organization_id: int, id: int) -> None:
+        stmt = (delete(Customer).where(Customer.id == id, Customer.organization_id == organization_id))
         result = await self.db.execute(stmt)
         await self.db.flush()
         return None

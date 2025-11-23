@@ -2,7 +2,7 @@ import jwt
 from datetime import datetime, timedelta, timezone
 from fastapi import Request, Response
 from src.core.config import settings
-from ..schemas.token_schemas import AccessToken, RefreshToken, SignUpCompleteToken
+from ..schemas.token_schemas import AccessToken, RefreshToken, SignUpCompleteToken, UserInviteToken
 from ..repositories.token_repo import TokenRepository
 from ...auth.exceptions import InvalidTokenException
 
@@ -46,6 +46,13 @@ class TokenService:
         payload = token.model_dump()
         return self._create_token(payload)
 
+
+    def create_user_invitation_token(self, token: UserInviteToken) -> str:
+        token.iat = datetime.now(tz=timezone.utc)
+        token.exp = datetime.now(tz=timezone.utc) + timedelta(days=settings.USER_INVITATION_TOKEN_EXPIRATION_MINUTES)
+        payload = token.model_dump()
+        return self._create_token(payload)
+    
 
     def verify_token(self, token: str) -> str:
         """Verifies if a token is valid or not and returns the user's email if the token was valid."""   

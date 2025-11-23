@@ -1,7 +1,8 @@
+from math import ceil
 from fastapi import APIRouter, Query, Request
 from typing import Annotated
-from src.core.schemas import SingleObjectResponse, ObjectListResponse
-from .schemas import UserInDB, UserInvite, UserOut
+from src.core.schemas import SingleObjectResponse, ObjectListResponse, PagintationParams, PaginatedResponse
+from .schemas import UserInDB, UserInvite, UserOut, UserFilters
 from .dependencies import UserService, Depends, get_user_service
 from src.core.dependencies.shared import get_current_user
 from src.docs.users import RESPONSES, DOCSTRINGS, SUMMARIES
@@ -17,7 +18,7 @@ router = APIRouter(
 # -----------------------
 @router.get(
     path="",
-    response_model=ObjectListResponse[UserOut],
+    response_model=PaginatedResponse[UserOut],
     # responses=RESPONSES["get_user_by_email"],
     # summary=SUMMARIES["get_user_by_email"],
     # description=DOCSTRINGS["get_user_by_email"],
@@ -25,9 +26,17 @@ router = APIRouter(
 async def get_users(  
     current_user: Annotated[UserInDB, Depends(get_current_user)],
     user_service: Annotated[UserService, Depends(get_user_service)],
-) -> ObjectListResponse[UserOut]:
-    data = await user_service.get_users_by_org_id(current_user.organization_id)
-    return ObjectListResponse(data=data)
+    pagination_params: Annotated[PagintationParams, Depends()],
+    filters: Annotated[UserFilters, Depends()],
+) -> PaginatedResponse[UserOut]:
+    total_rows, data = await user_service.get_users_by_org_id(current_user.organization_id, pagination_params, filters)
+    return PaginatedResponse(
+        data=data,
+        total_rows=total_rows,
+        total_pages=ceil(total_rows/pagination_params.limit) if pagination_params.limit is not None else 1,
+        page=pagination_params.page,
+        limit=pagination_params.limit
+    )
 
 
 # -----------------------

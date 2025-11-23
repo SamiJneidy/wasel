@@ -7,7 +7,8 @@ from src.core.enums import PartyIdentificationScheme
 class Item(Base, AuditMixin):
     __tablename__ = "items"
     id = Column(Integer, autoincrement=True, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    branch_id = Column(Integer, ForeignKey('branches.id'), nullable=True)
+    organization_id = Column(Integer, ForeignKey('organizations.id'), nullable=True)
     name = Column(String(300), nullable=False)
     default_sale_price = Column(DECIMAL(scale=2), nullable=False)
     default_buy_price = Column(DECIMAL(scale=2), nullable=False)

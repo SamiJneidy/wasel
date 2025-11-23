@@ -9,6 +9,7 @@ from .schemas import (
     UserInDB,
     UserInvite,
     UserCreate,
+    UserFilters
 )
 from src.auth.schemas.token_schemas import UserInviteToken
 from .exceptions import (
@@ -17,6 +18,7 @@ from .exceptions import (
     UserNotActiveException,
     UserAlreadyExistsException,
 )
+from src.core.schemas import PagintationParams
 from src.organizations.services import OrganizationService
 from src.auth.services.token_service import TokenService
 from src.core.services import EmailService
@@ -65,8 +67,14 @@ class UserService:
     async def get_by_email(self, email: str) -> UserInDB:
         return await self._get_or_raise_by_email(email)
 
-    async def get_users_by_org_id(self, org_id: int) -> UserInDB:
-        return await self.user_repo.get_users_by_org(org_id)
+    async def get_users_by_org_id(self, org_id: int, pagination_params: PagintationParams, filters: UserFilters) -> tuple[int, list[UserOut]]:
+        total, query_set = await self.user_repo.get_users_by_org(
+            org_id,
+            pagination_params.skip,
+            pagination_params.limit,
+            filters.model_dump(exclude_none=True),
+        )
+        return total, [UserOut.model_validate(user) for user in query_set]
     
     async def create_user(self, payload: UserCreate) -> UserInDB:
         existing = await self.user_repo.get_by_email(payload.email)
@@ -100,16 +108,12 @@ class UserService:
         user = await self.get_by_email(email)
         if user.is_completed or user.status != UserStatus.PENDING:
             raise InvitationNotAllowedException()
-        now = datetime.now(tz=timezone.utc)
         payload = UserInviteToken(
             sub=email,
-            iat=now,
-            exp=now + timedelta(minutes=settings.USER_INVITATION_TOKEN_EXPIRATION_MINUTES),
             invited_by=inviter.id,
             organization_id=inviter.organization_id,
-            scope="invitation",
         )
-        token = self.token_service.create_token(payload.model_dump())
+        token = self.token_service.create_user_invitation_token(payload)
         if not host_url.endswith("/"):
             host_url = host_url + "/"
         url = f"{host_url}user-onboarding?token={token}"

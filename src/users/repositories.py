@@ -22,10 +22,30 @@ class UserRepository:
         result = await self.db.execute(stmt)
         return result.scalars().first()
 
-    async def get_users_by_org(self, org_id: int) -> list[User]:
+    async def get_users_by_org(self, org_id: int, skip: Optional[int] = None, limit: Optional[int] = None, filters: dict = {}) -> tuple[int, list[User]]:
         stmt = select(User).where(User.organization_id==org_id)
-        result = await self.db.execute(stmt)
-        return result.scalars().all()
+        count_stmt = select(func.count()).select_from(User).where(User.organization_id==org_id)
+        if filters.get("name"):
+            stmt = stmt.where(func.lower(User.name).like(f"%{filters["name"].lower()}%"))   
+            count_stmt = count_stmt.where(func.lower(User.name).like(f"%{filters["name"].lower()}%"))
+        if filters.get("email"):
+            stmt = stmt.where(func.lower(User.name).like(f"%{filters["email"].lower()}%"))   
+            count_stmt = count_stmt.where(func.lower(User.name).like(f"%{filters["email"].lower()}%"))
+        if filters.get("phone"):
+            stmt = stmt.where(func.lower(User.name).like(f"%{filters["phone"].lower()}%"))   
+            count_stmt = count_stmt.where(func.lower(User.name).like(f"%{filters["phone"].lower()}%"))
+        if filters.get("role"):
+            stmt = stmt.where(User.role == filters["role"])   
+            count_stmt = count_stmt.where(User.role == filters["role"])
+        if skip:
+            stmt = stmt.offset(skip)
+        if limit:
+            stmt = stmt.limit(limit)
+        count_result = await self.db.execute(count_stmt)
+        total_rows = count_result.scalars().first() or 0
+        result = await self.db.execute(stmt)     
+        users = result.scalars().all()
+        return total_rows, users
     
     async def create(self, data: dict) -> User:
         user = User(**data)

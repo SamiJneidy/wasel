@@ -4,7 +4,6 @@ from typing import Annotated
 from .repositories import CustomerRepository
 from .services import CustomerService
 from src.core.database import get_db
-from src.users.dependencies import UserService, get_user_service
 
 
 async def get_customer_repository(

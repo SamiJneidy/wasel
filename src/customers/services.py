@@ -7,9 +7,9 @@ from .schemas import (
     CustomerOut,
     CustomerCreate,
     CustomerUpdate,
-    PagintationParams,
     CustomerFilters,
 )
+from src.core.schemas import PagintationParams
 from .repositories import CustomerRepository
 from .exceptions import CustomerNotFoundException
 
@@ -19,7 +19,7 @@ class CustomerService:
         self.customer_repo = customer_repo
 
     async def get(self, user: UserInDB, id: int) -> CustomerOut:
-        customer = await self.customer_repo.get(user.id, id)
+        customer = await self.customer_repo.get(user.organization_id, id)
         if not customer:
             raise CustomerNotFoundException()
         return CustomerOut.model_validate(customer)
@@ -31,7 +31,7 @@ class CustomerService:
         filters: CustomerFilters,
     ) -> tuple[int, list[CustomerOut]]:
         total, query_set = await self.customer_repo.get_customers(
-            user.id,
+            user.organization_id,
             pagination_params.skip,
             pagination_params.limit,
             filters.model_dump(exclude_none=True),
@@ -39,7 +39,8 @@ class CustomerService:
         return total, [CustomerOut.model_validate(customer) for customer in query_set]
 
     async def create(self, user: UserInDB, data: CustomerCreate) -> CustomerOut:
-        customer = await self.customer_repo.create(user.id, data.model_dump())
+        print(user.id)
+        customer = await self.customer_repo.create(user.organization_id, user.id, data.model_dump())
         return CustomerOut.model_validate(customer)
 
     async def update(
@@ -49,6 +50,7 @@ class CustomerService:
         data: CustomerUpdate,
     ) -> CustomerOut:
         customer = await self.customer_repo.update(
+            user.organization_id,
             user.id,
             id,
             data.model_dump(exclude_unset=True),
@@ -59,5 +61,5 @@ class CustomerService:
 
     async def delete(self, user: UserInDB, id: int) -> None:
         await self.get(user, id)
-        await self.customer_repo.delete(user.id, id)
+        await self.customer_repo.delete(user.organization_id, id)
         return None

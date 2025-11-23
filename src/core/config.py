@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     DB_HOSTNAME: str
     DB_PORT: int
     SQLALCHEMY_URL: str
+    SYNC_SQLALCHEMY_URL: str
     MAIL_USERNAME: str
     MAIL_PASSWORD: str
     MAIL_FROM: str

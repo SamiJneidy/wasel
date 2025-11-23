@@ -1,8 +1,6 @@
 from pydantic import BaseModel, EmailStr, StringConstraints, ConfigDict, constr, Field, field_validator, model_validator
 from datetime import datetime
 from decimal import Decimal
-from src.core.schemas import AuditTimeMixin, ObjectListResponse, SingleObjectResponse
-from src.users.schemas import UserOut
 from src.core.enums import UnitCodes
 from typing import Optional
 
@@ -29,3 +27,6 @@ class ItemUpdate(ItemBase):
 class ItemOut(ItemBase):
     id: int
     model_config = ConfigDict(from_attributes=True)
+
+class ItemFilters(BaseModel):
+    name: Optional[str] = None

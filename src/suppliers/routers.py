@@ -1,24 +1,19 @@
 from math import ceil
+
 from fastapi import APIRouter, status
-from .services import SupplierService
-from .schemas import (
-    SupplierCreate,
-    SupplierUpdate,
-    SupplierOut,
-    UserOut,
-    ObjectListResponse,
-    SingleObjectResponse,
-    PagintationParams, 
+
+from src.core.dependencies.shared import get_current_user
+from src.core.schemas import (
     PaginatedResponse,
-    SupplierFilters
+    PagintationParams,
+    SingleObjectResponse,
 )
-from .dependencies import (
-    Annotated,
-    Depends,
-    get_supplier_service,
-    get_current_user,
-)
-from src.docs.suppliers import RESPONSES, DOCSTRINGS, SUMMARIES
+from src.docs.suppliers import DOCSTRINGS, RESPONSES, SUMMARIES
+from src.users.schemas import UserInDB
+
+from .dependencies import Annotated, Depends, get_supplier_service
+from .schemas import SupplierCreate, SupplierFilters, SupplierOut, SupplierUpdate
+from .services import SupplierService
 
 router = APIRouter(
     prefix="/suppliers",
@@ -26,56 +21,12 @@ router = APIRouter(
 )
 
 
-@router.post(
-    path="/",
-    status_code=status.HTTP_201_CREATED,
-    response_model=SingleObjectResponse[SupplierOut],
-    responses=RESPONSES["create_supplier"],
-    summary=SUMMARIES["create_supplier"],
-    description=DOCSTRINGS["create_supplier"],
-)
-async def create_supplier(
-    body: SupplierCreate,
-    supplier_service: Annotated[SupplierService, Depends(get_supplier_service)],
-    current_user: Annotated[UserOut, Depends(get_current_user)],
-) -> SingleObjectResponse[SupplierOut]:
-    data = await supplier_service.create(body)
-    return SingleObjectResponse(data=data)
-
-
-@router.patch(
-    path="/{id}",
-    response_model=SingleObjectResponse[SupplierOut],
-    responses=RESPONSES["update_supplier"],
-    summary=SUMMARIES["update_supplier"],
-    description=DOCSTRINGS["update_supplier"],
-)
-async def update_supplier(
-    id: int,
-    body: SupplierUpdate,
-    supplier_service: Annotated[SupplierService, Depends(get_supplier_service)],
-    current_user: Annotated[UserOut, Depends(get_current_user)],
-) -> SingleObjectResponse[SupplierOut]:
-    data = await supplier_service.update(id, body)
-    return SingleObjectResponse(data=data)
-
-
-@router.delete(
-    path="/{id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-    responses=RESPONSES["delete_supplier"],
-    summary=SUMMARIES["delete_supplier"],
-    description=DOCSTRINGS["delete_supplier"],
-)
-async def delete_supplier(
-    id: int,
-    supplier_service: Annotated[SupplierService, Depends(get_supplier_service)],
-    current_user: Annotated[UserOut, Depends(get_current_user)],
-) -> None:
-    return await supplier_service.delete(id)
+# =========================================================
+# GET routes
+# =========================================================
 
 @router.get(
-    path="/",
+    path="",
     response_model=PaginatedResponse[SupplierOut],
     responses=RESPONSES["get_suppliers_for_user"],
     summary=SUMMARIES["get_suppliers_for_user"],
@@ -83,17 +34,25 @@ async def delete_supplier(
 )
 async def get_suppliers_for_user(
     supplier_service: Annotated[SupplierService, Depends(get_supplier_service)],
-    current_user: Annotated[UserOut, Depends(get_current_user)],
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
     pagination_params: PagintationParams = Depends(),
     filters: SupplierFilters = Depends(),
 ) -> PaginatedResponse[SupplierOut]:
-    total_rows, data = await supplier_service.get_suppliers_for_user(pagination_params, filters)
+    total_rows, data = await supplier_service.get_suppliers_for_user(
+        current_user,
+        pagination_params,
+        filters,
+    )
     return PaginatedResponse(
         data=data,
         total_rows=total_rows,
-        total_pages=ceil(total_rows/pagination_params.limit) if pagination_params.limit is not None else 1,
+        total_pages=(
+            ceil(total_rows / pagination_params.limit)
+            if pagination_params.limit is not None
+            else 1
+        ),
         page=pagination_params.page,
-        limit=pagination_params.limit
+        limit=pagination_params.limit,
     )
 
 
@@ -107,7 +66,68 @@ async def get_suppliers_for_user(
 async def get_supplier(
     id: int,
     supplier_service: Annotated[SupplierService, Depends(get_supplier_service)],
-    current_user: Annotated[UserOut, Depends(get_current_user)],
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
 ) -> SingleObjectResponse[SupplierOut]:
-    data = await supplier_service.get(id)
+    data = await supplier_service.get(current_user, id)
     return SingleObjectResponse(data=data)
+
+
+# =========================================================
+# POST routes
+# =========================================================
+
+@router.post(
+    path="",
+    status_code=status.HTTP_201_CREATED,
+    response_model=SingleObjectResponse[SupplierOut],
+    responses=RESPONSES["create_supplier"],
+    summary=SUMMARIES["create_supplier"],
+    description=DOCSTRINGS["create_supplier"],
+)
+async def create_supplier(
+    body: SupplierCreate,
+    supplier_service: Annotated[SupplierService, Depends(get_supplier_service)],
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
+) -> SingleObjectResponse[SupplierOut]:
+    data = await supplier_service.create(current_user, body)
+    return SingleObjectResponse(data=data)
+
+
+# =========================================================
+# PATCH routes
+# =========================================================
+
+@router.patch(
+    path="/{id}",
+    response_model=SingleObjectResponse[SupplierOut],
+    responses=RESPONSES["update_supplier"],
+    summary=SUMMARIES["update_supplier"],
+    description=DOCSTRINGS["update_supplier"],
+)
+async def update_supplier(
+    id: int,
+    body: SupplierUpdate,
+    supplier_service: Annotated[SupplierService, Depends(get_supplier_service)],
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
+) -> SingleObjectResponse[SupplierOut]:
+    data = await supplier_service.update(current_user, id, body)
+    return SingleObjectResponse(data=data)
+
+
+# =========================================================
+# DELETE routes
+# =========================================================
+
+@router.delete(
+    path="/{id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses=RESPONSES["delete_supplier"],
+    summary=SUMMARIES["delete_supplier"],
+    description=DOCSTRINGS["delete_supplier"],
+)
+async def delete_supplier(
+    id: int,
+    supplier_service: Annotated[SupplierService, Depends(get_supplier_service)],
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
+) -> None:
+    return await supplier_service.delete(current_user, id)

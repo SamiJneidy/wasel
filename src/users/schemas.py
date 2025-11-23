@@ -67,3 +67,10 @@ class UserInvite(BaseModel):
     @field_validator("email", mode="after")
     def normalize_email(cls, value: str) -> str:
         return value.strip().lower() 
+
+
+class UserFilters(BaseModel):
+    name: Optional[str] = Field(None, example="User Name")
+    email: Optional[str] = Field(None)
+    phone: Optional[str] = Field(None, example="+963900000000")
+    role: Optional[UserRole] = None
