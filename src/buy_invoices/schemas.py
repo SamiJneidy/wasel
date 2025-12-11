@@ -18,10 +18,7 @@ class BuyInvoiceLineCreate(BaseModel):
     price_discount: Decimal = Field(..., decimal_places=6)
     quantity: Decimal = Field(..., decimal_places=6)
     discount_amount: Decimal = Field(..., decimal_places=2)
-    tax_rate: Decimal = Field(..., decimal_places=2)
     classified_tax_category: TaxCategory = Field(...)
-    tax_exemption_reason_code: Optional[TaxExemptionReasonCode] = Field(None)
-    tax_exemption_reason: Optional[str] = Field(None, min_length=1, max_length=4000)
     description: Optional[str] = Field(None, min_length=1, max_length=200)
     
     
@@ -51,8 +48,6 @@ class BuyInvoiceLineOut(BaseModel):
     tax_rate: Decimal = Field(..., decimal_places=2)
     classified_tax_category: TaxCategory = Field(...)
     rounding_amount: Decimal = Field(..., decimal_places=2)
-    tax_exemption_reason_code: Optional[TaxExemptionReasonCode] = Field(None)
-    tax_exemption_reason: Optional[str] = Field(None, min_length=1, max_length=4000)
     description: Optional[str] = Field(None, min_length=1, max_length=200)
 
     model_config = ConfigDict(from_attributes=True)
@@ -62,20 +57,14 @@ class BuyInvoiceLineOut(BaseModel):
 
 class BuyInvoiceHeaderBase(BaseModel):
     invoice_number: str = Field(..., example="INV-000024")
-    # invoice_type: InvoiceType = Field(...)
     invoice_type_code: InvoiceTypeCode = Field(...)
     issue_date: date = Field(..., description="Date in format YYYY-MM-DD", example="2025-01-24")
-    # issue_time: time = Field(..., description="Time in the format HH:MM:SS", example="14:30:00")
     document_currency_code: str = Field("SAR", description="The value must be SAR", example="SAR")
     actual_delivery_date: Optional[date] = Field(None, description="Actual date of delivery if applicable")
     payment_means_code: PaymentMeansCode = Field(..., description="Code representing the payment method")
     original_invoice_id: Optional[int] = Field(None, description="ID of the original invoice if this is a correction", example=456)
     instruction_note: Optional[str] = Field(None, max_length=4000, description="Additional instructions related to the invoice")
     note: Optional[str] = Field(None, max_length=4000, description="General notes about the invoice")
-    # tax_rate: Decimal = Field(..., decimal_places=2, description="Tax rate applied to the invoice", example=15.00)
-    # classified_tax_category: TaxCategory = Field(..., description="Tax category classification")
-    # tax_exemption_reason_code: Optional[TaxExemptionReasonCode] = Field(None)
-    # tax_exemption_reason: Optional[str] = Field(None, min_length=1, max_length=4000)
     discount_amount: Decimal = Field(..., description="Total discount amount", example=50.00)
 
 class BuyInvoiceHeaderOut(BuyInvoiceHeaderBase):
@@ -85,9 +74,8 @@ class BuyInvoiceHeaderOut(BuyInvoiceHeaderBase):
     tax_amount: Decimal = Field(..., description="Total tax amount", example=142.50)
     tax_inclusive_amount: Decimal = Field(..., description="Total amount including taxes", example=1092.50)
     invoice_number: str
-    # base64_qr_code: Optional[str] = None
-    # invoice_hash: Optional[str] = None
-    # uuid: uuid.UUID
+    seq_number: Optional[int] = None
+    uuid: Optional[uuid.UUID]
     model_config = ConfigDict(from_attributes=True)
 
 class BuyInvoiceCreate(BuyInvoiceHeaderBase):
@@ -135,7 +123,6 @@ class BuyInvoiceFilters(BaseModel):
     issue_date_range_from: Optional[date] = Field(None, description="Date in format YYYY-MM-DD", example="2025-01-24")
     issue_date_range_to: Optional[date] = Field(None, description="Date in format YYYY-MM-DD", example="2025-01-24")
     payment_means_code: Optional[PaymentMeansCode] = Field(None, description="Code representing the payment method")
-    classified_tax_category: Optional[TaxCategory] = Field(None, description="Tax category classification")
 
     @field_validator("issue_date_range_from", "issue_date_range_to", mode="after")
     def validate_date_format(cls, value):
@@ -145,3 +132,5 @@ class BuyInvoiceFilters(BaseModel):
             return datetime.strptime(str(value), "%Y-%m-%d").date()
         except Exception as e:
             raise ValueError("The input should be a valid date in the format YYYY-MM-DD")
+
+    

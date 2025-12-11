@@ -2,12 +2,13 @@ from sqlalchemy import Boolean, Column, Integer, String, DateTime, ForeignKey, E
 from sqlalchemy.orm import relationship
 from src.core.database import Base
 from src.core.models import AuditTimeMixin
-from src.core.enums import UserRole, UserStatus, UserType, Stage
+from src.core.enums import UserRole, UserStatus, UserType, ZatcaStage
 
 class User(Base, AuditTimeMixin):
     __tablename__ = "users"
     id = Column(Integer, autoincrement=True, primary_key=True, index=True)
     organization_id = Column(Integer, ForeignKey('organizations.id'), nullable=True)
+    branch_id = Column(Integer, ForeignKey('branches.id'), nullable=True)
     name = Column(String(100), nullable=True)
     email = Column(String(100), unique=True, nullable=False, index=True)
     password = Column(String, nullable=True)
@@ -18,3 +19,5 @@ class User(Base, AuditTimeMixin):
     role = Column(String, nullable=False)
     status = Column(Enum(UserStatus), nullable=False)
     is_completed = Column(Boolean, nullable=False)
+    organization = relationship("Organization", lazy="selectin", foreign_keys=[organization_id])
+    branch = relationship("Branch", lazy="selectin", foreign_keys=[branch_id])

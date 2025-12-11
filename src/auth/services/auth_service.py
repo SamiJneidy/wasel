@@ -3,7 +3,7 @@ from fastapi import Request, Response
 
 from src.organizations.exceptions import OrganizationNotFoundException
 from .token_service import TokenService
-from src.core.enums import OTPStatus, OTPUsage, UserRole, UserStatus, UserType, Stage
+from src.core.enums import OTPStatus, OTPUsage, UserRole, UserStatus, UserType, ZatcaStage
 from src.core.services import EmailService
 from src.users.schemas import UserInDB, UserOut
 from src.core.config import settings
@@ -102,10 +102,16 @@ class AuthService:
         #     data_dict.update({"organization_unit_name": tin_number})    
         # else:
         #     data_dict.update({"organization_unit_name": data.registration_name})
-        org_data = OrganizationCreate(**data.model_dump())
-        org_out = await self.organization_service.create_organization_and_main_branch(org_data)
-        await self.user_service.update_by_email(email, {"is_completed": True, "organization_id": org_out.id})
-        return SignUpCompleteResponse(**org_out.model_dump())
+        organization_create = OrganizationCreate(**data.model_dump())
+        organization, branch = await self.organization_service.create_organization_and_main_branch(organization_create)
+        await self.user_service.update_by_email(
+            email, 
+            {
+                "is_completed": True, 
+                "organization_id": organization.id,
+                "branch_id": branch.id,
+            })
+        return SignUpCompleteResponse(**organization.model_dump())
         
 
     async def accept_invitation(self, data: UserInviteAcceptRequest) -> UserOut:

@@ -12,9 +12,10 @@ class TokenScope(str, Enum):
     SIGN_UP_COMPLETE = "SIGN_UP_COMPLETE"
     RESET_PASSWORD = "RESET_PASSWORD"
 
-class CSIDType(str, Enum):
-    PRODUCTION = "PRODUCTION"
-    COMPLIANCE = "COMPLIANCE"
+class BranchStatus(str, Enum):
+    COMPLETED = "COMPLETED"
+    PENDING = "PENDING"
+    DELETED = "DELETED"
 
 class InvoicingType(str, Enum):
     STANDARD = "1000"
@@ -104,11 +105,11 @@ class DocumentType(str, Enum):
     INVOICE = "INVOICE"
     QUOTATION = "QUOTATION"
 
-class Stage(str, Enum):
+class ZatcaStage(str, Enum):
     PRODUCTION = "PRODUCTION"
     COMPLIANCE = "COMPLIANCE"
 
-class TaxScheme(str, Enum):
+class OrganizationTaxScheme(str, Enum):
     NONE = "NONE"
     ZATCA_PHASE1 = "ZATCA_PHASE1"
     ZATCA_PHASE2 = "ZATCA_PHASE2"

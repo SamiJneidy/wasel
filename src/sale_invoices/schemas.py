@@ -6,35 +6,11 @@ from src.core.schemas import AuditTimeMixin, SingleObjectResponse, SuccessfulRes
 from src.users.schemas import UserOut
 from src.customers.schemas import CustomerOut
 from src.core.config import settings
+from src.zatca.schemas import ZatcaInvoiceLineMetadata, ZatcaInvoiceMetadata
 from src.core.enums import DocumentType, TaxExemptionReasonCode, PartyIdentificationScheme, InvoiceType, InvoiceTypeCode, PaymentMeansCode, TaxCategory
 from typing import Optional, Annotated, Self, Union
 from decimal import Decimal
 import uuid
-
-# class PartyIdentificationBase(BaseModel):
-#     registration_name: Optional[str] = Field(..., min_length=1, max_length=250, example="Wasel LLC")
-#     street: Optional[str] = Field(..., min_length=1, max_length=300, example="Tahlia Stree", description="This field is free text")
-#     building_number: Optional[str] = Field(..., min_length=4, max_length=4, pattern=r"^\d{4}$", example="1234")
-#     division: Optional[str] = Field(..., min_length=1, max_length=200, example="Albawadi")
-#     city: Optional[str] = Field(..., min_length=1, max_length=50, example="Jeddah")
-#     postal_code: Optional[str] = Field(..., min_length=5, max_length=5, pattern=r"^\d{5}$")
-#     vat_number: Optional[str] = Field(..., min_length=15, max_length=15, pattern=r"^3\d{13}3$")
-#     party_identification_scheme: Optional[PartyIdentificationScheme]
-#     party_identification_value: Optional[str] = Field(..., min_length=1, max_length=25, example="5243526715")
-
-# class TaxExcemptionCustomer(BaseModel):
-#     registration_name: Optional[str] = Field(..., min_length=1, max_length=250, example="Ahmed Ali")
-#     party_identification_scheme: Optional[PartyIdentificationScheme]
-#     party_identification_value: Optional[str] = Field(..., min_length=1, max_length=25, example="5243526715")    
-
-# class TaxExcemptionCustomerOut(TaxExcemptionCustomer):
-#     id: int
-#     invoice_id: int
-#     model_config = ConfigDict(from_attributes=True)    
-
-# class Supplier(PartyIdentificationBase):
-#     pass 
-
 
 class SaleInvoiceLineCreate(BaseModel):
     item_id: int    
@@ -43,9 +19,8 @@ class SaleInvoiceLineCreate(BaseModel):
     quantity: Decimal = Field(..., decimal_places=6)
     discount_amount: Decimal = Field(..., decimal_places=2)
     classified_tax_category: TaxCategory = Field(...)
-    tax_exemption_reason_code: Optional[TaxExemptionReasonCode] = Field(None)
-    tax_exemption_reason: Optional[str] = Field(None, min_length=1, max_length=200)
-    description: Optional[str] = Field(None, min_length=1, max_length=200)
+    # description: Optional[str] = Field(None, min_length=1, max_length=200)
+    tax_scheme_metadata: Optional[ZatcaInvoiceLineMetadata] = None
     
     
     @field_validator("item_price", "price_discount", "discount_amount",  mode="after")
@@ -60,17 +35,6 @@ class SaleInvoiceLineCreate(BaseModel):
             raise ValueError("The value must be positive (strictly greater than zero)")
         return value
 
-    @model_validator(mode="after")
-    def validate_line(self) -> Self:
-        # if(self.classified_tax_category == TaxCategory.S and self.tax_rate != settings.STANDARD_TAX_RATE):
-        #     raise ValueError(f"Tax rate must be equal to {settings.STANDARD_TAX_RATE} when the tax category is 'S'")
-        # if(self.classified_tax_category != TaxCategory.S and self.tax_rate != 0):
-        #     raise ValueError("Tax rate must be equal to 0.00 when the tax category is 'Z', 'E' or 'O'")
-        if(self.classified_tax_category == TaxCategory.S and (self.tax_exemption_reason_code != None or self.tax_exemption_reason != None)):
-            raise ValueError("'Tax Exemption Reason' and 'Tax Exemption Reason Code' must be sent as 'null' when the tax category is 'S'")
-        if(self.classified_tax_category != TaxCategory.S and (self.tax_exemption_reason_code is None or self.tax_exemption_reason is None)):
-            raise ValueError("'Tax Exemption Reason' and 'Tax Exemption Reason Code' are mandatory when the tax category is 'Z', 'E' or 'O'")
-        return self 
 
 class SaleInvoiceLineOut(BaseModel):
     id: int
@@ -84,9 +48,8 @@ class SaleInvoiceLineOut(BaseModel):
     tax_rate: Decimal = Field(..., decimal_places=2)
     classified_tax_category: TaxCategory = Field(...)
     rounding_amount: Decimal = Field(..., decimal_places=2)
-    tax_exemption_reason_code: Optional[TaxExemptionReasonCode] = Field(None)
-    tax_exemption_reason: Optional[str] = Field(None, min_length=1, max_length=200)
-    description: Optional[str] = Field(None, min_length=1, max_length=200)
+    # description: Optional[str] = Field(None, min_length=1, max_length=200)
+    tax_scheme_metadata: Optional[ZatcaInvoiceLineMetadata] = None
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -114,11 +77,9 @@ class SaleInvoiceHeaderOut(SaleInvoiceHeaderBase):
     tax_amount: Decimal = Field(..., description="Total tax amount", example=142.50)
     tax_inclusive_amount: Decimal = Field(..., description="Total amount including taxes", example=1092.50)
     payable_amount: Decimal = Field(..., description="Final amount to be paid", example=1092.50)
-    pih: Optional[str] = None 
-    icv: Optional[int] = None
-    base64_qr_code: Optional[str] = None
-    invoice_hash: Optional[str] = None
     uuid: Optional[uuid.UUID]
+    tax_scheme_metadata: Optional[ZatcaInvoiceMetadata] = None
+    completed_tax_scheme: Optional[bool] = None
     model_config = ConfigDict(from_attributes=True)
 
 class SaleInvoiceCreate(SaleInvoiceHeaderBase):
@@ -166,12 +127,11 @@ class SaleInvoiceOut(SaleInvoiceHeaderOut):
     id: int = Field(...)
     customer: Optional[CustomerOut] = None
     invoice_lines: list[SaleInvoiceLineOut]
-    invoice_hash: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
 
 class SaleInvoiceFilters(BaseModel):
-    document_type: DocumentType
+    document_type: Optional[DocumentType] = None
     customer_id: Optional[int] = Field(None)
     invoice_type: Optional[InvoiceType] = Field(None, description="Standard or Simplified")
     invoice_type_code: Optional[InvoiceTypeCode] = Field(None, description="Invoice, Credit Note or Debit Note")
@@ -192,12 +152,6 @@ class SaleInvoiceFilters(BaseModel):
 
 class SaleInvoiceUpdate(SaleInvoiceCreate):
     is_locked: bool
-
-    @model_validator(mode="after")
-    def validate_model(self) -> Self:
-        if self.document_type == DocumentType.INVOICE:
-            raise ValueError("Document type cannot be changed") 
-        return self
 
 class GetInvoiceNumberRequest(BaseModel):
     document_type: DocumentType

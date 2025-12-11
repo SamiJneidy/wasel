@@ -1,87 +1,139 @@
-from sqlalchemy.orm import Session
-from sqlalchemy import exc, func, and_, or_, select, insert, update, delete, distinct
-from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy.sql.functions import user
+from sqlalchemy import and_, func, select, update, delete, distinct
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from .models import SaleInvoice, SaleInvoiceLine
-from src.users.schemas import UserOut
-from src.core.enums import Stage, InvoiceType, InvoiceTypeCode
+from src.core.enums import ZatcaStage, InvoiceType
+
 
 class SaleInvoiceRepository:
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
-    async def get_last_invoice(self, user_id: int, stage: Stage, filters: dict = {}) -> SaleInvoice | None:
-        query = self.db.query(SaleInvoice).filter(SaleInvoice.user_id==user_id, SaleInvoice.stage==stage)
+    async def get_last_invoice(self, organization_id: int, branch_id: int, filters: dict = {}) -> SaleInvoice | None:
+        stmt = select(SaleInvoice).where(SaleInvoice.organization_id==organization_id, SaleInvoice.branch_id==branch_id)
         for column, value in filters.items():
             c = getattr(SaleInvoice, column, None)
             if c is not None:
-                query = query.filter(c == value)
-        return query.order_by(SaleInvoice.id).limit(1).first()
+                stmt = stmt.where(c == value)
+        stmt.order_by(SaleInvoice.id.desc())
+        result = await self.db.execute(stmt)
+        return result.scalars().first()
 
-    async def get_invoice_count(self, user_id: int, stage: Stage) -> int:
-        stmt = select(func.count(SaleInvoice.id)).select_from(SaleInvoice).where(and_(SaleInvoice.user_id==user_id, SaleInvoice.stage==stage))
-        return self.db.execute(stmt).scalar()
+    async def get_invoice_type_code_distinct_count(self, organization_id: int, invoice_type: InvoiceType) -> int:
+        stmt = select(func.count(distinct(SaleInvoice.invoice_type_code))).where(
+            and_(SaleInvoice.invoice_type == invoice_type, SaleInvoice.organization_id == organization_id)
+        )
+        result = await self.db.execute(stmt)
+        return int(result.scalars().first() or 0)
 
-    async def get_invoice_type_code_distinct_count(self, user_id: int, invoice_type: InvoiceType) -> int:
-        stmt = select(func.count(distinct(SaleInvoice.invoice_type_code))).select_from(SaleInvoice).where(and_(SaleInvoice.invoice_type==invoice_type, SaleInvoice.user_id==user_id))
-        return self.db.execute(stmt).scalar()
+    async def get_invoice_line(self, id: int) -> Optional[SaleInvoiceLine]:
+        stmt = select(SaleInvoiceLine).where(SaleInvoiceLine.id == id)
+        result = await self.db.execute(stmt)
+        return result.scalars().first()
 
-    async def get_invoice_line(self, id: int) -> SaleInvoiceLine | None:
-        return self.db.query(SaleInvoiceLine).filter(SaleInvoiceLine.id==id).first()
-    
-    async def get_invoice_lines_by_invoice_id(self, invoice_id: int) -> list[SaleInvoiceLine]:
-        return self.db.query(SaleInvoiceLine).filter(SaleInvoiceLine.invoice_id==invoice_id).all()
-    
-    async def get_invoice(self, user_id: int, id: int) -> SaleInvoice | None:
-        return self.db.query(SaleInvoice).filter(SaleInvoice.user_id==user_id, SaleInvoice.id==id).first()
-    
-    async def get_invoices_by_user_id(self, user_id: int, stage: Stage, skip: int = None, limit: int = None, filters: dict = {}) -> tuple[int, list[SaleInvoice]]:
-        query = self.db.query(SaleInvoice).filter(SaleInvoice.user_id==user_id, SaleInvoice.stage==stage)
-        # simple equality filters
-        for k, v in filters.items():
-            column = getattr(SaleInvoice, k, None)
-            if column is not None:
-                query = query.filter(column == v)
-        # date range filters
-        if filters.get("issue_date_range_from") is not None:
-            query = query.filter(SaleInvoice.issue_date >= filters["issue_date_range_from"])
-        if filters.get("issue_date_range_to") is not None:
-            query = query.filter(SaleInvoice.issue_date <= filters["issue_date_range_to"])
+    async def get_invoice_lines_by_invoice_id(self, invoice_id: int) -> List[SaleInvoiceLine]:
+        stmt = select(SaleInvoiceLine).where(SaleInvoiceLine.invoice_id == invoice_id)
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
 
-        total_rows = query.count()
-        # pagination parameters    
-        if skip:
-            query = query.offset(skip)
-        if limit:
-            query = query.limit(limit)
-        return total_rows, query.all()
-    
-    async def create_invoice_lines(self, data: list[dict]) -> None:
-        self.db.bulk_insert_mappings(SaleInvoiceLine, data)
-        self.db.flush()
-        
-    async def create_invoice(self, user_id: int, data: dict) -> SaleInvoice | None:
+    async def get_invoice(self, organization_id: int, id: int) -> Optional[SaleInvoice]:
+        stmt = select(SaleInvoice).where(
+            and_(SaleInvoice.organization_id == organization_id, SaleInvoice.id == id)
+        )
+        result = await self.db.execute(stmt)
+        return result.scalars().first()
+
+    async def get_invoices_by_organization_id(
+        self,
+        organization_id: int,
+        skip: Optional[int] = None,
+        limit: Optional[int] = None,
+        filters: Dict[str, Any] = {},
+    ) -> Tuple[int, List[SaleInvoice]]:
+        stmt = select(SaleInvoice).where(SaleInvoice.organization_id == organization_id)
+        count_stmt = select(func.count(SaleInvoice.id)).where(SaleInvoice.organization_id == organization_id)
+
+        simple_filters = {
+            k: v for k, v in filters.items() if k not in {"issue_date_range_from", "issue_date_range_to"}
+        }
+
+        for k, v in simple_filters.items():
+            col = getattr(SaleInvoice, k, None)
+            if col is not None and v is not None:
+                stmt = stmt.where(col == v)
+                count_stmt = count_stmt.where(col == v)
+
+        issue_date_from = filters.get("issue_date_range_from")
+        issue_date_to = filters.get("issue_date_range_to")
+
+        if issue_date_from is not None:
+            stmt = stmt.where(SaleInvoice.issue_date >= issue_date_from)
+            count_stmt = count_stmt.where(SaleInvoice.issue_date >= issue_date_from)
+
+        if issue_date_to is not None:
+            stmt = stmt.where(SaleInvoice.issue_date <= issue_date_to)
+            count_stmt = count_stmt.where(SaleInvoice.issue_date <= issue_date_to)
+
+        count_result = await self.db.execute(count_stmt)
+        total_rows = int(count_result.scalars().first() or 0)
+
+        if skip is not None:
+            stmt = stmt.offset(skip)
+        if limit is not None:
+            stmt = stmt.limit(limit)
+
+        result = await self.db.execute(stmt)
+        return total_rows, list(result.scalars().all())
+
+    async def create_invoice_lines(self, data: List[Dict[str, Any]]) -> None:
+        self.db.add_all([SaleInvoiceLine(**row) for row in data])
+        await self.db.flush()
+
+    async def create_invoice_line(self, invoice_id: int, data: Dict[str, Any]) -> Optional[SaleInvoiceLine]:
+        line = SaleInvoiceLine(**data)
+        line.invoice_id = invoice_id
+        self.db.add(line)
+        await self.db.flush()
+        await self.db.refresh(line)
+        return line
+
+    async def create_invoice(self, organization_id: int, user_id: int, data: Dict[str, Any]) -> Optional[SaleInvoice]:
         invoice = SaleInvoice(**data)
         invoice.user_id = user_id
+        invoice.organization_id = organization_id
         invoice.created_by = user_id
         self.db.add(invoice)
-        self.db.flush()
+        await self.db.flush()
+        await self.db.refresh(invoice)
         return invoice
 
-    async def update_invoice(self, invoice_id: int, data: dict) -> None:
-        stmt = update(SaleInvoice).where(SaleInvoice.id==invoice_id).values(**data)
-        self.db.execute(stmt)
+    async def update_invoice(self, organization_id: int, invoice_id: int, data: Dict[str, Any]) -> Optional[SaleInvoice]:
+        stmt = (
+            update(SaleInvoice)
+            .where(SaleInvoice.organization_id == organization_id, SaleInvoice.id == invoice_id)
+            .values(**data)
+            .returning(SaleInvoice)
+        )
+        result = await self.db.execute(stmt)
+        await self.db.flush()
+        return result.scalars().first()
 
-    async def delete_invoice(self, invoice_id: int) -> None:
-        stmt = delete(SaleInvoice).where(SaleInvoice.id==invoice_id)
-        self.db.execute(stmt)
-        # No need to manually delete invoice lines since they will be deleted by on delete cascade
-
+    async def delete_invoice(self, organization_id: int, invoice_id: int) -> None:
+        stmt = delete(SaleInvoice).where(SaleInvoice.organization_id == organization_id, SaleInvoice.id == invoice_id)
+        await self.db.execute(stmt)
 
     async def delete_invoice_lines(self, invoice_id: int) -> None:
-        self.db.execute(delete(SaleInvoiceLine).where(SaleInvoiceLine.invoice_id==invoice_id))
+        stmt = delete(SaleInvoiceLine).where(SaleInvoiceLine.invoice_id == invoice_id)
+        await self.db.execute(stmt)
 
-    async def count_invoices(self, user_id: int, stage: Stage) -> int:
-        stmt = select(func.count()).select_from(SaleInvoice).where(and_(SaleInvoice.user_id==user_id, SaleInvoice.stage==stage))
-        return self.db.execute(stmt).scalar()
+    async def count_invoices(self, organization_id: int, filters: Dict[str, Any] = {},) -> int:
+        stmt = select(func.count(SaleInvoice.id)).where(SaleInvoice.organization_id == organization_id)
+        for k, v in filters.items():
+            col = getattr(SaleInvoice, k, None)
+            if col is not None and v is not None:
+                stmt = stmt.where(col == v)
+
+        result = await self.db.execute(stmt)
+        return int(result.scalars().first() or 0)

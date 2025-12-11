@@ -52,7 +52,7 @@ async def update_organization(
     organization_service: Annotated[OrganizationService, Depends(get_organization_service)],
     current_user: Annotated[UserInDB, Depends(get_current_user)],
 ) -> SingleObjectResponse[OrganizationOut]:
-    data = await organization_service.update_organization(current_user, id, body)
+    data = await organization_service.update_organization(id, body)
     return SingleObjectResponse(data=data)
 
 

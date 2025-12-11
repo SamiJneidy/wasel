@@ -4,7 +4,7 @@ from src.users.schemas import UserInDB
 from .schemas import BranchOut, BranchCreate, BranchUpdate
 from .repositories import BranchRepository
 from .exceptions import BranchNotFoundException
-
+from src.core.enums import OrganizationTaxScheme, BranchStatus
 
 class BranchService:
     def __init__(self, branch_repo: BranchRepository):
@@ -26,9 +26,11 @@ class BranchService:
 
     async def create_branch(self, current_user: UserInDB, data: BranchCreate, is_main_branch: bool = False) -> BranchOut:
         data_dict = data.model_dump()
+        status = BranchStatus.COMPLETED if current_user.organization.tax_scheme == OrganizationTaxScheme.NONE else BranchStatus.PENDING
         data_dict.update({
             "organization_id": current_user.organization_id,
             "is_main_branch": is_main_branch,
+            "status": status
         })
         branch = await self.branch_repo.create(data_dict)
         return BranchOut.model_validate(branch)
@@ -39,6 +41,12 @@ class BranchService:
             raise BranchNotFoundException()
         # if branch.organization_id != current_user.organization_id:
         #     raise BranchNotFoundException()
+        return BranchOut.model_validate(branch)
+
+    async def update_branch_status(self, current_user: UserInDB, id: int, status: BranchStatus) -> BranchOut:
+        branch = await self.branch_repo.update(id, {"status": status})
+        if not branch:
+            raise BranchNotFoundException()
         return BranchOut.model_validate(branch)
 
     async def delete_branch(self, current_user: UserInDB, id: int) -> None:

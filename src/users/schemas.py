@@ -2,12 +2,14 @@ from pydantic import BaseModel, EmailStr, StringConstraints, ConfigDict, constr,
 from datetime import datetime
 from src.core.schemas import AuditTimeMixin
 from src.organizations.schemas import OrganizationOut
+from src.branches.schemas import BranchOut
 from src.core.enums import UserRole, UserStatus, UserType
 from typing import Optional, Self
 
 class UserInDB(BaseModel, AuditTimeMixin):
     id: int
     organization_id: Optional[int] = None
+    branch_id: Optional[int] = None
     name: str
     phone: Optional[str] = None
     email: EmailStr
@@ -18,6 +20,8 @@ class UserInDB(BaseModel, AuditTimeMixin):
     type: UserType
     last_login: Optional[datetime] = None
     invalid_login_attempts: int = 0
+    organization: Optional[OrganizationOut] = None
+    branch: Optional[BranchOut] = None
     model_config = ConfigDict(from_attributes=True)
 
     
@@ -45,6 +49,7 @@ class UserUpdate(BaseModel):
 class UserOut(UserBase):
     id: int
     organization: Optional[OrganizationOut] = None
+    branch: Optional[BranchOut] = None
     is_completed: bool
     status: UserStatus
     type: UserType
@@ -53,6 +58,7 @@ class UserOut(UserBase):
 
 
 class UserInvite(BaseModel):
+    branch_id: int
     name: str
     email: EmailStr
     phone: Optional[str] = None

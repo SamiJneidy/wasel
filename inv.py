@@ -1,0 +1,18 @@
+class ZatcaBranchMetadataBase(BaseModel):
+    stage: str
+    country_code: str
+    registration_name: str
+    common_name: str
+    organization_unit_name: str
+    organization_name: str
+    vat_number: str
+    invoicing_type: str
+    address: str
+    business_category: str
+    street: str
+    building_number: str
+    division: str
+    city: str
+    postal_code: str
+    party_identification_scheme: str
+    party_identification_value: str

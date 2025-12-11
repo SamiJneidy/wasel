@@ -1,7 +1,7 @@
 from typing import Optional
 from src.core.config import settings
 from src.branches.repositories import BranchRepository
-from src.branches.schemas import BranchCreate
+from src.branches.schemas import BranchCreate, BranchOut
 from .schemas import OrganizationOut, OrganizationCreate, OrganizationUpdate
 from .repositories import OrganizationRepository
 from .exceptions import OrganizationNotFoundException
@@ -32,15 +32,15 @@ class OrganizationService:
         organization = await self.organization_repo.create(data.model_dump())
         return OrganizationOut.model_validate(organization)
 
-    async def create_organization_and_main_branch(self, data: OrganizationCreate) -> OrganizationOut:
+    async def create_organization_and_main_branch(self, data: OrganizationCreate) -> tuple[OrganizationOut, BranchOut]:
         organization = await self.organization_repo.create(data.model_dump())
         branch_data = BranchCreate(**data.model_dump()).model_dump()
         branch_data.update({
             "is_main_branch": True,
             "organization_id": organization.id,
         })
-        await self.branch_repo.create(branch_data)
-        return OrganizationOut.model_validate(organization)
+        branch = await self.branch_repo.create(branch_data)
+        return OrganizationOut.model_validate(organization), BranchOut.model_validate(branch)
 
     async def update_organization(self, id: int, data: OrganizationUpdate) -> OrganizationOut:
         organization = await self.organization_repo.update(id, data.model_dump())

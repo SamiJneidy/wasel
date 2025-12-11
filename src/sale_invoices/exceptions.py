@@ -6,16 +6,14 @@ class InvoiceNotFoundException(BaseAppException):
     def __init__(self, detail: str | None = "Invoice not found", status_code: int = status.HTTP_404_NOT_FOUND):
         super().__init__(detail, status_code)
 
-
-class InvoiceSigningError(BaseAppException):
-    """Raised when the invoice could not be signed"""
-    def __init__(self, detail: str | None = "An error has occurred when signing the invoice", status_code: int = status.HTTP_400_BAD_REQUEST):
-        super().__init__(detail, status_code)
-    
-
 class InvoiceUpdateNotAllowed(BaseAppException):
     """Raised when attempting to update a locked invoice"""
-    def __init__(self, detail: str | None = "Not allowed. Updates are permitted on quotations not on sale invoices.", status_code: int = status.HTTP_403_FORBIDDEN):
+    def __init__(self, detail: str | None = "Not allowed. Update is permitted on unlocked invoices.", status_code: int = status.HTTP_403_FORBIDDEN):
+        super().__init__(detail, status_code)
+
+class InvoiceDeleteNotAllowed(BaseAppException):
+    """Raised when attempting to delete a locked invoice"""
+    def __init__(self, detail: str | None = "Not allowed. Delete is permitted on unlocked invoices.", status_code: int = status.HTTP_403_FORBIDDEN):
         super().__init__(detail, status_code)
 
 class InvalidDocumentType(BaseAppException):

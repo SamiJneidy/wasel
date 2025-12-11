@@ -29,7 +29,6 @@ async def get_current_user_from_sign_up_complete_token(
 ) -> UserInDB:
     """Returns the email of the current user waiting for sign up complete step."""
     token = request.cookies.get("sign_up_complete_token", "NO_TOKEN")
-    print(token)
     payload = token_service.decode_token(token)
     if payload["scope"] != TokenScope.SIGN_UP_COMPLETE:
         raise InvalidTokenException()

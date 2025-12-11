@@ -1,22 +1,24 @@
-from sqlalchemy import BOOLEAN, Column, Integer, String, UUID, Date, Text, DECIMAL, DateTime, ForeignKey, Enum, func, text
+from sqlalchemy import BOOLEAN, Column, Integer, String, UUID, Date, Text, DECIMAL, DateTime, ForeignKey, Enum, func, text, TIME
 from sqlalchemy.orm import relationship
 from src.core.database import Base
 from src.core.models import AuditMixin
-from src.core.enums import InvoiceType, InvoiceTypeCode, PaymentMeansCode, TaxExemptionReasonCode, Stage, DocumentType
+from src.core.enums import InvoiceType, InvoiceTypeCode, PaymentMeansCode, TaxExemptionReasonCode, ZatcaStage, DocumentType
 
 
 class SaleInvoice(Base, AuditMixin):
     __tablename__ = "sale_invoices"
     id = Column(Integer, autoincrement=True, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey('organizations.id'), nullable=True)
+    branch_id = Column(Integer, ForeignKey('users.id'), nullable=True)
     year = Column(Integer, nullable=True, index=True)
     seq_number = Column(Integer, nullable=True)
-    invoice_number = Column(String(50), index=True, nullable=True)
-    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     customer_id = Column(Integer, ForeignKey('customers.id'), nullable=True)
+    invoice_number = Column(String(50), index=True, nullable=True)
+    document_type = Column(Enum(DocumentType, native_enum=False), nullable=True)
     invoice_type = Column(Enum(InvoiceType), nullable=False)
     invoice_type_code = Column(Enum(InvoiceTypeCode), nullable=False)
     issue_date = Column(Date, nullable=False)
-    issue_time = Column(String(15), nullable=False)
+    issue_time = Column(TIME, nullable=False)
     document_currency_code = Column(String(5), nullable=False, server_default="SAR")
     actual_delivery_date = Column(Date, nullable=True)
     payment_means_code = Column(Enum(PaymentMeansCode), nullable=False)
@@ -30,18 +32,9 @@ class SaleInvoice(Base, AuditMixin):
     tax_amount = Column(DECIMAL(scale=2), nullable=False)
     tax_inclusive_amount = Column(DECIMAL(scale=2), nullable=False)
     payable_amount = Column(DECIMAL(scale=2), nullable=False)
-    signed_xml_base64 = Column(Text, nullable=True)
-    invoice_hash = Column(Text, nullable=True)
     uuid = Column(UUID, nullable=True)
-    icv = Column(Integer, nullable=True)
-    pih = Column(Text, nullable=True)
-    base64_qr_code = Column(Text, nullable=True)
-    stage = Column(Enum(Stage), nullable=True)
-    zatca_response = Column(Text, nullable=True)
-    status_code = Column(String(5), nullable=True)
-    document_type = Column(Enum(DocumentType, native_enum=False), nullable=True)
     is_locked = Column(BOOLEAN, nullable=True)
-    user = relationship("User", foreign_keys=[user_id], remote_side="User.id")
+    completed_tax_scheme = Column(BOOLEAN, nullable=True)
 
 
 class SaleInvoiceLine(Base):
@@ -59,6 +52,4 @@ class SaleInvoiceLine(Base):
     rounding_amount = Column(DECIMAL(scale=2), nullable=False)
     classified_tax_category = Column(String(5), nullable=False)
     tax_rate = Column(DECIMAL(scale=2), nullable=False)    
-    tax_exemption_reason_code = Column(Enum(TaxExemptionReasonCode), nullable=True)
-    tax_exemption_reason = Column(String(200), nullable=True)
     

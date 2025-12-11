@@ -2,7 +2,8 @@ from sqlalchemy import BOOLEAN, Column, Integer, String, DateTime, DECIMAL, Fore
 from sqlalchemy.orm import relationship
 from src.core.database import Base
 from src.core.models import AuditMixin, AuditTimeMixin
-from src.core.enums import TaxScheme
+from src.core.enums import BranchStatus
+from src.core.enums import OrganizationTaxScheme
 
 class Branch(Base, AuditMixin):
     __tablename__ = "branches"
@@ -17,4 +18,4 @@ class Branch(Base, AuditMixin):
     city = Column(String(50), nullable=True)
     postal_code = Column(String(10), nullable=True)
     address = Column(String(400), nullable=True)
-    
+    status = Column(String(100), nullable=True, server_default="PENDING")

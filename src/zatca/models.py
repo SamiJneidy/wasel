@@ -1,21 +1,45 @@
-from sqlalchemy import Column, Integer, String, DateTime, DECIMAL, ForeignKey, Enum, func, text
+from sqlalchemy import Column, Integer, String, Text, DateTime, DECIMAL, ForeignKey, Enum, func, text
 from sqlalchemy.orm import relationship
 from src.core.database import Base
 from src.core.models import AuditMixin
-from src.core.enums import TaxScheme
+from src.core.enums import OrganizationTaxScheme, ZatcaStage, TaxExemptionReasonCode
 
-class ZatcaInfo(Base, AuditMixin):
-    __tablename__ = "zatca_info"
+class ZatcaSaleInvoiceMetadata(Base, AuditMixin):
+    __tablename__ = "zatca_sale_invoice_metadata"
+    id = Column(Integer, autoincrement=True, primary_key=True, index=True)
+    invoice_id = Column(Integer, ForeignKey('sale_invoices.id'))
+    icv = Column(Integer, nullable=True)
+    signed_xml_base64 = Column(Text, nullable=True)
+    invoice_hash = Column(Text, nullable=True)
+    pih = Column(Text, nullable=True)
+    base64_qr_code = Column(Text, nullable=True)
+    stage = Column(String(50), nullable=True)
+    response = Column(Text, nullable=True)
+    status_code = Column(Integer, nullable=True)
+
+class ZatcaSaleInvoiceLineMetadata(Base, AuditMixin):
+    __tablename__ = "zatca_sale_invoice_lines_metadata"
+    id = Column(Integer, autoincrement=True, primary_key=True, index=True)
+    invoice_id = Column(Integer, ForeignKey('sale_invoices.id'))
+    invoice_line_id = Column(Integer, ForeignKey('sale_invoices_lines.id'))
+    tax_exemption_reason_code = Column(String(100), nullable=True)
+    tax_exemption_reason = Column(String(200), nullable=True)
+
+class ZatcaBranchMetadata(Base, AuditMixin):
+    __tablename__ = "zatca_branches_metadata"
     id = Column(Integer, autoincrement=True, primary_key=True, index=True)
     organization_id = Column(Integer, ForeignKey('organizations.id'))
     branch_id = Column(Integer, ForeignKey('branches.id'))
-    country_code = Column(String(5), nullable=False)
+    stage = Column(String, nullable=True)
+    icv = Column(Integer, nullable=True)
+    pih = Column(Text, nullable=True)
+    country_code = Column(String(50), nullable=False)
     registration_name = Column(String(250), nullable=True)
     common_name = Column(String(250), nullable=True)
     organization_unit_name = Column(String(250), nullable=True)
     organization_name = Column(String(250), nullable=True)
     vat_number = Column(String(20), nullable=True)
-    invoicing_type = Column(String(5), nullable=True)
+    invoicing_type = Column(String(50), nullable=True)
     address = Column(String(400), nullable=True)
     business_category = Column(String(100), nullable=True)
     street = Column(String(300), nullable=True)
@@ -26,3 +50,17 @@ class ZatcaInfo(Base, AuditMixin):
     party_identification_scheme = Column(String(10), nullable=True)
     party_identification_value = Column(String(30), nullable=True)
     
+class ZatcaCSID(Base, AuditMixin):
+    __tablename__ = "zatca_csids"
+    id = Column(Integer, autoincrement=True, primary_key=True, index=True)
+    stage = Column(String(50), nullable=True)
+    organization_id = Column(Integer, ForeignKey('organizations.id'))
+    branch_id = Column(Integer, ForeignKey('branches.id'))
+    private_key = Column(String, nullable=False)
+    csr_base64 = Column(String, nullable=False)
+    request_id = Column(String, nullable=False)
+    disposition_message = Column(String, nullable=False)
+    binary_security_token = Column(String, nullable=False)
+    secret = Column(String, nullable=False)
+    certificate = Column(String, nullable=False)
+    authorization = Column(String, nullable=False)
