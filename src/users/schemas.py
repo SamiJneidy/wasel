@@ -13,7 +13,7 @@ class UserInDB(BaseModel, AuditTimeMixin):
     name: str
     phone: Optional[str] = None
     email: EmailStr
-    password: str
+    password: Optional[str] = None
     role: UserRole
     is_completed: bool
     status: UserStatus

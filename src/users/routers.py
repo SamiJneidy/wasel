@@ -92,7 +92,7 @@ async def invite_user(
     current_user: Annotated[UserInDB, Depends(get_current_user)],
 ) -> SingleObjectResponse[UserOut]:
     # Transaction ensures rollback if email sending or user creation fails
-    data = await user_service.invite_user(current_user, request.base_url, body)
+    data = await user_service.invite_user(current_user, str(request.base_url), body)
     return SingleObjectResponse(data=data)
 
 
