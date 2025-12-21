@@ -105,11 +105,11 @@ class DocumentType(str, Enum):
     INVOICE = "INVOICE"
     QUOTATION = "QUOTATION"
 
-class ZatcaStage(str, Enum):
+class ZatcaPhase2Stage(str, Enum):
     PRODUCTION = "PRODUCTION"
     COMPLIANCE = "COMPLIANCE"
 
-class OrganizationTaxScheme(str, Enum):
+class TaxAuthority(str, Enum):
     NONE = "NONE"
     ZATCA_PHASE1 = "ZATCA_PHASE1"
     ZATCA_PHASE2 = "ZATCA_PHASE2"

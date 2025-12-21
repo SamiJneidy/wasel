@@ -2,7 +2,7 @@ from sqlalchemy import Boolean, Column, Integer, String, DateTime, ForeignKey, E
 from sqlalchemy.orm import relationship
 from src.core.database import Base
 from src.core.models import AuditTimeMixin
-from src.core.enums import UserRole, UserStatus, UserType, ZatcaStage
+from src.core.enums import UserRole, UserStatus, UserType, ZatcaPhase2Stage
 
 class User(Base, AuditTimeMixin):
     __tablename__ = "users"

@@ -117,6 +117,7 @@ class UserService:
         if not host_url.endswith("/"):
             host_url = host_url + "/"
         url = f"{host_url}user-onboarding?token={token}"
+        print(url)
         await self.email_service.send_user_invitation(email, url)
         return None
 

@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from src.core.enums import (
     InvoicingType,
-    ZatcaStage,
+    ZatcaPhase2Stage,
     TaxExemptionReasonCode,
     PartyIdentificationScheme,
     InvoiceType,

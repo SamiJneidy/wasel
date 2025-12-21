@@ -20,7 +20,7 @@ class SaleInvoiceLineCreate(BaseModel):
     discount_amount: Decimal = Field(..., decimal_places=2)
     classified_tax_category: TaxCategory = Field(...)
     # description: Optional[str] = Field(None, min_length=1, max_length=200)
-    tax_scheme_metadata: Optional[ZatcaInvoiceLineMetadata] = None
+    tax_authority_metadata: Optional[ZatcaInvoiceLineMetadata] = None
     
     
     @field_validator("item_price", "price_discount", "discount_amount",  mode="after")
@@ -49,7 +49,7 @@ class SaleInvoiceLineOut(BaseModel):
     classified_tax_category: TaxCategory = Field(...)
     rounding_amount: Decimal = Field(..., decimal_places=2)
     # description: Optional[str] = Field(None, min_length=1, max_length=200)
-    tax_scheme_metadata: Optional[ZatcaInvoiceLineMetadata] = None
+    tax_authority_metadata: Optional[ZatcaInvoiceLineMetadata] = None
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -78,8 +78,8 @@ class SaleInvoiceHeaderOut(SaleInvoiceHeaderBase):
     tax_inclusive_amount: Decimal = Field(..., description="Total amount including taxes", example=1092.50)
     payable_amount: Decimal = Field(..., description="Final amount to be paid", example=1092.50)
     uuid: Optional[uuid.UUID]
-    tax_scheme_metadata: Optional[ZatcaInvoiceMetadata] = None
-    completed_tax_scheme: Optional[bool] = None
+    tax_authority_metadata: Optional[ZatcaInvoiceMetadata] = None
+    completed_tax_authority: Optional[bool] = None
     model_config = ConfigDict(from_attributes=True)
 
 class SaleInvoiceCreate(SaleInvoiceHeaderBase):
