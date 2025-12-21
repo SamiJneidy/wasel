@@ -13,7 +13,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/swaggerlogin")
 
 async def get_current_user(
     request: Request,
-    dummy_token: Annotated[str, Depends(oauth2_scheme)],
+    # dummy_token: Annotated[str, Depends(oauth2_scheme)],
     token_service: Annotated[TokenService, Depends(get_token_service)],
     user_service: Annotated[UserService, Depends(get_user_service)]
 ) -> UserInDB:
