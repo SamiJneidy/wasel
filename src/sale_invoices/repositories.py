@@ -4,7 +4,7 @@ from sqlalchemy import and_, func, select, update, delete, distinct
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .models import SaleInvoice, SaleInvoiceLine
-from src.core.enums import ZatcaStage, InvoiceType
+from src.core.enums import ZatcaPhase2Stage, InvoiceType
 
 
 class SaleInvoiceRepository:

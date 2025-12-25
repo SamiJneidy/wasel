@@ -3,7 +3,7 @@ from fastapi import Request, Response
 
 from src.organizations.exceptions import OrganizationNotFoundException
 from .token_service import TokenService
-from src.core.enums import OTPStatus, OTPUsage, UserRole, UserStatus, UserType, ZatcaStage
+from src.core.enums import OTPStatus, OTPUsage, UserRole, UserStatus, UserType, ZatcaPhase2Stage
 from src.core.services import EmailService
 from src.users.schemas import UserInDB, UserOut
 from src.core.config import settings

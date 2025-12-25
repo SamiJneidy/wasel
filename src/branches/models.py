@@ -3,7 +3,7 @@ from sqlalchemy.orm import relationship
 from src.core.database import Base
 from src.core.models import AuditMixin, AuditTimeMixin
 from src.core.enums import BranchStatus
-from src.core.enums import OrganizationTaxScheme
+from src.core.enums import TaxAuthority
 
 class Branch(Base, AuditMixin):
     __tablename__ = "branches"

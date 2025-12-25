@@ -5,13 +5,13 @@ from decimal import Decimal
 from sqlalchemy.exc import IntegrityError
 
 from src.customers.schemas import CustomerOut
-from src.core.enums import DocumentType, InvoiceType, InvoiceTypeCode, OrganizationTaxScheme
+from src.core.enums import DocumentType, InvoiceType, InvoiceTypeCode, TaxAuthority
 from src.core.utils.math_helper import round_decimal
 from src.core.consts import TAX_RATE, KSA_TZ
 from src.users.schemas import UserInDB
 from src.items.services import ItemService
 from src.customers.services import CustomerService
-from src.zatca.services import ZatcaService
+from src.core.services.compliance_service import ComplianceService
 from .repositories import SaleInvoiceRepository
 from .schemas import (
     PagintationParams,
@@ -32,8 +32,9 @@ from .exceptions import (
     raise_integrity_error,
 )
 
+    
 class SaleInvoiceService:
-    PREFIX = {
+    INVOICE_NUMBER_PREFIX = {
         DocumentType.INVOICE: {
             InvoiceTypeCode.INVOICE: {InvoiceType.STANDARD: "TAXINV", InvoiceType.SIMPLIFIED: "SIMINV"},
             InvoiceTypeCode.CREDIT_NOTE: {InvoiceType.STANDARD: "TAXCD", InvoiceType.SIMPLIFIED: "SIMCD"},
@@ -51,12 +52,12 @@ class SaleInvoiceService:
         repo: SaleInvoiceRepository,
         customer_service: CustomerService,
         item_service: ItemService,
-        zatca_service: ZatcaService,
+        compliance_service: ComplianceService,
     ) -> None:
         self.repo = repo
         self.customer_service = customer_service
         self.item_service = item_service
-        self.zatca_service = zatca_service
+        self.compliance_service = compliance_service
 
     async def generate_invoice_number(self, user: UserInDB, document_type: DocumentType, invoice_type: InvoiceType, invoice_type_code: InvoiceTypeCode) -> tuple[int, str]:
         """Returns the sequence number along with the formatted invoice number."""
@@ -77,18 +78,29 @@ class SaleInvoiceService:
         seq_number = (last_invoice.seq_number if last_invoice else 0) + 1
         number = str(seq_number).zfill(6)
         two_digit_year = str(year)[2:]
-        prefix = self.PREFIX[document_type][invoice_type_code][invoice_type]
+        prefix = self.INVOICE_NUMBER_PREFIX[document_type][invoice_type_code][invoice_type]
         return seq_number, f"{prefix}-{two_digit_year}-{number}"
-
 
     async def _get_invoice_header(self, user: UserInDB, invoice_id: int) -> SaleInvoiceHeaderOut:
         invoice = await self.repo.get_invoice(user.organization_id, invoice_id)
         if not invoice:
             raise InvoiceNotFoundException()
         invoice = SaleInvoiceHeaderOut.model_validate(invoice)
-        if user.organization.tax_scheme == OrganizationTaxScheme.ZATCA_PHASE2:
-            invoice.tax_scheme_metadata = await self.zatca_service.get_invoice_metadata(invoice_id)
+        if user.organization.tax_authority == TaxAuthority.ZATCA_PHASE2:
+            invoice.tax_authority_metadata = await self.compliance_service.get_invoice_compliance_metadata(invoice_id)
         return invoice
+    
+    async def _get_invoice_lines(self, user: UserInDB, invoice_id: int) -> List[SaleInvoiceLineOut]:
+        invoice_lines = await self.repo.get_invoice_lines_by_invoice_id(invoice_id)
+        result: List[SaleInvoiceLineOut] = []
+        for line in invoice_lines:
+            item = await self.item_service.get(user, line.item_id)
+            line_out = SaleInvoiceLineOut.model_validate(line)
+            line_out.item = item
+            if user.organization.tax_authority == TaxAuthority.ZATCA_PHASE2:
+                line_out.tax_authority_metadata = await self.compliance_service.get_line_compliance_metadata(line.id)
+            result.append(line_out)
+        return result
 
     async def _get_invoice_lines(self, user: UserInDB, invoice_id: int) -> List[SaleInvoiceLineOut]:
         invoice_lines = await self.repo.get_invoice_lines_by_invoice_id(invoice_id)
@@ -97,8 +109,8 @@ class SaleInvoiceService:
             item = await self.item_service.get(user, line.item_id)
             line_out = SaleInvoiceLineOut.model_validate(line)
             line_out.item = item
-            if user.organization.tax_scheme == OrganizationTaxScheme.ZATCA_PHASE2:
-                line_out.tax_scheme_metadata = await self.zatca_service.get_line_metadata(line.id)
+            if user.organization.tax_authority == TaxAuthority.ZATCA_PHASE2:
+                line_out.tax_authority_metadata = await self.compliance_service.get_line_compliance_metadata(line.id)
             result.append(line_out)
         return result
 
@@ -117,10 +129,10 @@ class SaleInvoiceService:
     async def _create_invoice_lines(self, user: UserInDB, invoice_id: int, data: List[Dict[str, Any]]) -> None:
         for line in data:
             line["tax_rate"] = TAX_RATE[line["classified_tax_category"]]
-            line_metadata = line.pop("tax_scheme_metadata", None)
+            line_metadata = line.pop("tax_authority_metadata", None)
             db_line = await self.repo.create_invoice_line(invoice_id, line)
-            if user.organization.tax_scheme == OrganizationTaxScheme.ZATCA_PHASE2 and line_metadata is not None:
-                await self.zatca_service.create_line_metadata(invoice_id, db_line.id, line_metadata)
+            if user.organization.tax_authority == TaxAuthority.ZATCA_PHASE2 and line_metadata is not None:
+                await self.compliance_service.create_line_compliance_metadata(invoice_id, db_line.id, line_metadata)
 
     async def _calculate_amounts(self, data: SaleInvoiceCreate) -> Dict[str, Any]:
         invoice: Dict[str, Any] = data.model_dump(exclude_none=True)
@@ -187,9 +199,9 @@ class SaleInvoiceService:
         )
 
     async def send_invoice_to_zatca(self, user: UserInDB, invoice_id: int) -> SaleInvoiceOut:
-        if user.organization.tax_scheme == OrganizationTaxScheme.ZATCA_PHASE2:
+        if user.organization.tax_authority == TaxAuthority.ZATCA_PHASE2:
             invoice = await self.get_invoice(user, invoice_id)
-            await self.zatca_service.sign_and_send_to_zatca(user, invoice)
+            await self.compliance_service.sign_and_send_to_zatca(user, invoice)
             return await self.get_invoice(user, invoice_id)
         else:
             raise ZatcaInvoiceNotAllowedException()
@@ -207,16 +219,16 @@ class SaleInvoiceService:
             invoice_dict.update({
                 "uuid": uuid.uuid4(), 
                 "is_locked": data.document_type==DocumentType.INVOICE,
-                "completed_tax_scheme": user.organization.tax_scheme == OrganizationTaxScheme.NONE,
+                "completed_tax_authority": user.organization.tax_authority == TaxAuthority.NONE,
                 "invoice_number": invoice_number,
                 "seq_number": seq
             })
             invoice_header = await self._create_invoice_header(user, invoice_dict)
             await self._create_invoice_lines(user, invoice_header.id, invoice_lines)
             invoice = await self.get_invoice(user, invoice_header.id)
-            if user.organization.tax_scheme == OrganizationTaxScheme.ZATCA_PHASE2 and data.document_type==DocumentType.INVOICE:
-                invoice.tax_scheme_metadata = await self.zatca_service.sign_and_send_to_zatca(user, invoice)
-                await self.repo.update_invoice(user.organization_id, invoice_header.id, {"completed_tax_scheme": True})
+            if user.organization.tax_authority == TaxAuthority.ZATCA_PHASE2 and data.document_type==DocumentType.INVOICE:
+                invoice.tax_authority_metadata = await self.compliance_service.sign_and_send_to_zatca(user, invoice)
+                await self.repo.update_invoice(user.organization_id, invoice_header.id, {"completed_tax_authority": True})
             return invoice
         except IntegrityError as e:
             raise_integrity_error(e)
@@ -237,9 +249,9 @@ class SaleInvoiceService:
             await self.repo.delete_invoice_lines(invoice_id)
             await self._create_invoice_lines(user, invoice_id, invoice_lines)
             invoice = await self.get_invoice(user, invoice_id)
-            if user.organization.tax_scheme == OrganizationTaxScheme.ZATCA_PHASE2 and data.document_type==DocumentType.INVOICE and data.is_locked == True:
-                invoice.tax_scheme_metadata = await self.zatca_service.sign_and_send_to_zatca(user, invoice)
-                await self.repo.update_invoice(user.organization_id, invoice_header.id, {"completed_tax_scheme": True})
+            if user.organization.tax_authority == TaxAuthority.ZATCA_PHASE2 and data.document_type==DocumentType.INVOICE and data.is_locked == True:
+                invoice.tax_authority_metadata = await self.compliance_service.sign_and_send_to_zatca(user, invoice)
+                await self.repo.update_invoice(user.organization_id, invoice_header.id, {"completed_tax_authority": True})
             return invoice
         except IntegrityError as e:
             raise_integrity_error(e)

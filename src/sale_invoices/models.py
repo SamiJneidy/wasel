@@ -2,7 +2,7 @@ from sqlalchemy import BOOLEAN, Column, Integer, String, UUID, Date, Text, DECIM
 from sqlalchemy.orm import relationship
 from src.core.database import Base
 from src.core.models import AuditMixin
-from src.core.enums import InvoiceType, InvoiceTypeCode, PaymentMeansCode, TaxExemptionReasonCode, ZatcaStage, DocumentType
+from src.core.enums import InvoiceType, InvoiceTypeCode, PaymentMeansCode, TaxExemptionReasonCode, ZatcaPhase2Stage, DocumentType
 
 
 class SaleInvoice(Base, AuditMixin):
