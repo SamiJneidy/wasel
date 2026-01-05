@@ -13,7 +13,12 @@ config = context.config
 from src.core.database import Base
 from src.auth.models import OTP
 from src.users.models import User
-from src.zatca.models import ZatcaCSID, ZatcaBranchMetadata
+from src.tax_authorities.zatca_phase2.models import (
+    ZatcaPhase2BranchData, 
+    ZatcaPhase2CSID, 
+    ZatcaPhase2SaleInvoiceData, 
+    ZatcaPhase2SaleInvoiceLineData,
+)
 from src.customers.models import Customer
 from src.suppliers.models import Supplier
 from src.items.models import Item

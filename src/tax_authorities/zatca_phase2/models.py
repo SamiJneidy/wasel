@@ -4,9 +4,10 @@ from src.core.database import Base
 from src.core.models import AuditMixin
 from src.core.enums import TaxAuthority, ZatcaPhase2Stage, TaxExemptionReasonCode
 
-class ZatcaPhase2SaleInvoiceMetadata(Base, AuditMixin):
-    __tablename__ = "zatca_phase2_sale_invoice_metadata"
+class ZatcaPhase2SaleInvoiceData(Base, AuditMixin):
+    __tablename__ = "zatca_phase2_sale_invoice_data"
     id = Column(Integer, autoincrement=True, primary_key=True, index=True)
+    tax_authority = Column(String(50), nullable=True, default=TaxAuthority.ZATCA_PHASE2.value)
     invoice_id = Column(Integer, ForeignKey('sale_invoices.id'))
     icv = Column(Integer, nullable=True)
     signed_xml_base64 = Column(Text, nullable=True)
@@ -17,17 +18,19 @@ class ZatcaPhase2SaleInvoiceMetadata(Base, AuditMixin):
     response = Column(Text, nullable=True)
     status_code = Column(Integer, nullable=True)
 
-class ZatcaSaleInvoiceLineMetadata(Base, AuditMixin):
-    __tablename__ = "zatca_phase2_sale_invoice_lines_metadata"
+class ZatcaPhase2SaleInvoiceLineData(Base, AuditMixin):
+    __tablename__ = "zatca_phase2_sale_invoice_lines_data"
     id = Column(Integer, autoincrement=True, primary_key=True, index=True)
+    tax_authority = Column(String(50), nullable=True, default=TaxAuthority.ZATCA_PHASE2.value)
     invoice_id = Column(Integer, ForeignKey('sale_invoices.id'))
     invoice_line_id = Column(Integer, ForeignKey('sale_invoices_lines.id'))
     tax_exemption_reason_code = Column(String(100), nullable=True)
     tax_exemption_reason = Column(String(200), nullable=True)
 
-class ZatcaBranchMetadata(Base, AuditMixin):
-    __tablename__ = "zatca_phase2_branches_metadata"
+class ZatcaPhase2BranchData(Base, AuditMixin):
+    __tablename__ = "zatca_phase2_branches_data"
     id = Column(Integer, autoincrement=True, primary_key=True, index=True)
+    tax_authority = Column(String(50), nullable=True, default=TaxAuthority.ZATCA_PHASE2.value)
     organization_id = Column(Integer, ForeignKey('organizations.id'))
     branch_id = Column(Integer, ForeignKey('branches.id'))
     stage = Column(String, nullable=True)
@@ -50,7 +53,7 @@ class ZatcaBranchMetadata(Base, AuditMixin):
     party_identification_scheme = Column(String(10), nullable=True)
     party_identification_value = Column(String(30), nullable=True)
     
-class ZatcaCSID(Base, AuditMixin):
+class ZatcaPhase2CSID(Base, AuditMixin):
     __tablename__ = "zatca_phase2_csids"
     id = Column(Integer, autoincrement=True, primary_key=True, index=True)
     stage = Column(String(50), nullable=True)

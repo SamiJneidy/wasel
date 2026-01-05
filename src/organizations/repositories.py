@@ -2,7 +2,7 @@ from typing import Optional, Dict, Any
 from sqlalchemy import select, update, delete
 from src.core.database import AsyncSession
 from .models import Organization
-
+from src.branches.models import Branch
 
 class OrganizationRepository:
     def __init__(self, db: AsyncSession):
@@ -24,7 +24,14 @@ class OrganizationRepository:
         await self.db.flush()
         await self.db.refresh(organization)
         return organization
-
+    
+    async def create_main_branch(self, data: Dict[str, Any]) -> Branch:
+        branch = Branch(**data)
+        self.db.add(branch)
+        await self.db.flush()
+        await self.db.refresh(branch)
+        return branch
+    
     async def update(self, id: int, data: Dict[str, Any]) -> Optional[Organization]:
         stmt = (
             update(Organization)

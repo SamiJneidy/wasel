@@ -16,29 +16,32 @@ class NoTaxAuthorityService(TaxAuthorityService):
         Returns skipped metadata.
         """
         return None
-    async def get_invoice_compliance_metadata(self, user: UserInDB, invoice_id: int) -> None:
+    async def get_invoice_tax_authority_data(self, user: UserInDB, invoice_id: int) -> None:
         """
         Returns None as no compliance metadata exists.
         """
         return None
 
-    async def get_line_compliance_metadata(self, user: UserInDB, invoice_line_id: int) -> None:
+    async def get_line_tax_authority_data(self, user: UserInDB, invoice_line_id: int) -> None:
         return None
 
-    async def create_line_compliance_metadata(self, user: UserInDB, invoice_id: int, invoice_line_id: int, data: Any) -> None:
+    async def create_line_tax_authority_data(self, user: UserInDB, invoice_id: int, invoice_line_id: int, data: Any) -> None:
         return None
 
-    async def create_branch_compliance_metadata(self, user: UserInDB, branch_id: int, data: Any) -> None:
+    async def create_branch_tax_authority_data(self, user: UserInDB, branch_id: int, data: Any) -> None:
+        return None
+    
+    async def complete_branch_tax_authority_data(self, user: UserInDB, branch_id: int, data: Any) -> None:
         return None
 
-    async def get_branch_compliance_metadata(self, user: UserInDB, branch_id: int) -> None:
+    async def get_branch_tax_authority_data(self, user: UserInDB, branch_id: int) -> None:
         return None
 
-    async def create_invoice_compliance_metadata(self, user: UserInDB, invoice_id: int, data: Any) -> None:
+    async def create_invoice_tax_authority_data(self, user: UserInDB, invoice_id: int, data: Any) -> None:
         return None
 
-    async def delete_invoice_compliance_metadata(self, user: UserInDB, invoice_id: int) -> None:
+    async def delete_invoice_tax_authority_data(self, user: UserInDB, invoice_id: int) -> None:
         return None
 
-    async def delete_lines_compliance_metadata(self, user: UserInDB, invoice_id: int) -> None:
+    async def delete_lines_tax_authority_data(self, user: UserInDB, invoice_id: int) -> None:
         return None

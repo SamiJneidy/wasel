@@ -1,12 +1,16 @@
 from pydantic import BaseModel, EmailStr, StringConstraints, ConfigDict, constr, Field, field_validator, model_validator
 from datetime import date, time, datetime
 from src.items.schemas import ItemOut
-from src.zatca.schemas import ZatcaCSIDResponse
+from src.tax_authorities.schemas import (
+    InvoiceTaxAuthorityDataCreate, 
+    InvoiceTaxAuthorityDataOut, 
+    InvoiceLineTaxAuthorityDataCreate, 
+    InvoiceLineTaxAuthorityDataOut,
+)
 from src.core.schemas import AuditTimeMixin, SingleObjectResponse, SuccessfulResponse, PagintationParams, PaginatedResponse
 from src.users.schemas import UserOut
 from src.customers.schemas import CustomerOut
 from src.core.config import settings
-from src.zatca.schemas import ZatcaInvoiceLineMetadata, ZatcaInvoiceMetadata
 from src.core.enums import DocumentType, TaxExemptionReasonCode, PartyIdentificationScheme, InvoiceType, InvoiceTypeCode, PaymentMeansCode, TaxCategory
 from typing import Optional, Annotated, Self, Union
 from decimal import Decimal
@@ -20,7 +24,7 @@ class SaleInvoiceLineCreate(BaseModel):
     discount_amount: Decimal = Field(..., decimal_places=2)
     classified_tax_category: TaxCategory = Field(...)
     # description: Optional[str] = Field(None, min_length=1, max_length=200)
-    tax_authority_metadata: Optional[ZatcaInvoiceLineMetadata] = None
+    tax_authority_data: Optional[InvoiceLineTaxAuthorityDataCreate] = None
     
     
     @field_validator("item_price", "price_discount", "discount_amount",  mode="after")
@@ -49,7 +53,7 @@ class SaleInvoiceLineOut(BaseModel):
     classified_tax_category: TaxCategory = Field(...)
     rounding_amount: Decimal = Field(..., decimal_places=2)
     # description: Optional[str] = Field(None, min_length=1, max_length=200)
-    tax_authority_metadata: Optional[ZatcaInvoiceLineMetadata] = None
+    tax_authority_data: Optional[InvoiceLineTaxAuthorityDataOut] = None
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -62,7 +66,7 @@ class SaleInvoiceHeaderBase(BaseModel):
     document_currency_code: str = Field("SAR", description="The value must be SAR", example="SAR")
     actual_delivery_date: Optional[date] = Field(None, description="Actual date of delivery if applicable")
     payment_means_code: PaymentMeansCode = Field(..., description="Code representing the payment method")
-    original_invoice_id: Optional[int] = Field(None, description="ID of the original invoice if this is a correction", example=456)
+    original_invoice_id: Optional[str] = Field(None, description="ID of the original invoice if this is a correction", example=456)
     instruction_note: Optional[str] = Field(None, max_length=4000, description="Additional instructions related to the invoice")
     prices_include_tax: bool = Field(...)
     discount_amount: Decimal = Field(..., description="Total discount amount", example=50.00)
@@ -78,11 +82,12 @@ class SaleInvoiceHeaderOut(SaleInvoiceHeaderBase):
     tax_inclusive_amount: Decimal = Field(..., description="Total amount including taxes", example=1092.50)
     payable_amount: Decimal = Field(..., description="Final amount to be paid", example=1092.50)
     uuid: Optional[uuid.UUID]
-    tax_authority_metadata: Optional[ZatcaInvoiceMetadata] = None
-    completed_tax_authority: Optional[bool] = None
+    tax_authority_data: Optional[InvoiceTaxAuthorityDataOut] = None
+    completed_tax_integration: Optional[bool] = None
     model_config = ConfigDict(from_attributes=True)
 
 class SaleInvoiceCreate(SaleInvoiceHeaderBase):
+    tax_authority_data: Optional[InvoiceTaxAuthorityDataCreate] = None
     customer_id: Optional[int] = None
     invoice_lines: list[SaleInvoiceLineCreate]
     

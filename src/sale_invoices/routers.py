@@ -1,5 +1,6 @@
 from math import ceil
 from fastapi import APIRouter, status
+from typing import Annotated
 
 from src.core.dependencies.shared import get_current_user
 from src.core.schemas import (
@@ -11,7 +12,7 @@ from src.core.schemas import (
 from src.users.schemas import UserInDB
 from src.docs.invoices import RESPONSES, DOCSTRINGS, SUMMARIES
 
-from .dependencies import Annotated, Depends, get_invoice_service
+from .dependencies.full_service import Depends, get_invoice_service
 from .schemas import (
     GetInvoiceNumberRequest,
     GetInvoiceNumberResponse,
@@ -23,7 +24,7 @@ from .schemas import (
 )
 from src.core.enums import DocumentType
 
-from .services import SaleInvoiceService
+from .services.full_service import SaleInvoiceService
 
 router = APIRouter(
     prefix="/sale-invoices",
@@ -121,8 +122,11 @@ async def get_invoices(
     pagination: PagintationParams = Depends(),
     filters: SaleInvoiceFilters = Depends(),
 ) -> PaginatedResponse[SaleInvoiceHeaderOut]:
+    from datetime import datetime
+    start = datetime.now()
     total_rows, data = await invoice_service.get_invoices(current_user, pagination, filters)
-
+    end = datetime.now()
+    print(f"Get invoices took: {(end - start).seconds}")
     return PaginatedResponse(
         data=data,
         total_rows=total_rows,

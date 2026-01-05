@@ -1,6 +1,5 @@
 from pydantic import BaseModel, EmailStr, StringConstraints, ConfigDict, constr, Field, field_validator, model_validator
 from datetime import date, time, datetime
-from src.zatca.schemas import ZatcaCSIDResponse
 from src.core.schemas import AuditTimeMixin, SingleObjectResponse, SuccessfulResponse, PagintationParams, PaginatedResponse
 from src.users.schemas import UserOut
 from src.items.schemas import ItemOut

@@ -43,11 +43,13 @@ class ZatcaInvoiceNotAllowedException(BaseAppException):
 class InvoiceNotAcceptedException(BaseAppException):
     def __init__(self, 
         detail: str | None = "The invoice was not accepted by zatca", 
+        zatca_response: dict | None = None,
         status_code: int = status.HTTP_400_BAD_REQUEST,
     ):
+        self.zatca_response = zatca_response
         super().__init__(detail, status_code)
 
-class ZatcaBranchMetadataNotFoundException(BaseAppException):
+class ZatcaBranchDataNotFoundException(BaseAppException):
     def __init__(self, 
         detail: str | None = "Metadata for this branch was not found", 
         status_code: int = status.HTTP_404_NOT_FOUND,
@@ -55,7 +57,7 @@ class ZatcaBranchMetadataNotFoundException(BaseAppException):
         super().__init__(detail, status_code)
     
 
-class ZatcaBranchMetadataNotAllowedException(BaseAppException):
+class ZatcaBranchDataNotAllowedException(BaseAppException):
     def __init__(self, 
         detail: str | None = "Your tax scheme does not allow branch metadata", 
         status_code: int = status.HTTP_400_BAD_REQUEST,

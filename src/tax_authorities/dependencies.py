@@ -12,7 +12,7 @@ def get_tax_authority_service(
     no_tax_authority_service: Annotated[NoTaxAuthorityService, Depends(get_no_tax_authority_service)],
     zatca_phase2_service: Annotated[ZatcaPhase2Service, Depends(get_zatca_phase2_service)],
 ) -> TaxAuthorityService:
-    if current_user.organization.tax_authority == TaxAuthority.NONE:
+    if current_user.organization.tax_authority is None:
         return no_tax_authority_service
     if current_user.organization.tax_authority == TaxAuthority.ZATCA_PHASE2:
         return zatca_phase2_service

@@ -22,7 +22,7 @@ class SaleInvoice(Base, AuditMixin):
     document_currency_code = Column(String(5), nullable=False, server_default="SAR")
     actual_delivery_date = Column(Date, nullable=True)
     payment_means_code = Column(Enum(PaymentMeansCode), nullable=False)
-    original_invoice_id = Column(Integer, ForeignKey('sale_invoices.id'), nullable=True)
+    original_invoice_id = Column(String(30), nullable=True)
     instruction_note = Column(String(4000), nullable=True)
     note = Column(String(4000), nullable=True)
     line_extension_amount = Column(DECIMAL(scale=2), nullable=False)
@@ -34,7 +34,7 @@ class SaleInvoice(Base, AuditMixin):
     payable_amount = Column(DECIMAL(scale=2), nullable=False)
     uuid = Column(UUID, nullable=True)
     is_locked = Column(BOOLEAN, nullable=True)
-    completed_tax_scheme = Column(BOOLEAN, nullable=True)
+    completed_tax_integration = Column(BOOLEAN, nullable=True)
 
 
 class SaleInvoiceLine(Base):

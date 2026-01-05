@@ -9,7 +9,7 @@ from src.core.schemas import (
 from src.docs.items import DOCSTRINGS, RESPONSES, SUMMARIES
 from src.users.schemas import UserInDB
 from .dependencies import Annotated, Depends, ZatcaPhase2Service, get_zatca_phase2_service
-from .schemas import ZatcaPhase2BranchMetadataCreate, ZatcaPhase2BranchMetadataOut
+from .schemas import ZatcaPhase2BranchDataCreate, ZatcaPhase2BranchDataOut
 from .services import ZatcaPhase2Service
 
 router = APIRouter(
@@ -24,7 +24,7 @@ router = APIRouter(
 
 @router.get(
     path="/{id}",
-    response_model=SingleObjectResponse[ZatcaPhase2BranchMetadataOut],
+    response_model=SingleObjectResponse[ZatcaPhase2BranchDataOut],
     # responses=RESPONSES["get_item"],
     # summary=SUMMARIES["get_item"],
     # description=DOCSTRINGS["get_item"],
@@ -33,8 +33,8 @@ async def get_branch_metadata(
     id: int,
     zatca_service: Annotated[ZatcaPhase2Service, Depends(get_zatca_phase2_service)],
     current_user: Annotated[UserInDB, Depends(get_current_user)],
-) -> SingleObjectResponse[ZatcaPhase2BranchMetadataOut]:
-    data = await zatca_service.get_branch_compliance_metadata(current_user, id)
+) -> SingleObjectResponse[ZatcaPhase2BranchDataOut]:
+    data = await zatca_service.get_branch_tax_authority_data(current_user, id)
     return SingleObjectResponse(data=data)
 
 
@@ -45,17 +45,17 @@ async def get_branch_metadata(
 @router.post(
     path="/branches/{branch_id}",
     status_code=status.HTTP_201_CREATED,
-    response_model=SingleObjectResponse[ZatcaPhase2BranchMetadataOut],
+    response_model=SingleObjectResponse[ZatcaPhase2BranchDataOut],
     # responses=RESPONSES["create_item"],
     # summary=SUMMARIES["create_item"],
     # description=DOCSTRINGS["create_item"],
 )
 async def create_metadata(
     branch_id: int,
-    body: ZatcaPhase2BranchMetadataCreate,
+    body: ZatcaPhase2BranchDataCreate,
     zatca_service: Annotated[ZatcaPhase2Service, Depends(get_zatca_phase2_service)],
     current_user: Annotated[UserInDB, Depends(get_current_user)],
-) -> SingleObjectResponse[ZatcaPhase2BranchMetadataOut]:
+) -> SingleObjectResponse[ZatcaPhase2BranchDataOut]:
     data = await zatca_service.create_branch_metadata(current_user, branch_id, body)
     return SingleObjectResponse(data=data)
 

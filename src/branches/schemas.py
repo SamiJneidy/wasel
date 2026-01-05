@@ -2,7 +2,8 @@ from pydantic import BaseModel, EmailStr, StringConstraints, ConfigDict, constr,
 from datetime import datetime
 from decimal import Decimal
 from src.core.schemas import AuditTimeMixin, ObjectListResponse, SingleObjectResponse
-from src.core.enums import TaxAuthority, UnitCodes, BranchStatus
+from src.core.enums import TaxAuthority, UnitCodes, BranchStatus, BranchTaxIntegrationStatus
+from src.tax_authorities.schemas import BranchTaxAuthorityDataOut
 from typing import Optional
 
 
@@ -33,4 +34,9 @@ class BranchOut(BranchBase):
     id: int
     is_main_branch: bool
     status: BranchStatus
+    tax_integration_status: BranchTaxIntegrationStatus
+    model_config = ConfigDict(from_attributes=True)
+    
+class BranchOutWithTaxAuthority(BranchOut):
+    tax_authority_data: Optional[BranchTaxAuthorityDataOut] = None
     model_config = ConfigDict(from_attributes=True)

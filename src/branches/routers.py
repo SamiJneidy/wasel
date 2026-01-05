@@ -2,12 +2,14 @@ from typing import Annotated
 
 from fastapi import APIRouter, status, Depends
 
+from src.tax_authorities.schemas import BranchTaxAuthorityDataComplete, BranchTaxAuthorityDataCreate
+
 from .services import BranchService
 from src.users.schemas import UserInDB
 from .schemas import (
     BranchCreate,
     BranchUpdate,
-    BranchOut,
+    BranchOutWithTaxAuthority,
     ObjectListResponse,
     SingleObjectResponse,
 )
@@ -20,25 +22,9 @@ router = APIRouter(
     tags=["Branches"],
 )
 
-
-@router.get(
-    path="/",
-    response_model=ObjectListResponse[BranchOut],
-    # responses=RESPONSES["get_branches_for_user"],
-    # summary=SUMMARIES["get_branches_for_user"],
-    # description=DOCSTRINGS["get_branches_for_user"],
-)
-async def get_branches_for_organization(
-    branch_service: Annotated[BranchService, Depends(get_branch_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
-) -> ObjectListResponse[BranchOut]:
-    data = await branch_service.get_branches_for_organization(current_user)
-    return ObjectListResponse(data=data)
-
-
 @router.get(
     path="/{id}",
-    response_model=SingleObjectResponse[BranchOut],
+    response_model=SingleObjectResponse[BranchOutWithTaxAuthority],
     # responses=RESPONSES["get_branch"],
     # summary=SUMMARIES["get_branch"],
     # description=DOCSTRINGS["get_branch"],
@@ -47,15 +33,32 @@ async def get_branch(
     id: int,
     branch_service: Annotated[BranchService, Depends(get_branch_service)],
     current_user: Annotated[UserInDB, Depends(get_current_user)],
-) -> SingleObjectResponse[BranchOut]:
+) -> SingleObjectResponse[BranchOutWithTaxAuthority]:
     data = await branch_service.get_branch(current_user, id)
+    print(id)
     return SingleObjectResponse(data=data)
+
+@router.get(
+    path="/",
+    response_model=ObjectListResponse[BranchOutWithTaxAuthority],
+    # responses=RESPONSES["get_branches_for_user"],
+    # summary=SUMMARIES["get_branches_for_user"],
+    # description=DOCSTRINGS["get_branches_for_user"],
+)
+async def get_branches_for_organization(
+    branch_service: Annotated[BranchService, Depends(get_branch_service)],
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
+) -> ObjectListResponse[BranchOutWithTaxAuthority]:
+    data = await branch_service.get_branches_for_organization(current_user)
+    return ObjectListResponse(data=data)
+
+
 
 
 @router.post(
     path="/",
     status_code=status.HTTP_201_CREATED,
-    response_model=SingleObjectResponse[BranchOut],
+    response_model=SingleObjectResponse[BranchOutWithTaxAuthority],
     # responses=RESPONSES["create_branch"],
     # summary=SUMMARIES["create_branch"],
     # description=DOCSTRINGS["create_branch"],
@@ -64,14 +67,47 @@ async def create_branch(
     body: BranchCreate,
     branch_service: Annotated[BranchService, Depends(get_branch_service)],
     current_user: Annotated[UserInDB, Depends(get_current_user)],
-) -> SingleObjectResponse[BranchOut]:
+) -> SingleObjectResponse[BranchOutWithTaxAuthority]:
     data = await branch_service.create_branch(current_user, body)
     return SingleObjectResponse(data=data)
 
+@router.post(
+    path="/tax-authority-data/{branch_id}",
+    status_code=status.HTTP_201_CREATED,
+    response_model=SingleObjectResponse[BranchOutWithTaxAuthority],
+    # responses=RESPONSES["create_branch"],
+    # summary=SUMMARIES["create_branch"],
+    # description=DOCSTRINGS["create_branch"],
+)
+async def create_branch_tax_authority_data(
+    branch_id: int,
+    body: BranchTaxAuthorityDataCreate,
+    branch_service: Annotated[BranchService, Depends(get_branch_service)],
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
+) -> SingleObjectResponse[BranchOutWithTaxAuthority]:
+    data = await branch_service.create_branch_tax_authority_data(current_user, branch_id, body)
+    return SingleObjectResponse(data=data)
+
+@router.post(
+    path="/tax-authority-data/complete/{branch_id}",
+    status_code=status.HTTP_201_CREATED,
+    response_model=SingleObjectResponse[BranchOutWithTaxAuthority],
+    # responses=RESPONSES["create_branch"],
+    # summary=SUMMARIES["create_branch"],
+    # description=DOCSTRINGS["create_branch"],
+)
+async def complete_branch_tax_authority_data(
+    branch_id: int,
+    body: BranchTaxAuthorityDataComplete,
+    branch_service: Annotated[BranchService, Depends(get_branch_service)],
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
+) -> SingleObjectResponse[BranchOutWithTaxAuthority]:
+    data = await branch_service.complete_branch_tax_authority_data(current_user, branch_id, body)
+    return SingleObjectResponse(data=data)
 
 @router.patch(
     path="/{id}",
-    response_model=SingleObjectResponse[BranchOut],
+    response_model=SingleObjectResponse[BranchOutWithTaxAuthority],
     # responses=RESPONSES["update_branch"],
     # summary=SUMMARIES["update_branch"],
     # description=DOCSTRINGS["update_branch"],
@@ -81,7 +117,7 @@ async def update_branch(
     body: BranchUpdate,
     branch_service: Annotated[BranchService, Depends(get_branch_service)],
     current_user: Annotated[UserInDB, Depends(get_current_user)],
-) -> SingleObjectResponse[BranchOut]:
+) -> SingleObjectResponse[BranchOutWithTaxAuthority]:
     data = await branch_service.update_branch(current_user, id, body)
     return SingleObjectResponse(data=data)
 

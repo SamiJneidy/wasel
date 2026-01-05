@@ -19,3 +19,4 @@ class Branch(Base, AuditMixin):
     postal_code = Column(String(10), nullable=True)
     address = Column(String(400), nullable=True)
     status = Column(String(100), nullable=True, server_default="PENDING")
+    tax_integration_status = Column(String(100), nullable=True)

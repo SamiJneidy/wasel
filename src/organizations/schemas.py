@@ -13,7 +13,7 @@ class OrganizationBase(BaseModel):
     country_code: str = Field(..., min_length=1, max_length=5, example="SA")
     vat_number: Optional[str] = Field(..., min_length=15, max_length=15, pattern=r"^3\d{13}3$")
     business_category: Optional[str] = Field(..., min_length=1, max_length=100, example="Education", description="This field is free text")
-    tax_authority: TaxAuthority = TaxAuthority.NONE
+    tax_authority: Optional[TaxAuthority] = Field(None)
     phone: str = Field(..., min_length=10, max_length=15, example="+966121234567")
     street: Optional[str] = Field(..., min_length=1, max_length=300, example="Tahlia Stree", description="This field is free text")
     building_number: Optional[str] = Field(..., min_length=4, max_length=4, pattern=r"^\d{4}$", example="1234")

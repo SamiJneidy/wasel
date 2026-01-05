@@ -17,6 +17,11 @@ class BranchStatus(str, Enum):
     PENDING = "PENDING"
     DELETED = "DELETED"
 
+class BranchTaxIntegrationStatus(str, Enum):
+    COMPLETED = "COMPLETED"
+    NOT_STARTED = "NOT_STARTED"
+    PENDING_OTP = "PENDING_OTP"
+
 class InvoicingType(str, Enum):
     STANDARD = "1000"
     SIMPLIFIED = "0100"
@@ -110,6 +115,5 @@ class ZatcaPhase2Stage(str, Enum):
     COMPLIANCE = "COMPLIANCE"
 
 class TaxAuthority(str, Enum):
-    NONE = "NONE"
     ZATCA_PHASE1 = "ZATCA_PHASE1"
     ZATCA_PHASE2 = "ZATCA_PHASE2"

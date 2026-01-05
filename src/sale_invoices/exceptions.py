@@ -16,9 +16,13 @@ class InvoiceDeleteNotAllowed(BaseAppException):
     def __init__(self, detail: str | None = "Not allowed. Delete is permitted on unlocked invoices.", status_code: int = status.HTTP_403_FORBIDDEN):
         super().__init__(detail, status_code)
 
+class InvoiceSendNotAllowed(BaseAppException):
+    """Raised when attempting to send an invoice"""
+    def __init__(self, detail: str | None = "Invoice can not be sent", status_code: int = status.HTTP_403_FORBIDDEN):
+        super().__init__(detail, status_code)
+
 class InvalidDocumentType(BaseAppException):
     """Raised when the document type does not match the endpoint"""
     def __init__(self, detail: str | None = "Invalid document type for the operation", status_code: int = status.HTTP_403_FORBIDDEN):
         super().__init__(detail, status_code)
 
-    

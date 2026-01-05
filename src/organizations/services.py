@@ -5,12 +5,11 @@ from src.branches.schemas import BranchCreate, BranchOut
 from .schemas import OrganizationOut, OrganizationCreate, OrganizationUpdate
 from .repositories import OrganizationRepository
 from .exceptions import OrganizationNotFoundException
-
+from src.core.enums import BranchTaxIntegrationStatus
 
 class OrganizationService:
-    def __init__(self, organization_repo: OrganizationRepository, branch_repo: BranchRepository):
+    def __init__(self, organization_repo: OrganizationRepository):
         self.organization_repo = organization_repo
-        self.branch_repo = branch_repo
 
     async def get_organization(self, id: int) -> OrganizationOut:
         organization = await self.organization_repo.get(id)
@@ -38,8 +37,9 @@ class OrganizationService:
         branch_data.update({
             "is_main_branch": True,
             "organization_id": organization.id,
+            "tax_integration_status": BranchTaxIntegrationStatus.NOT_STARTED,
         })
-        branch = await self.branch_repo.create(branch_data)
+        branch = await self.organization_repo.create_main_branch(branch_data)
         return OrganizationOut.model_validate(organization), BranchOut.model_validate(branch)
 
     async def update_organization(self, id: int, data: OrganizationUpdate) -> OrganizationOut:
