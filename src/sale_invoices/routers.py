@@ -32,6 +32,50 @@ router = APIRouter(
 )
 
 # =========================================================
+# GET routes
+# =========================================================
+
+@router.get(
+    path="",
+    response_model=PaginatedResponse[SaleInvoiceHeaderOut],
+)
+async def get_invoices(
+    invoice_service: Annotated[SaleInvoiceService, Depends(get_invoice_service)],
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    pagination: PagintationParams = Depends(),
+    filters: SaleInvoiceFilters = Depends(),
+) -> PaginatedResponse[SaleInvoiceHeaderOut]:
+    from datetime import datetime
+    start = datetime.now()
+    total_rows, data = await invoice_service.get_invoices(current_user, pagination, filters)
+    end = datetime.now()
+    print(f"Get invoices took: {(end - start).seconds}")
+    return PaginatedResponse(
+        data=data,
+        total_rows=total_rows,
+        total_pages=ceil(total_rows / pagination.limit) if pagination.limit else 1,
+        page=pagination.page,
+        limit=pagination.limit,
+    )
+
+@router.get(
+    path="/{id}",
+    response_model=SingleObjectResponse[SaleInvoiceOut],
+    responses=RESPONSES["get_invoice"],
+    summary=SUMMARIES["get_invoice"],
+    description=DOCSTRINGS["get_invoice"],
+)
+async def get_invoice(
+    id: int,
+    invoice_service: Annotated[SaleInvoiceService, Depends(get_invoice_service)],
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
+) -> SingleObjectResponse[SaleInvoiceOut]:
+
+    data = await invoice_service.get_invoice(current_user, id)
+    return SingleObjectResponse(data=data)
+
+
+# =========================================================
 # POST routes
 # =========================================================
 
@@ -89,52 +133,6 @@ async def convert_invoice(
 
     data = await invoice_service.convert_invoice(current_user, id)
     return SingleObjectResponse(data=data)
-
-
-# =========================================================
-# GET routes
-# =========================================================
-
-@router.get(
-    path="/{id}",
-    response_model=SingleObjectResponse[SaleInvoiceOut],
-    responses=RESPONSES["get_invoice"],
-    summary=SUMMARIES["get_invoice"],
-    description=DOCSTRINGS["get_invoice"],
-)
-async def get_invoice(
-    id: int,
-    invoice_service: Annotated[SaleInvoiceService, Depends(get_invoice_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
-) -> SingleObjectResponse[SaleInvoiceOut]:
-
-    data = await invoice_service.get_invoice(current_user, id)
-    return SingleObjectResponse(data=data)
-
-
-@router.get(
-    path="",
-    response_model=PaginatedResponse[SaleInvoiceHeaderOut],
-)
-async def get_invoices(
-    invoice_service: Annotated[SaleInvoiceService, Depends(get_invoice_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
-    pagination: PagintationParams = Depends(),
-    filters: SaleInvoiceFilters = Depends(),
-) -> PaginatedResponse[SaleInvoiceHeaderOut]:
-    from datetime import datetime
-    start = datetime.now()
-    total_rows, data = await invoice_service.get_invoices(current_user, pagination, filters)
-    end = datetime.now()
-    print(f"Get invoices took: {(end - start).seconds}")
-    return PaginatedResponse(
-        data=data,
-        total_rows=total_rows,
-        total_pages=ceil(total_rows / pagination.limit) if pagination.limit else 1,
-        page=pagination.page,
-        limit=pagination.limit,
-    )
-
 
 # =========================================================
 # PUT routes

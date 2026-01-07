@@ -105,7 +105,7 @@ class BuyInvoiceService:
             item_price_after_price_discount = round(line.item_price - line.price_discount, 2)
 
             total = round(item_price_after_price_discount * line.quantity - line.discount_amount, 2)
-            if data.price_includes_tax:
+            if data.prices_include_tax:
                 line_extension_amount = round_decimal((total * Decimal("100")) / (tax_rate + Decimal("100")), 2)
                 tax_amount = round_decimal(total - line_extension_amount, 2)
             else:

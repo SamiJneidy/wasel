@@ -63,7 +63,7 @@ class BuyInvoiceHeaderBase(BaseModel):
     instruction_note: Optional[str] = Field(None, max_length=4000, description="Additional instructions related to the invoice")
     note: Optional[str] = Field(None, max_length=4000, description="General notes about the invoice")
     discount_amount: Decimal = Field(..., description="Total discount amount", example=50.00)
-    price_includes_tax: bool = Field(...)
+    prices_include_tax: bool = Field(...)
 
 class BuyInvoiceHeaderOut(BuyInvoiceHeaderBase):
     id: int

@@ -48,7 +48,25 @@ router = APIRouter(
 
 
 # ---------------------------------------------------------------------
-# 1. Sign-up & Login
+# GET routes
+# ---------------------------------------------------------------------
+@router.get(
+    "/me",
+    response_model=SingleObjectResponse[UserOut],
+    responses=RESPONSES["get_me"],
+    summary=SUMMARIES["get_me"],
+    description=DOCSTRINGS["get_me"],
+)
+async def get_me(
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
+) -> SingleObjectResponse[UserOut]:
+    data = await auth_service.get_me(current_user.email)
+    return SingleObjectResponse(data=data)
+
+
+# ---------------------------------------------------------------------
+# POST routes
 # ---------------------------------------------------------------------
 @router.post(
     "/signup",
@@ -73,7 +91,7 @@ async def signup(
     description=DOCSTRINGS["sign_up_complete"],
 )
 async def sign_up_complete(
-    request: Request, 
+    request: Request,
     response: Response,
     body: SignUpCompleteRequest,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
@@ -115,21 +133,6 @@ async def login(
     return SingleObjectResponse(data=data)
 
 
-@router.get(
-    "/me",
-    response_model=SingleObjectResponse[UserOut],
-    responses=RESPONSES["get_me"],
-    summary=SUMMARIES["get_me"],
-    description=DOCSTRINGS["get_me"],
-)
-async def get_me(
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
-    auth_service: Annotated[AuthService, Depends(get_auth_service)],
-) -> SingleObjectResponse[UserOut]:
-    data = await auth_service.get_me(current_user.email)
-    return SingleObjectResponse(data=data)
-
-
 @router.post(
     "/refresh",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -146,9 +149,6 @@ async def refresh(
     auth_service.refresh(request, response, refresh_token)
 
 
-# ---------------------------------------------------------------------
-# 2. Email Verification & Password Reset
-# ---------------------------------------------------------------------
 @router.post(
     "/verify-email",
     response_model=SingleObjectResponse[LoginResponse],
@@ -182,9 +182,6 @@ async def reset_password(
     return SingleObjectResponse(data=data)
 
 
-# ---------------------------------------------------------------------
-# 3. Logout
-# ---------------------------------------------------------------------
 @router.post(
     "/logout",
     response_model=SuccessfulResponse,
@@ -201,9 +198,6 @@ async def logout(
     return SuccessfulResponse(detail="Logged out successfully")
 
 
-# ---------------------------------------------------------------------
-# 4. OTP Management
-# ---------------------------------------------------------------------
 @router.post(
     "/otp/request/email-verification",
     response_model=SingleObjectResponse[RequestEmailVerificationOTPResponse],
@@ -264,9 +258,6 @@ async def verify_password_reset_otp(
     return SingleObjectResponse(data=data)
 
 
-# ---------------------------------------------------------------------
-# 5. Swagger Login (For Docs)
-# ---------------------------------------------------------------------
 @router.post(
     "/swaggerlogin",
     responses=RESPONSES["swaggerlogin"],

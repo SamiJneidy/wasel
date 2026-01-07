@@ -13,9 +13,9 @@ router = APIRouter(
 )
 
 
-# -----------------------
-# GET USERS OF AN ORGANIZATION BY ORG_ID
-# -----------------------
+# ---------------------------------------------------------------------
+# GET routes
+# ---------------------------------------------------------------------
 @router.get(
     path="",
     response_model=PaginatedResponse[UserOut],
@@ -23,7 +23,7 @@ router = APIRouter(
     # summary=SUMMARIES["get_user_by_email"],
     # description=DOCSTRINGS["get_user_by_email"],
 )
-async def get_users(  
+async def get_users(
     current_user: Annotated[UserInDB, Depends(get_current_user)],
     user_service: Annotated[UserService, Depends(get_user_service)],
     pagination_params: Annotated[PagintationParams, Depends()],
@@ -39,9 +39,6 @@ async def get_users(
     )
 
 
-# -----------------------
-# GET USER BY ID
-# -----------------------
 @router.get(
     path="/{id}",
     response_model=SingleObjectResponse[UserOut],
@@ -57,9 +54,6 @@ async def get_user_by_id(
     return SingleObjectResponse(data=data)
 
 
-# -----------------------
-# GET USER BY EMAIL
-# -----------------------
 @router.get(
     path="/email/{email}",
     response_model=SingleObjectResponse[UserOut],
@@ -75,9 +69,9 @@ async def get_user_by_email(
     return SingleObjectResponse(data=data)
 
 
-# -----------------------
-# INVITE USER
-# -----------------------
+# ---------------------------------------------------------------------
+# POST routes
+# ---------------------------------------------------------------------
 @router.post(
     "/invitations",
     response_model=SingleObjectResponse[UserOut],
@@ -96,9 +90,6 @@ async def invite_user(
     return SingleObjectResponse(data=data)
 
 
-# -----------------------
-# RESEND INVITATION
-# -----------------------
 @router.post(
     "/invitations/resend",
     response_model=SingleObjectResponse[UserOut],
@@ -116,9 +107,9 @@ async def resend_invitation(
     return SingleObjectResponse(data=data)
 
 
-# -----------------------
-# DELETE USER
-# -----------------------
+# ---------------------------------------------------------------------
+# DELETE routes
+# ---------------------------------------------------------------------
 @router.delete(
     path="/",
     status_code=204,

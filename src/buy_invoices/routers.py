@@ -25,51 +25,9 @@ router = APIRouter(
     tags=["Buy Invoices"],
 )
 
-# =========================================================
-# POST routes
-# =========================================================
-
-@router.post(
-    path="",
-    status_code=status.HTTP_201_CREATED,
-    response_model=SingleObjectResponse[BuyInvoiceOut],
-    # responses=RESPONSES["create_invoice"],
-    # summary=SUMMARIES["create_invoice"],
-    # description=DOCSTRINGS["create_invoice"],
-)
-async def create_invoice(
-    body: BuyInvoiceCreate,
-    invoice_service: Annotated[BuyInvoiceService, Depends(get_invoice_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
-) -> SingleObjectResponse[BuyInvoiceOut]:
-    from datetime import datetime
-    start = datetime.now()
-    data = await invoice_service.create_buy_invoice(current_user, body)
-    end = datetime.now()
-    print((end-start).seconds)
-    return SingleObjectResponse(data=data)
-
-
-# =========================================================
+# ---------------------------------------------------------------------
 # GET routes
-# =========================================================
-
-@router.get(
-    path="/{id}",
-    response_model=SingleObjectResponse[BuyInvoiceOut],
-    # responses=RESPONSES["get_invoice"],
-    # summary=SUMMARIES["get_invoice"],
-    # description=DOCSTRINGS["get_invoice"],
-)
-async def get_invoice(
-    id: int,
-    invoice_service: Annotated[BuyInvoiceService, Depends(get_invoice_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
-) -> SingleObjectResponse[BuyInvoiceOut]:
-    data = await invoice_service.get_invoice(current_user, id)
-    return SingleObjectResponse(data=data)
-
-
+# ---------------------------------------------------------------------
 @router.get(
     path="",
     response_model=PaginatedResponse[BuyInvoiceOut],
@@ -101,10 +59,45 @@ async def get_invoices(
     )
 
 
-# =========================================================
-# PUT routes
-# =========================================================
+@router.get(
+    path="/{id}",
+    response_model=SingleObjectResponse[BuyInvoiceOut],
+    # responses=RESPONSES["get_invoice"],
+    # summary=SUMMARIES["get_invoice"],
+    # description=DOCSTRINGS["get_invoice"],
+)
+async def get_invoice(
+    id: int,
+    invoice_service: Annotated[BuyInvoiceService, Depends(get_invoice_service)],
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
+) -> SingleObjectResponse[BuyInvoiceOut]:
+    data = await invoice_service.get_invoice(current_user, id)
+    return SingleObjectResponse(data=data)
 
+
+# ---------------------------------------------------------------------
+# POST routes
+# ---------------------------------------------------------------------
+@router.post(
+    path="",
+    status_code=status.HTTP_201_CREATED,
+    response_model=SingleObjectResponse[BuyInvoiceOut],
+    # responses=RESPONSES["create_invoice"],
+    # summary=SUMMARIES["create_invoice"],
+    # description=DOCSTRINGS["create_invoice"],
+)
+async def create_invoice(
+    body: BuyInvoiceCreate,
+    invoice_service: Annotated[BuyInvoiceService, Depends(get_invoice_service)],
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
+) -> SingleObjectResponse[BuyInvoiceOut]:
+    data = await invoice_service.create_buy_invoice(current_user, body)
+    return SingleObjectResponse(data=data)
+
+
+# ---------------------------------------------------------------------
+# PUT routes
+# ---------------------------------------------------------------------
 @router.put(
     path="/{id}",
     status_code=status.HTTP_200_OK,
@@ -122,10 +115,10 @@ async def update_invoice(
     data = await invoice_service.update_invoice(current_user, id, body)
     return SingleObjectResponse(data=data)
 
-# =========================================================
-# DELETE routes
-# =========================================================
 
+# ---------------------------------------------------------------------
+# DELETE routes
+# ---------------------------------------------------------------------
 @router.delete(
     path="/{id}",
     status_code=status.HTTP_204_NO_CONTENT,

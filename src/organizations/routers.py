@@ -22,8 +22,30 @@ router = APIRouter(
 )
 
 
+# ---------------------------------------------------------------------
+# GET routes
+# ---------------------------------------------------------------------
+@router.get(
+    path="/{id}",
+    response_model=SingleObjectResponse[OrganizationOut],
+    # responses=RESPONSES["get_organization"],
+    # summary=SUMMARIES["get_organization"],
+    # description=DOCSTRINGS["get_organization"],
+)
+async def get_organization(
+    id: int,
+    organization_service: Annotated[OrganizationService, Depends(get_organization_service)],
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
+) -> SingleObjectResponse[OrganizationOut]:
+    data = await organization_service.get_organization(current_user, id)
+    return SingleObjectResponse(data=data)
+
+
+# ---------------------------------------------------------------------
+# POST routes
+# ---------------------------------------------------------------------
 @router.post(
-    path="/",
+    path="",
     status_code=status.HTTP_201_CREATED,
     response_model=SingleObjectResponse[OrganizationOut],
     # responses=RESPONSES["create_organization"],
@@ -39,6 +61,9 @@ async def create_organization(
     return SingleObjectResponse(data=data)
 
 
+# ---------------------------------------------------------------------
+# PATCH routes
+# ---------------------------------------------------------------------
 @router.patch(
     path="/{id}",
     response_model=SingleObjectResponse[OrganizationOut],
@@ -56,6 +81,9 @@ async def update_organization(
     return SingleObjectResponse(data=data)
 
 
+# ---------------------------------------------------------------------
+# DELETE routes
+# ---------------------------------------------------------------------
 @router.delete(
     path="/{id}",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -70,19 +98,3 @@ async def delete_organization(
 ) -> None:
     await organization_service.delete_organization(current_user, id)
     return None
-
-
-@router.get(
-    path="/{id}",
-    response_model=SingleObjectResponse[OrganizationOut],
-    # responses=RESPONSES["get_organization"],
-    # summary=SUMMARIES["get_organization"],
-    # description=DOCSTRINGS["get_organization"],
-)
-async def get_organization(
-    id: int,
-    organization_service: Annotated[OrganizationService, Depends(get_organization_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
-) -> SingleObjectResponse[OrganizationOut]:
-    data = await organization_service.get_organization(current_user, id)
-    return SingleObjectResponse(data=data)

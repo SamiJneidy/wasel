@@ -22,24 +22,12 @@ router = APIRouter(
     tags=["Branches"],
 )
 
-@router.get(
-    path="/{id}",
-    response_model=SingleObjectResponse[BranchOutWithTaxAuthority],
-    # responses=RESPONSES["get_branch"],
-    # summary=SUMMARIES["get_branch"],
-    # description=DOCSTRINGS["get_branch"],
-)
-async def get_branch(
-    id: int,
-    branch_service: Annotated[BranchService, Depends(get_branch_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
-) -> SingleObjectResponse[BranchOutWithTaxAuthority]:
-    data = await branch_service.get_branch(current_user, id)
-    print(id)
-    return SingleObjectResponse(data=data)
 
+# ---------------------------------------------------------------------
+# GET routes
+# ---------------------------------------------------------------------
 @router.get(
-    path="/",
+    path="",
     response_model=ObjectListResponse[BranchOutWithTaxAuthority],
     # responses=RESPONSES["get_branches_for_user"],
     # summary=SUMMARIES["get_branches_for_user"],
@@ -53,10 +41,29 @@ async def get_branches_for_organization(
     return ObjectListResponse(data=data)
 
 
+# ---------------------------------------------------------------------
+
+@router.get(
+    path="/{id}",
+    response_model=SingleObjectResponse[BranchOutWithTaxAuthority],
+    # responses=RESPONSES["get_branch"],
+    # summary=SUMMARIES["get_branch"],
+    # description=DOCSTRINGS["get_branch"],
+)
+async def get_branch(
+    id: int,
+    branch_service: Annotated[BranchService, Depends(get_branch_service)],
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
+) -> SingleObjectResponse[BranchOutWithTaxAuthority]:
+    data = await branch_service.get_branch(current_user, id)
+    return SingleObjectResponse(data=data)
 
 
+# ---------------------------------------------------------------------
+# POST routes
+# ---------------------------------------------------------------------
 @router.post(
-    path="/",
+    path="",
     status_code=status.HTTP_201_CREATED,
     response_model=SingleObjectResponse[BranchOutWithTaxAuthority],
     # responses=RESPONSES["create_branch"],
@@ -70,6 +77,9 @@ async def create_branch(
 ) -> SingleObjectResponse[BranchOutWithTaxAuthority]:
     data = await branch_service.create_branch(current_user, body)
     return SingleObjectResponse(data=data)
+
+
+# ---------------------------------------------------------------------
 
 @router.post(
     path="/tax-authority-data/{branch_id}",
@@ -88,6 +98,9 @@ async def create_branch_tax_authority_data(
     data = await branch_service.create_branch_tax_authority_data(current_user, branch_id, body)
     return SingleObjectResponse(data=data)
 
+
+# ---------------------------------------------------------------------
+
 @router.post(
     path="/tax-authority-data/complete/{branch_id}",
     status_code=status.HTTP_201_CREATED,
@@ -105,6 +118,10 @@ async def complete_branch_tax_authority_data(
     data = await branch_service.complete_branch_tax_authority_data(current_user, branch_id, body)
     return SingleObjectResponse(data=data)
 
+
+# ---------------------------------------------------------------------
+# PATCH routes
+# ---------------------------------------------------------------------
 @router.patch(
     path="/{id}",
     response_model=SingleObjectResponse[BranchOutWithTaxAuthority],
@@ -122,6 +139,9 @@ async def update_branch(
     return SingleObjectResponse(data=data)
 
 
+# ---------------------------------------------------------------------
+# DELETE routes
+# ---------------------------------------------------------------------
 @router.delete(
     path="/{id}",
     status_code=status.HTTP_204_NO_CONTENT,
