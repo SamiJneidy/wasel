@@ -16,6 +16,7 @@ from .schemas import (
     BuyInvoiceCreate,
     BuyInvoiceFilters,
     BuyInvoiceOut,
+    BuyInvoiceUpdate,
 )
 from .services import BuyInvoiceService
 
@@ -98,3 +99,40 @@ async def get_invoices(
         page=pagination.page,
         limit=pagination.limit,
     )
+
+
+# =========================================================
+# PUT routes
+# =========================================================
+
+@router.put(
+    path="/{id}",
+    status_code=status.HTTP_200_OK,
+    response_model=SingleObjectResponse[BuyInvoiceOut],
+    responses=RESPONSES["create_invoice"],
+    summary=SUMMARIES["create_invoice"],
+    description=DOCSTRINGS["create_invoice"],
+)
+async def update_invoice(
+    id: int,
+    body: BuyInvoiceUpdate,
+    invoice_service: Annotated[BuyInvoiceService, Depends(get_invoice_service)],
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
+) -> SingleObjectResponse[BuyInvoiceOut]:
+    data = await invoice_service.update_invoice(current_user, id, body)
+    return SingleObjectResponse(data=data)
+
+# =========================================================
+# DELETE routes
+# =========================================================
+
+@router.delete(
+    path="/{id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_invoice(
+    id: int,
+    invoice_service: Annotated[BuyInvoiceService, Depends(get_invoice_service)],
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
+) -> None:
+    await invoice_service.delete_invoice(current_user, id)

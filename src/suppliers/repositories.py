@@ -52,6 +52,7 @@ class SupplierRepository:
         if limit is not None:
             stmt = stmt.limit(limit)
 
+        stmt = stmt.order_by(Supplier.created_at.desc())
         result = await self.db.execute(stmt)
         suppliers = result.scalars().all()
         return total_rows, suppliers

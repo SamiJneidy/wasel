@@ -16,7 +16,7 @@ class BranchRepository:
         return result.scalars().first()
 
     async def get_branches_for_organization(self, organization_id: int) -> list[Branch]:
-        stmt = select(Branch).where(Branch.organization_id == organization_id)
+        stmt = select(Branch).where(Branch.organization_id == organization_id).order_by(Branch.created_at.desc())
         result = await self.db.execute(stmt)
         return result.scalars().all()
 

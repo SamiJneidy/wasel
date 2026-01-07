@@ -13,7 +13,6 @@ import uuid
 class BuyInvoiceLineCreate(BaseModel):
     item_id: int    
     item_price: Decimal = Field(..., decimal_places=2)
-    price_includes_tax: bool = Field(...)
     price_discount: Decimal = Field(..., decimal_places=6)
     quantity: Decimal = Field(..., decimal_places=6)
     discount_amount: Decimal = Field(..., decimal_places=2)
@@ -39,7 +38,6 @@ class BuyInvoiceLineOut(BaseModel):
     item: Optional[ItemOut] = None
     item_price: Decimal = Field(..., decimal_places=2)
     quantity: Decimal = Field(..., decimal_places=6)
-    price_includes_tax: bool = Field(...)
     price_discount: Decimal = Field(..., decimal_places=6)
     discount_amount: Decimal = Field(..., decimal_places=2)
     line_extension_amount: Decimal = Field(..., decimal_places=2)
@@ -65,6 +63,7 @@ class BuyInvoiceHeaderBase(BaseModel):
     instruction_note: Optional[str] = Field(None, max_length=4000, description="Additional instructions related to the invoice")
     note: Optional[str] = Field(None, max_length=4000, description="General notes about the invoice")
     discount_amount: Decimal = Field(..., description="Total discount amount", example=50.00)
+    price_includes_tax: bool = Field(...)
 
 class BuyInvoiceHeaderOut(BuyInvoiceHeaderBase):
     id: int
@@ -108,7 +107,10 @@ class BuyInvoiceCreate(BuyInvoiceHeaderBase):
         if(len(tax_categories) > 1 and self.discount_amount > 0):
             raise ValueError("Invoice level discount is forbidden when the invoice containes different tax categories.")
         return self
-    
+
+class BuyInvoiceUpdate(BuyInvoiceCreate):
+    pass
+
 class BuyInvoiceOut(BuyInvoiceHeaderOut):
     id: int
     supplier: SupplierOut

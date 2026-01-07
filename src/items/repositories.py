@@ -52,6 +52,7 @@ class ItemRepository:
         if limit is not None:
             stmt = stmt.limit(limit)
 
+        stmt = stmt.order_by(Item.created_at.desc())
         result = await self.db.execute(stmt)
         items = result.scalars().all()
         return total_rows, items

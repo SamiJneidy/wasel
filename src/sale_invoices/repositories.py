@@ -17,7 +17,7 @@ class SaleInvoiceRepository:
             c = getattr(SaleInvoice, column, None)
             if c is not None:
                 stmt = stmt.where(c == value)
-        stmt.order_by(SaleInvoice.id.desc())
+        stmt.order_by(SaleInvoice.id.desc()).limit(1)
         result = await self.db.execute(stmt)
         return result.scalars().first()
 
@@ -34,7 +34,7 @@ class SaleInvoiceRepository:
         return result.scalars().first()
 
     async def get_invoice_lines_by_invoice_id(self, invoice_id: int) -> List[SaleInvoiceLine]:
-        stmt = select(SaleInvoiceLine).where(SaleInvoiceLine.invoice_id == invoice_id)
+        stmt = select(SaleInvoiceLine).where(SaleInvoiceLine.invoice_id == invoice_id).order_by(SaleInvoiceLine.id)
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
@@ -84,6 +84,7 @@ class SaleInvoiceRepository:
         if limit is not None:
             stmt = stmt.limit(limit)
 
+        stmt = stmt.order_by(SaleInvoice.created_at.desc())
         result = await self.db.execute(stmt)
         return total_rows, list(result.scalars().all())
 
@@ -109,11 +110,11 @@ class SaleInvoiceRepository:
         await self.db.refresh(invoice)
         return invoice
 
-    async def update_invoice(self, organization_id: int, invoice_id: int, data: Dict[str, Any]) -> Optional[SaleInvoice]:
+    async def update_invoice(self, organization_id: int, user_id: int, invoice_id: int, data: Dict[str, Any]) -> Optional[SaleInvoice]:
         stmt = (
             update(SaleInvoice)
             .where(SaleInvoice.organization_id == organization_id, SaleInvoice.id == invoice_id)
-            .values(**data)
+            .values(**data, updated_by=user_id)
             .returning(SaleInvoice)
         )
         result = await self.db.execute(stmt)

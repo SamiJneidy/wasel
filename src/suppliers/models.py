@@ -20,6 +20,8 @@ class Supplier(Base, AuditMixin):
     party_identification_scheme = Column(String(10), nullable=True)
     party_identification_value = Column(String(30), nullable=True)
     phone = Column(String(20), nullable=True)
+    whatsapp = Column(String(20), nullable=True)
+    email = Column(String(50), nullable=True)
     bank_account = Column(String(100), nullable=True)
     website = Column(String(100), nullable=True)
     notes = Column(String(1000), nullable=True)

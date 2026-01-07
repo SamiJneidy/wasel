@@ -27,6 +27,7 @@ class BuyInvoice(Base, AuditMixin):
     tax_inclusive_amount = Column(DECIMAL(scale=2), nullable=False)
     uuid = Column(UUID, nullable=True)
     supplier_id = Column(Integer, ForeignKey('suppliers.id', ondelete="RESTRICT"), nullable=True)
+    price_includes_tax = Column(BOOLEAN)
 
 
 class BuyInvoiceLine(Base):
@@ -36,7 +37,6 @@ class BuyInvoiceLine(Base):
     item_id = Column(Integer, ForeignKey('items.id', ondelete="RESTRICT"), nullable=False)
     item_price = Column(DECIMAL(scale=2), nullable=False)
     price_discount = Column(DECIMAL(scale=2), nullable=True)
-    price_includes_tax = Column(BOOLEAN)
     quantity = Column(DECIMAL(scale=6), nullable=False)
     discount_amount = Column(DECIMAL(scale=2), nullable=False)
     line_extension_amount = Column(DECIMAL(scale=2), nullable=False)

@@ -302,6 +302,7 @@ class ZatcaPhase2Service(TaxAuthorityService):
         if response_json.get("clearanceStatus") != "CLEARED":
             raise InvoiceNotAcceptedException(zatca_response=response_json)
         return ZatcaPhase2StandardInvoiceResponse(
+            tax_authority=TaxAuthority.ZATCA_PHASE2,
             status=response_json.get("clearanceStatus"),
             status_code=response.status_code,
             invoice=response_json.get("clearedInvoice"),

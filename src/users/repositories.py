@@ -43,6 +43,7 @@ class UserRepository:
             stmt = stmt.limit(limit)
         count_result = await self.db.execute(count_stmt)
         total_rows = count_result.scalars().first() or 0
+        stmt = stmt.order_by(User.created_at.desc())
         result = await self.db.execute(stmt)     
         users = result.scalars().all()
         return total_rows, users

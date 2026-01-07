@@ -45,6 +45,7 @@ class CustomerRepository:
         if limit is not None:
             stmt = stmt.limit(limit)
 
+        stmt = stmt.order_by(Customer.created_at.desc())
         result = await self.db.execute(stmt)
         customers = result.scalars().all()
         return total_rows, customers

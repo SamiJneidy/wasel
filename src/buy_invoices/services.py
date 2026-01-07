@@ -27,6 +27,7 @@ from .exceptions import (
     raise_integrity_error,
 )
 from .schemas import (
+    BuyInvoiceUpdate,
     PagintationParams,
     BuyInvoiceFilters,
     BuyInvoiceLineCreate,
@@ -104,7 +105,7 @@ class BuyInvoiceService:
             item_price_after_price_discount = round(line.item_price - line.price_discount, 2)
 
             total = round(item_price_after_price_discount * line.quantity - line.discount_amount, 2)
-            if line.price_includes_tax:
+            if data.price_includes_tax:
                 line_extension_amount = round_decimal((total * Decimal("100")) / (tax_rate + Decimal("100")), 2)
                 tax_amount = round_decimal(total - line_extension_amount, 2)
             else:
@@ -172,30 +173,59 @@ class BuyInvoiceService:
             **header.model_dump(),
         )
 
-    
     async def create_buy_invoice(self, user: UserInDB, data: BuyInvoiceCreate) -> BuyInvoiceOut:
         try:
             invoice_dict = await self._calculate_amounts(data)
             invoice_lines = invoice_dict.pop("invoice_lines")
-
             # Additional fields
+            last_invoice = await self.repo.get_last_invoice(user.organization_id, user.branch_id, {})
+            seq_number = (last_invoice.seq_number if last_invoice else 0) + 1
             header_uuid = uuid.uuid4()
-            invoice_dict.update({"uuid": header_uuid})
-
+            invoice_dict.update({
+                "uuid": header_uuid,
+                "seq_number": seq_number,
+            })
             # Create header
             header = await self._create_invoice_header(user, invoice_dict)
-
             # Create lines
             await self._create_invoice_lines(header.id, invoice_lines)
-            
             # Return full invoice
             return await self.get_invoice(user, header.id)
-
         except IntegrityError as e:
             raise_integrity_error(e)
         except BaseAppException as e:
             raise e
-
+    
+    async def update_invoice(self, user: UserInDB, invoice_id: int, data: BuyInvoiceUpdate) -> BuyInvoiceOut:
+        try:
+            invoice_header = await self._get_invoice_header(user, invoice_id)
+            if not invoice_header:
+                raise BuyInvoiceNotFoundException()
+            # Calculate invoice amounts
+            invoice_dict = await self._calculate_amounts(data)
+            invoice_lines = invoice_dict.pop("invoice_lines")
+            await self.repo.update_invoice(user.organization_id, user.id, invoice_id, invoice_dict)
+            await self.repo.delete_invoice_lines(invoice_id)
+            await self._create_invoice_lines(user, invoice_id, invoice_lines)
+            invoice = await self.get_invoice(user, invoice_id)
+            return invoice
+        except IntegrityError as e:
+            raise_integrity_error(e)
+        except Exception as e:
+            raise e
+        
+    async def delete_invoice(self, user: UserInDB, invoice_id: int) -> None:
+        try:
+            db_invoice = await self._get_invoice_header(user, invoice_id)
+            if not db_invoice:
+                raise BuyInvoiceNotFoundException()
+            await self.repo.delete_invoice(user.organization_id, user.id, invoice_id)
+            return None
+        except IntegrityError as e:
+            raise_integrity_error(e)
+        except Exception as e:
+            raise e
+        
     async def get_invoices(
         self,
         user: UserInDB,
@@ -214,5 +244,4 @@ class BuyInvoiceService:
         result: List[BuyInvoiceOut] = []
         for invoice in invoices:
             result.append(await self.get_invoice(user, invoice.id))
-
         return total, result

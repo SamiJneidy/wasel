@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import and_, func, select, update, distinct
+from sqlalchemy import and_, delete, func, select, update, distinct
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .models import BuyInvoice, BuyInvoiceLine
@@ -10,7 +10,17 @@ class BuyInvoiceRepository:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
-    async def get_last_invoice(self, organization_id: int) -> Optional[BuyInvoice]:
+    async def get_last_invoice(self, organization_id: int, branch_id: int, filters: dict = {}) -> BuyInvoice | None:
+        stmt = select(BuyInvoice).where(BuyInvoice.organization_id==organization_id, BuyInvoice.branch_id==branch_id)
+        for column, value in filters.items():
+            c = getattr(BuyInvoice, column, None)
+            if c is not None:
+                stmt = stmt.where(c == value)
+        stmt.order_by(BuyInvoice.id.desc()).limit(1)
+        result = await self.db.execute(stmt)
+        return result.scalars().first()
+
+    async def get_last_invoice(self, organization_id: int, branch_id: int, filters: dict) -> Optional[BuyInvoice]:
         stmt = (
             select(BuyInvoice)
             .where(BuyInvoice.organization_id == organization_id)
@@ -56,7 +66,7 @@ class BuyInvoiceRepository:
         self,
         invoice_id: int,
     ) -> List[BuyInvoiceLine]:
-        stmt = select(BuyInvoiceLine).where(BuyInvoiceLine.invoice_id == invoice_id)
+        stmt = select(BuyInvoiceLine).where(BuyInvoiceLine.invoice_id == invoice_id).order_by(BuyInvoiceLine.id)
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
@@ -104,6 +114,7 @@ class BuyInvoiceRepository:
             count_stmt = count_stmt.where(BuyInvoice.issue_date <= issue_date_to)
 
         # total count
+        stmt = stmt.order_by(BuyInvoice.created_at.desc())
         count_result = await self.db.execute(count_stmt)
         total_rows = int(count_result.scalars().first() or 0)
 
@@ -149,3 +160,21 @@ class BuyInvoiceRepository:
         result = await self.db.execute(stmt)
         await self.db.flush()
         return result.scalars().first()
+
+    async def delete_invoice(
+        self,
+        organization_id: int,
+        user_id: int,
+        id: int,
+    ) -> None:
+        stmt = (
+            delete(BuyInvoice)
+            .where(BuyInvoice.id == id, BuyInvoice.organization_id == organization_id)
+        )
+        result = await self.db.execute(stmt)
+        await self.db.flush()
+        return None
+    
+    async def delete_invoice_lines(self, invoice_id: int) -> None:
+        stmt = delete(BuyInvoiceLine).where(BuyInvoiceLine.invoice_id == invoice_id)
+        await self.db.execute(stmt)

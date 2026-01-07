@@ -14,7 +14,7 @@ class OrganizationRepository:
         return result.scalars().first()
 
     async def get_organizations(self) -> list[Organization]:
-        stmt = select(Organization)
+        stmt = select(Organization).order_by(Organization.created_at.desc())
         result = await self.db.execute(stmt)
         return result.scalars().all()
 

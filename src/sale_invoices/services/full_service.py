@@ -401,7 +401,7 @@ class SaleInvoiceService:
             invoice = await self.get_invoice(user, invoice_header.id)
             if data.document_type==DocumentType.INVOICE:
                 await self.tax_authority_service.sign_and_submit_invoice(user, invoice)
-                await self.repo.update_invoice(user.organization_id, invoice_header.id, {"completed_tax_integration": True})
+                await self.repo.update_invoice(user.organization_id, user.id, invoice_header.id, {"completed_tax_integration": True})
             return await self.get_invoice(user, invoice_header.id)
         except IntegrityError as e:
             raise_integrity_error(e)
@@ -418,13 +418,13 @@ class SaleInvoiceService:
             # Calculate invoice amounts
             invoice_dict = await self._calculate_amounts(data)
             invoice_lines = invoice_dict.pop("invoice_lines")
-            await self.repo.update_invoice(user.organization_id, invoice_id, invoice_dict)
+            await self.repo.update_invoice(user.organization_id, user.id, invoice_id, invoice_dict)
             await self.repo.delete_invoice_lines(invoice_id)
             await self._create_invoice_lines(user, invoice_id, invoice_lines)
             invoice = await self.get_invoice(user, invoice_id)
             if data.document_type==DocumentType.INVOICE and data.is_locked == True:
                 await self.tax_authority_service.sign_and_submit_invoice(user, invoice)
-                await self.repo.update_invoice(user.organization_id, invoice_header.id, {"completed_tax_authority": True})
+                await self.repo.update_invoice(user.organization_id, user.id, invoice_header.id, {"completed_tax_authority": True})
             return invoice
         except IntegrityError as e:
             raise_integrity_error(e)
@@ -453,7 +453,7 @@ class SaleInvoiceService:
                 "invoice_lines": invoice_lines_dict
             })
             data = SaleInvoiceCreate(**invoice_dict)
-            await self.repo.update_invoice(user.organization_id, invoice_id, {"is_locked": True})
+            await self.repo.update_invoice(user.organization_id, user.id, invoice_id, {"is_locked": True})
             return await self.create_invoice(user, data)
         except IntegrityError as e:
             raise_integrity_error(e)
