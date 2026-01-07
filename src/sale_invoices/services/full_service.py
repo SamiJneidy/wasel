@@ -479,14 +479,14 @@ class SaleInvoiceService:
         user: UserInDB,
         pagination: PagintationParams,
         filters: SaleInvoiceFilters,
-    ) -> Tuple[int, List[SaleInvoiceHeaderOut]]:
+    ) -> Tuple[int, List[SaleInvoiceOut]]:
         total, invoices = await self.repo.get_invoices_by_organization_id(
             user.organization_id,
             pagination.skip,
             pagination.limit,
             filters.model_dump(exclude_none=True),
         )
-        result: List[SaleInvoiceHeaderOut] = []
+        result: List[SaleInvoiceOut] = []
         for invoice in invoices:
-            result.append(await self._get_invoice_header(user, invoice.id))
+            result.append(await self.get_invoice(user, invoice.id))
         return total, result

@@ -37,19 +37,16 @@ router = APIRouter(
 
 @router.get(
     path="",
-    response_model=PaginatedResponse[SaleInvoiceHeaderOut],
+    response_model=PaginatedResponse[SaleInvoiceOut],
 )
 async def get_invoices(
     invoice_service: Annotated[SaleInvoiceService, Depends(get_invoice_service)],
     current_user: Annotated[UserInDB, Depends(get_current_user)],
     pagination: PagintationParams = Depends(),
     filters: SaleInvoiceFilters = Depends(),
-) -> PaginatedResponse[SaleInvoiceHeaderOut]:
+) -> PaginatedResponse[SaleInvoiceOut]:
     from datetime import datetime
-    start = datetime.now()
     total_rows, data = await invoice_service.get_invoices(current_user, pagination, filters)
-    end = datetime.now()
-    print(f"Get invoices took: {(end - start).seconds}")
     return PaginatedResponse(
         data=data,
         total_rows=total_rows,
