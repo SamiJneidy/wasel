@@ -117,3 +117,16 @@ class ZatcaPhase2Stage(str, Enum):
 class TaxAuthority(str, Enum):
     ZATCA_PHASE1 = "ZATCA_PHASE1"
     ZATCA_PHASE2 = "ZATCA_PHASE2"
+
+class InvoiceStatus(str, Enum):
+    DRAFT = "DRAFT"                 # Created but not finalized
+    ISSUED = "ISSUED"
+    PARTIALLY_PAID = "PARTIALLY_PAID"
+    PAID = "PAID"
+    CANCELLED = "CANCELLED"
+
+class InvoiceTaxAuthorityStatus(str, Enum):
+    NOT_SENT = "NOT_SENT"
+    ACCEPTED = "ACCEPTED"
+    ACCEPTED_WITH_WARNINGS = "ACCEPTED_WITH_WARNINGS"
+    REJECTED = "REJECTED"

@@ -9,57 +9,28 @@ class ZatcaRequestFailedException(BaseAppException):
     ):
         super().__init__(detail, status_code)
 
-class CSIDNotIssuedException(BaseAppException):
+class ZatcaCSIDNotIssuedException(BaseAppException):
     def __init__(self, 
         detail: str | None = "The CSID could not be issued by Zatca. Either the request in invalid or the OTP code is invalid.", 
         status_code: int = status.HTTP_400_BAD_REQUEST,
     ):
         super().__init__(detail, status_code)
 
-class NoItemFoundException(BaseAppException):
-    def __init__(self, 
-        detail: str | None = "At least one item is required to send compliance invoices. The use has no items created.", 
-        status_code: int = status.HTTP_404_NOT_FOUND,
-    ):
-        super().__init__(detail, status_code)
-
-class NoCustomerFoundException(BaseAppException):
-    def __init__(self, 
-        detail: str | None = "At least one customer is required to send compliance invoices. The use has no customers created.", 
-        status_code: int = status.HTTP_404_NOT_FOUND,
-    ):
-        super().__init__(detail, status_code)
-
-class InvoiceSigningException(BaseAppException):
+class ZatcaInvoiceSigningException(BaseAppException):
     """Raised when the invoice could not be signed"""
     def __init__(self, detail: str | None = "An error has occurred when signing the invoice", status_code: int = status.HTTP_400_BAD_REQUEST):
         super().__init__(detail, status_code)
 
-class ZatcaInvoiceNotAllowedException(BaseAppException):
-    def __init__(self, detail: str | None = "Your tax scheme does not allow to send invoices to Zatca", status_code: int = status.HTTP_400_BAD_REQUEST):
-        super().__init__(detail, status_code)
-
-
-class InvoiceNotAcceptedException(BaseAppException):
-    def __init__(self, 
-        detail: str | None = "The invoice was not accepted by zatca", 
-        zatca_response: dict | None = None,
-        status_code: int = status.HTTP_400_BAD_REQUEST,
-    ):
-        self.zatca_response = zatca_response
-        super().__init__(detail, status_code)
-
 class ZatcaBranchDataNotFoundException(BaseAppException):
     def __init__(self, 
-        detail: str | None = "Metadata for this branch was not found", 
+        detail: str | None = "Tax authority data for this branch was not found", 
         status_code: int = status.HTTP_404_NOT_FOUND,
     ):
         super().__init__(detail, status_code)
     
-
-class ZatcaBranchDataNotAllowedException(BaseAppException):
+class ZatcaBranchDataAlreadyCreatedException(BaseAppException):
     def __init__(self, 
-        detail: str | None = "Your tax scheme does not allow branch metadata", 
-        status_code: int = status.HTTP_400_BAD_REQUEST,
+        detail: str | None = "Tax authority data for this branch is already created", 
+        status_code: int = status.HTTP_409_CONFLICT,
     ):
         super().__init__(detail, status_code)

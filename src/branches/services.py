@@ -18,7 +18,7 @@ class BranchService:
         if not db_branch:
             raise BranchNotFoundException()
         branch = BranchOutWithTaxAuthority.model_validate(db_branch)
-        branch.tax_authority_data = await self.tax_authority_service.get_branch_tax_authority_data(current_user, branch.id)
+        branch.tax_authority_data = await self.tax_authority_service.get_branch_tax_authority_data(current_user, branch.id, branch.tax_integration_status)
         return branch
 
     async def get_branches_for_organization(self, current_user: UserInDB) -> List[BranchOutWithTaxAuthority]:
@@ -26,7 +26,7 @@ class BranchService:
         branches = []
         for b in db_branches:
             branch = BranchOutWithTaxAuthority.model_validate(b)
-            branch.tax_authority_data = await self.tax_authority_service.get_branch_tax_authority_data(current_user, b.id)
+            branch.tax_authority_data = await self.tax_authority_service.get_branch_tax_authority_data(current_user, b.id, b.tax_integration_status)
             branches.append(branch)
         return branches
 
@@ -45,6 +45,9 @@ class BranchService:
     async def create_branch_tax_authority_data(self, current_user: UserInDB, branch_id: int, data: BranchTaxAuthorityDataCreate) -> BranchOutWithTaxAuthority:
         branch = await self.get_branch(current_user, branch_id)
         await self.tax_authority_service.create_branch_tax_authority_data(current_user, branch_id, data)
+        await self.branch_repo.update(branch_id, {
+            "tax_integration_status": BranchTaxIntegrationStatus.PENDING_OTP,    
+        })
         return await self.get_branch(current_user, branch_id)
     
     async def complete_branch_tax_authority_data(self, current_user: UserInDB, branch_id: int, data: BranchTaxAuthorityDataCreate) -> BranchOutWithTaxAuthority:

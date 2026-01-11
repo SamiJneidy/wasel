@@ -1,22 +1,27 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" ?>
 <Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2" xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2" xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2" xmlns:ext="urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2">
 	<cbc:ProfileID>reporting:1.0</cbc:ProfileID>
-	<cbc:ID>TAXINV-26-000001</cbc:ID>
-	<cbc:UUID>76bc2dd0-7165-4320-94c8-5ec01c899d1e</cbc:UUID>
-	<cbc:IssueDate>2025-01-24</cbc:IssueDate>
-	<cbc:IssueTime>14:30:00</cbc:IssueTime>
-	<cbc:InvoiceTypeCode name="0100000">388</cbc:InvoiceTypeCode>
-	<cbc:Note>string</cbc:Note>
+	<cbc:ID>wasel-test-inv-0003</cbc:ID>
+	<cbc:UUID>9486a698-dce6-47c6-a563-8f7ecd894377</cbc:UUID>
+	<cbc:IssueDate>2026-01-09</cbc:IssueDate>
+	<cbc:IssueTime>01:56:19</cbc:IssueTime>
+	<cbc:InvoiceTypeCode name="0200000">383</cbc:InvoiceTypeCode>
+	<cbc:Note>Compliance invoice</cbc:Note>
 	<cbc:DocumentCurrencyCode>SAR</cbc:DocumentCurrencyCode>
 	<cbc:TaxCurrencyCode>SAR</cbc:TaxCurrencyCode>
+	<cac:BillingReference>
+		<cac:InvoiceDocumentReference>
+			<cbc:ID>wasel-test-inv-0001</cbc:ID>
+		</cac:InvoiceDocumentReference>
+	</cac:BillingReference>
 	<cac:AdditionalDocumentReference>
 		<cbc:ID>ICV</cbc:ID>
-		<cbc:UUID>7</cbc:UUID>
+		<cbc:UUID>3</cbc:UUID>
 	</cac:AdditionalDocumentReference>
 	<cac:AdditionalDocumentReference>
 		<cbc:ID>PIH</cbc:ID>
 		<cac:Attachment>
-			<cbc:EmbeddedDocumentBinaryObject mimeCode="text/plain">A/a/jRd9z55pQg5v4xp+wnuDtonzzJcM/ukLwxKOYwM=</cbc:EmbeddedDocumentBinaryObject>
+			<cbc:EmbeddedDocumentBinaryObject mimeCode="text/plain">b/0ub3XMrjo2LW+omcEgVCI6wBo5XCl9mB0iHVUfVnY=</cbc:EmbeddedDocumentBinaryObject>
 		</cac:Attachment>
 	</cac:AdditionalDocumentReference>
 	<cac:AccountingSupplierParty>
@@ -48,32 +53,32 @@
 	<cac:AccountingCustomerParty>
 		<cac:Party>
 			<cac:PartyIdentification>
-				<cbc:ID schemeID="NAT">O923948721</cbc:ID>
+				<cbc:ID schemeID="CRN">1010010000</cbc:ID>
 			</cac:PartyIdentification>
 			<cac:PostalAddress>
-				<cbc:StreetName>Tahlia Street</cbc:StreetName>
-				<cbc:BuildingNumber>1234</cbc:BuildingNumber>
-				<cbc:CitySubdivisionName>Albawadi</cbc:CitySubdivisionName>
-				<cbc:CityName>Jeddah</cbc:CityName>
-				<cbc:PostalZone>54362</cbc:PostalZone>
+				<cbc:StreetName>Salah Al-Din</cbc:StreetName>
+				<cbc:BuildingNumber>1111</cbc:BuildingNumber>
+				<cbc:CitySubdivisionName>Al-Murooj</cbc:CitySubdivisionName>
+				<cbc:CityName>Riyadh</cbc:CityName>
+				<cbc:PostalZone>12222</cbc:PostalZone>
 			</cac:PostalAddress>
 			<cac:PartyTaxScheme>
-				<cbc:CompanyID>336826189054143</cbc:CompanyID>
+				<cbc:CompanyID>399999999800003</cbc:CompanyID>
 				<cac:TaxScheme>
 					<cbc:ID>VAT</cbc:ID>
 				</cac:TaxScheme>
 			</cac:PartyTaxScheme>
 			<cac:PartyLegalEntity>
-				<cbc:RegistrationName>Wasel LLC</cbc:RegistrationName>
+				<cbc:RegistrationName>Fatoora Samples LTD</cbc:RegistrationName>
 			</cac:PartyLegalEntity>
 		</cac:Party>
 	</cac:AccountingCustomerParty>
 	<cac:Delivery>
-		<cbc:ActualDeliveryDate>2026-01-03</cbc:ActualDeliveryDate>
+		<cbc:ActualDeliveryDate>2026-01-09</cbc:ActualDeliveryDate>
 	</cac:Delivery>
 	<cac:PaymentMeans>
 		<cbc:PaymentMeansCode>10</cbc:PaymentMeansCode>
-		<cbc:InstructionNote>string</cbc:InstructionNote>
+		<cbc:InstructionNote>Correction of invoice</cbc:InstructionNote>
 	</cac:PaymentMeans>
 	<cac:TaxTotal>
 		<cbc:TaxAmount currencyID="SAR">1.50</cbc:TaxAmount>
@@ -100,7 +105,7 @@
 		<cbc:PayableAmount currencyID="SAR">11.50</cbc:PayableAmount>
 	</cac:LegalMonetaryTotal>
 	<cac:InvoiceLine>
-		<cbc:ID>217</cbc:ID>
+		<cbc:ID>1</cbc:ID>
 		<cbc:InvoicedQuantity unitCode="PCE">1</cbc:InvoicedQuantity>
 		<cbc:LineExtensionAmount currencyID="SAR">10.00</cbc:LineExtensionAmount>
 		<cac:AllowanceCharge>

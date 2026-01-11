@@ -2,62 +2,18 @@ from fastapi import status
 from src.core.exceptions.exceptions import BaseAppException
 
 
-class ZatcaRequestFailedException(BaseAppException):
+class IncorrectTaxAuthorityException(BaseAppException):
     def __init__(self, 
-        detail: str | None = "An error has occurred when sending the request to Zatca", 
-        status_code: int = status.HTTP_408_REQUEST_TIMEOUT
+        detail: str | None = "Incorrect tax authority for this operation", 
+        status_code: int = status.HTTP_403_FORBIDDEN
     ):
         super().__init__(detail, status_code)
-
-class CSIDNotIssuedException(BaseAppException):
-    def __init__(self, 
-        detail: str | None = "The CSID could not be issued by Zatca. Either the request in invalid or the OTP code is invalid.", 
-        status_code: int = status.HTTP_400_BAD_REQUEST,
-    ):
-        super().__init__(detail, status_code)
-
-class NoItemFoundException(BaseAppException):
-    def __init__(self, 
-        detail: str | None = "At least one item is required to send compliance invoices. The use has no items created.", 
-        status_code: int = status.HTTP_404_NOT_FOUND,
-    ):
-        super().__init__(detail, status_code)
-
-class NoCustomerFoundException(BaseAppException):
-    def __init__(self, 
-        detail: str | None = "At least one customer is required to send compliance invoices. The use has no customers created.", 
-        status_code: int = status.HTTP_404_NOT_FOUND,
-    ):
-        super().__init__(detail, status_code)
-
-class InvoiceSigningException(BaseAppException):
-    """Raised when the invoice could not be signed"""
-    def __init__(self, detail: str | None = "An error has occurred when signing the invoice", status_code: int = status.HTTP_400_BAD_REQUEST):
-        super().__init__(detail, status_code)
-
-class ZatcaInvoiceNotAllowedException(BaseAppException):
-    def __init__(self, detail: str | None = "Your tax scheme does not allow to send invoices to Zatca", status_code: int = status.HTTP_400_BAD_REQUEST):
-        super().__init__(detail, status_code)
-
 
 class InvoiceNotAcceptedException(BaseAppException):
     def __init__(self, 
-        detail: str | None = "The invoice was not accepted by zatca", 
+        detail: str | None = "The invoice was not accepted by the tax authority", 
+        tax_authority_response: dict | None = None,
         status_code: int = status.HTTP_400_BAD_REQUEST,
     ):
-        super().__init__(detail, status_code)
-
-class ZatcaBranchMetadataNotFoundException(BaseAppException):
-    def __init__(self, 
-        detail: str | None = "Metadata for this branch was not found", 
-        status_code: int = status.HTTP_404_NOT_FOUND,
-    ):
-        super().__init__(detail, status_code)
-    
-
-class ZatcaBranchMetadataNotAllowedException(BaseAppException):
-    def __init__(self, 
-        detail: str | None = "Your tax scheme does not allow branch metadata", 
-        status_code: int = status.HTTP_400_BAD_REQUEST,
-    ):
+        self.tax_authority_response = tax_authority_response
         super().__init__(detail, status_code)

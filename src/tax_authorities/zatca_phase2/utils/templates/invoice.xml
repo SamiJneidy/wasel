@@ -11,7 +11,7 @@
 	<cbc:TaxCurrencyCode>SAR</cbc:TaxCurrencyCode>
 	<cac:BillingReference>
 		<cac:InvoiceDocumentReference>
-			<cbc:ID>{{original_invoice_id}}</cbc:ID>
+			<cbc:ID>{{original_invoice_number}}</cbc:ID>
 		</cac:InvoiceDocumentReference>
 	</cac:BillingReference>
 	<cac:AdditionalDocumentReference>

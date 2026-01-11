@@ -11,7 +11,17 @@ from src.core.schemas import AuditTimeMixin, SingleObjectResponse, SuccessfulRes
 from src.users.schemas import UserOut
 from src.customers.schemas import CustomerOut
 from src.core.config import settings
-from src.core.enums import DocumentType, TaxExemptionReasonCode, PartyIdentificationScheme, InvoiceType, InvoiceTypeCode, PaymentMeansCode, TaxCategory
+from src.core.enums import (
+    DocumentType, 
+    TaxExemptionReasonCode, 
+    PartyIdentificationScheme, 
+    InvoiceType, 
+    InvoiceTypeCode, 
+    PaymentMeansCode, 
+    TaxCategory,
+    InvoiceStatus,
+    InvoiceTaxAuthorityStatus,
+)
 from typing import Optional, Annotated, Self, Union
 from decimal import Decimal
 import uuid
@@ -70,12 +80,12 @@ class SaleInvoiceHeaderBase(BaseModel):
     instruction_note: Optional[str] = Field(None, max_length=4000, description="Additional instructions related to the invoice")
     prices_include_tax: bool = Field(...)
     discount_amount: Decimal = Field(..., description="Total discount amount", example=50.00)
+    status: InvoiceStatus = Field(..., description="Status of the invoice. Could not be changed always.")
     note: Optional[str] = Field(None, max_length=4000, description="General notes about the invoice")
 
 class SaleInvoiceHeaderOut(SaleInvoiceHeaderBase):
     id: int
     invoice_number: str = Field(...)
-    is_locked: bool = Field(...)
     line_extension_amount: Decimal = Field(..., description="Total amount before taxes and discounts", example=1000.00)
     taxable_amount: Decimal = Field(..., description="Amount subject to taxation", example=950.00)
     tax_amount: Decimal = Field(..., description="Total tax amount", example=142.50)
@@ -83,11 +93,12 @@ class SaleInvoiceHeaderOut(SaleInvoiceHeaderBase):
     payable_amount: Decimal = Field(..., description="Final amount to be paid", example=1092.50)
     uuid: Optional[uuid.UUID]
     tax_authority_data: Optional[InvoiceTaxAuthorityDataOut] = None
-    completed_tax_integration: Optional[bool] = None
+    tax_authority_status: InvoiceTaxAuthorityStatus
     model_config = ConfigDict(from_attributes=True)
 
 class SaleInvoiceCreate(SaleInvoiceHeaderBase):
     tax_authority_data: Optional[InvoiceTaxAuthorityDataCreate] = None
+    send_to_tax_authority: bool = Field(False, description="Indicates whether to send the invoice to the tax authority upon creation")
     customer_id: Optional[int] = None
     invoice_lines: list[SaleInvoiceLineCreate]
     
@@ -121,12 +132,38 @@ class SaleInvoiceCreate(SaleInvoiceHeaderBase):
 
     @model_validator(mode="after")
     def validate_model(self) -> Self:
-        if self.invoice_type == InvoiceType.STANDARD and self.customer_id is None:
-            raise ValueError("The customer is mandatory for standard invoices")
-        if self.document_type == DocumentType.QUOTATION and self.invoice_type_code != InvoiceTypeCode.INVOICE:
-            raise ValueError("Credit notes and debit notes can only be issued for invoices not for quotations") 
+        is_invoice = self.document_type == DocumentType.INVOICE
+        is_quotation = self.document_type == DocumentType.QUOTATION
+        is_note = self.invoice_type_code in {InvoiceTypeCode.CREDIT_NOTE, InvoiceTypeCode.DEBIT_NOTE}
+
+        # 1. Status validation
+        if self.status not in {InvoiceStatus.ISSUED, InvoiceStatus.DRAFT}:
+            raise ValueError("Invoice can only be created with status ISSUED or DRAFT")
+
+        # 2. Quotation rules
+        if is_quotation:
+            if is_note:
+                raise ValueError("Credit and debit notes cannot be created as quotations")
+            if self.status != InvoiceStatus.DRAFT:
+                raise ValueError("Quotations must always be created in DRAFT status")
+            if self.send_to_tax_authority:
+                raise ValueError("Quotations cannot be sent to the tax authority")
+            return self
+
+        # 3. Invoice rules
+        if is_invoice:
+            if self.invoice_type == InvoiceType.STANDARD and self.customer_id is None:
+                raise ValueError("Customer is required for standard invoices")
+            if is_note:
+                if self.original_invoice_id is None:
+                    raise ValueError("Original invoice is required for credit and debit notes")
+                if self.status == InvoiceStatus.DRAFT:
+                    raise ValueError("Credit and debit notes must be issued immediately")
         return self
-    
+
+
+class SaleInvoiceUpdate(SaleInvoiceCreate):
+    pass    
 
 class SaleInvoiceOut(SaleInvoiceHeaderOut):
     id: int = Field(...)
@@ -143,7 +180,8 @@ class SaleInvoiceFilters(BaseModel):
     issue_date_range_from: Optional[date] = Field(None, description="Date in format YYYY-MM-DD", example="2025-01-24")
     issue_date_range_to: Optional[date] = Field(None, description="Date in format YYYY-MM-DD", example="2025-01-24")
     payment_means_code: Optional[PaymentMeansCode] = Field(None, description="Code representing the payment method")
-    classified_tax_category: Optional[TaxCategory] = Field(None, description="Tax category classification")
+    stauts: Optional[InvoiceStatus] = Field(None)
+    tax_authority_status: Optional[InvoiceTaxAuthorityStatus] = Field(None)
 
     @field_validator("issue_date_range_from", "issue_date_range_to", mode="after")
     def validate_date_format(cls, value):
@@ -154,9 +192,6 @@ class SaleInvoiceFilters(BaseModel):
         except Exception as e:
             raise ValueError("The input should be a valid date in the format YYYY-MM-DD") 
 
-
-class SaleInvoiceUpdate(SaleInvoiceCreate):
-    is_locked: bool
 
 class GetInvoiceNumberRequest(BaseModel):
     document_type: DocumentType

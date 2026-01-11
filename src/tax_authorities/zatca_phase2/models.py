@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, DECIMAL, ForeignKey, Enum, func, text
+from sqlalchemy import Column, Integer, String, Text, DateTime, DECIMAL, ForeignKey, Enum, func, text, JSON
 from sqlalchemy.orm import relationship
 from src.core.database import Base
 from src.core.models import AuditMixin
@@ -8,22 +8,23 @@ class ZatcaPhase2SaleInvoiceData(Base, AuditMixin):
     __tablename__ = "zatca_phase2_sale_invoice_data"
     id = Column(Integer, autoincrement=True, primary_key=True, index=True)
     tax_authority = Column(String(50), nullable=True, default=TaxAuthority.ZATCA_PHASE2.value)
-    invoice_id = Column(Integer, ForeignKey('sale_invoices.id'))
+    invoice_id = Column(Integer, ForeignKey('sale_invoices.id', ondelete="CASCADE"))
     icv = Column(Integer, nullable=True)
     signed_xml_base64 = Column(Text, nullable=True)
     invoice_hash = Column(Text, nullable=True)
     pih = Column(Text, nullable=True)
     base64_qr_code = Column(Text, nullable=True)
     stage = Column(String(50), nullable=True)
-    response = Column(Text, nullable=True)
+    response = Column(JSON, nullable=True)
+    status = Column(String(50), nullable=True)
     status_code = Column(Integer, nullable=True)
 
 class ZatcaPhase2SaleInvoiceLineData(Base, AuditMixin):
     __tablename__ = "zatca_phase2_sale_invoice_lines_data"
     id = Column(Integer, autoincrement=True, primary_key=True, index=True)
     tax_authority = Column(String(50), nullable=True, default=TaxAuthority.ZATCA_PHASE2.value)
-    invoice_id = Column(Integer, ForeignKey('sale_invoices.id'))
-    invoice_line_id = Column(Integer, ForeignKey('sale_invoices_lines.id'))
+    invoice_id = Column(Integer, ForeignKey('sale_invoices.id', ondelete="CASCADE"))
+    invoice_line_id = Column(Integer, ForeignKey('sale_invoices_lines.id', ondelete="CASCADE"))
     tax_exemption_reason_code = Column(String(100), nullable=True)
     tax_exemption_reason = Column(String(200), nullable=True)
 

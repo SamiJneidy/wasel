@@ -11,7 +11,7 @@ def register_exception_handlers(app: FastAPI):
         return JSONResponse(
             status_code=exc.status_code,
             content={
-                "detail": exc.detail
+                k: v for k, v in exc.__dict__.items() if k != "status_code"
             }
         )
 

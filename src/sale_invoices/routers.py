@@ -128,7 +128,23 @@ async def convert_invoice(
     current_user: Annotated[UserInDB, Depends(get_current_user)],
 ) -> SingleObjectResponse[SaleInvoiceOut]:
 
-    data = await invoice_service.convert_invoice(current_user, id)
+    data = await invoice_service.convert_quotation_to_invoice(current_user, id)
+    return SingleObjectResponse(data=data)
+
+@router.post(
+    path="/submit/{id}",
+    status_code=status.HTTP_200_OK,
+    response_model=SingleObjectResponse[SaleInvoiceOut],
+    responses=RESPONSES["create_invoice"],
+    summary=SUMMARIES["create_invoice"],
+    description=DOCSTRINGS["create_invoice"],
+)
+async def submit_invoice_to_tax_authority(
+    id: int,
+    invoice_service: Annotated[SaleInvoiceService, Depends(get_invoice_service)],
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
+) -> SingleObjectResponse[SaleInvoiceOut]:
+    data = await invoice_service.submit_invoice_to_tax_authority(current_user, id)
     return SingleObjectResponse(data=data)
 
 # =========================================================

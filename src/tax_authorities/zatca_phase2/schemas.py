@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 from typing import Literal, Optional
-from src.core.enums import TaxExemptionReasonCode, ZatcaPhase2Stage, TaxAuthority
+from src.core.enums import TaxExemptionReasonCode, ZatcaPhase2Stage, TaxAuthority, InvoiceTaxAuthorityStatus
 from ..shared.schemas import (
     TaxAuthorityBase,
 )
@@ -10,7 +10,6 @@ class ZatcaPhase2Discriminator(TaxAuthorityBase):
 
 
 class ZatcaPhase2CSIDBase(BaseModel):
-    stage: ZatcaPhase2Stage
     request_id: str
     disposition_message: str
     binary_security_token: str
@@ -25,36 +24,33 @@ class ZatcaPhase2CSIDCreate(ZatcaPhase2CSIDBase):
 
 class ZatcaPhase2CSIDInDB(ZatcaPhase2CSIDBase):
     id: int
+    stage: ZatcaPhase2Stage
     organization_id: int
     branch_id: int
     model_config = ConfigDict(from_attributes=True)
-        
-class ZatcaPhase2ComplianceInvoiceResponse(ZatcaPhase2Discriminator):
-    status_code: int
-    zatca_response: dict
 
-class ZatcaPhase2SimplifiedInvoiceResponse(ZatcaPhase2Discriminator):
+class ZatcaPhase2InvoiceResponse(ZatcaPhase2Discriminator):
+    status: InvoiceTaxAuthorityStatus
     status_code: int
-    zatca_response: dict
+    response: dict
+    signed_xml_base64: Optional[str] = None
 
-class ZatcaPhase2StandardInvoiceResponse(ZatcaPhase2Discriminator):
+class ZatcaPhase2InvoiceDataBase(ZatcaPhase2Discriminator):
+    status: InvoiceTaxAuthorityStatus
     status_code: int
-    zatca_response: dict
-    invoice: Optional[str]
-
-class ZatcaPhase2InvoiceDataOut(ZatcaPhase2Discriminator):
+    response: dict
+    signed_xml_base64: Optional[str] = None
     pih: Optional[str] = None 
     icv: Optional[int] = None
-    signed_xml_base64: Optional[str] = None
     base64_qr_code: Optional[str] = None
     invoice_hash: Optional[str] = None
     stage: Optional[ZatcaPhase2Stage] = None
-    status_code: Optional[int] = None
-    response: Optional[str] = None
-    model_config = ConfigDict(from_attributes=True)
 
-class ZatcaPhase2InvoiceDataCreate(ZatcaPhase2Discriminator):
+class ZatcaPhase2InvoiceDataCreate(ZatcaPhase2InvoiceDataBase):
     pass
+
+class ZatcaPhase2InvoiceDataOut(ZatcaPhase2InvoiceDataBase):
+    model_config = ConfigDict(from_attributes=True)
 
 class ZatcaPhase2InvoiceLineDataCreate(ZatcaPhase2Discriminator):
     tax_exemption_reason_code: Optional[TaxExemptionReasonCode] = Field(None)
@@ -85,7 +81,6 @@ class ZatcaPhase2BranchDataBase(ZatcaPhase2Discriminator):
 
 class ZatcaPhase2BranchDataCreate(ZatcaPhase2BranchDataBase):
     model_config = ConfigDict(from_attributes=True)
-    pass
 
 
 class ZatcaPhase2BranchDataInDB(ZatcaPhase2BranchDataBase):
@@ -97,7 +92,7 @@ class ZatcaPhase2BranchDataInDB(ZatcaPhase2BranchDataBase):
     model_config = ConfigDict(from_attributes=True)
 
 class ZatcaPhase2BranchDataOut(ZatcaPhase2BranchDataBase):
-    stage: str
+    stage: ZatcaPhase2Stage
     model_config = ConfigDict(from_attributes=True)
 
 class ZatcaPhase2BranchDataComplete(ZatcaPhase2Discriminator):
