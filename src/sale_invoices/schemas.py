@@ -23,6 +23,7 @@ from src.core.enums import (
     InvoiceTaxAuthorityStatus,
 )
 from src.points_of_sale.schemas import PointOfSaleOut
+from src.projects.schemas import ProjectOut
 from typing import Optional, Annotated, Self, Union
 from decimal import Decimal
 import uuid
@@ -95,10 +96,14 @@ class SaleInvoiceHeaderOut(SaleInvoiceHeaderBase):
     uuid: Optional[uuid.UUID]
     tax_authority_data: Optional[InvoiceTaxAuthorityDataOut] = None
     tax_authority_status: InvoiceTaxAuthorityStatus
+    customer: Optional[CustomerOut] = None
+    point_of_sale: Optional[PointOfSaleOut] = None
+    project: Optional[ProjectOut] = None
     model_config = ConfigDict(from_attributes=True)
 
 class SaleInvoiceCreate(SaleInvoiceHeaderBase):
     point_of_sale_id: Optional[int] = None
+    project_id: Optional[int] = None
     tax_authority_data: Optional[InvoiceTaxAuthorityDataCreate] = None
     send_to_tax_authority: bool = Field(False, description="Indicates whether to send the invoice to the tax authority upon creation")
     customer_id: Optional[int] = None
@@ -169,8 +174,6 @@ class SaleInvoiceUpdate(SaleInvoiceCreate):
 
 class SaleInvoiceOut(SaleInvoiceHeaderOut):
     id: int = Field(...)
-    customer: Optional[CustomerOut] = None
-    point_of_sale: Optional[PointOfSaleOut] = None
     invoice_lines: list[SaleInvoiceLineOut]
     model_config = ConfigDict(from_attributes=True)
 
@@ -178,6 +181,8 @@ class SaleInvoiceOut(SaleInvoiceHeaderOut):
 class SaleInvoiceFilters(BaseModel):
     document_type: Optional[DocumentType] = None
     customer_id: Optional[int] = Field(None)
+    point_of_sale_id: Optional[int] = Field(None)
+    project_id: Optional[int] = Field(None)
     invoice_type: Optional[InvoiceType] = Field(None, description="Standard or Simplified")
     invoice_type_code: Optional[InvoiceTypeCode] = Field(None, description="Invoice, Credit Note or Debit Note")
     issue_date_range_from: Optional[date] = Field(None, description="Date in format YYYY-MM-DD", example="2025-01-24")

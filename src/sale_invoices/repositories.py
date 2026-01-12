@@ -1,7 +1,7 @@
 from typing import Any, Dict, List, Optional, Tuple
-
 from sqlalchemy import and_, func, select, update, delete, distinct
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from .models import SaleInvoice, SaleInvoiceLine
 from src.core.enums import ZatcaPhase2Stage, InvoiceType
@@ -12,12 +12,12 @@ class SaleInvoiceRepository:
         self.db = db
 
     async def get_last_invoice(self, organization_id: int, branch_id: int, filters: dict = {}) -> SaleInvoice | None:
-        stmt = select(SaleInvoice).where(SaleInvoice.organization_id==organization_id, SaleInvoice.branch_id==branch_id)
+        stmt = select(SaleInvoice).where(SaleInvoice.organization_id == organization_id, SaleInvoice.branch_id == branch_id)
         for column, value in filters.items():
             c = getattr(SaleInvoice, column, None)
             if c is not None:
                 stmt = stmt.where(c == value)
-        stmt.order_by(SaleInvoice.id.desc()).limit(1)
+        stmt = stmt.order_by(SaleInvoice.id.desc()).limit(1)
         result = await self.db.execute(stmt)
         return result.scalars().first()
 
@@ -55,10 +55,7 @@ class SaleInvoiceRepository:
         stmt = select(SaleInvoice).where(SaleInvoice.organization_id == organization_id)
         count_stmt = select(func.count(SaleInvoice.id)).where(SaleInvoice.organization_id == organization_id)
 
-        simple_filters = {
-            k: v for k, v in filters.items() if k not in {"issue_date_range_from", "issue_date_range_to"}
-        }
-
+        simple_filters = {k: v for k, v in filters.items() if k not in {"issue_date_range_from", "issue_date_range_to"}}
         for k, v in simple_filters.items():
             col = getattr(SaleInvoice, k, None)
             if col is not None and v is not None:
@@ -67,12 +64,10 @@ class SaleInvoiceRepository:
 
         issue_date_from = filters.get("issue_date_range_from")
         issue_date_to = filters.get("issue_date_range_to")
-
-        if issue_date_from is not None:
+        if issue_date_from:
             stmt = stmt.where(SaleInvoice.issue_date >= issue_date_from)
             count_stmt = count_stmt.where(SaleInvoice.issue_date >= issue_date_from)
-
-        if issue_date_to is not None:
+        if issue_date_to:
             stmt = stmt.where(SaleInvoice.issue_date <= issue_date_to)
             count_stmt = count_stmt.where(SaleInvoice.issue_date <= issue_date_to)
 
@@ -129,7 +124,7 @@ class SaleInvoiceRepository:
         stmt = delete(SaleInvoiceLine).where(SaleInvoiceLine.invoice_id == invoice_id)
         await self.db.execute(stmt)
 
-    async def count_invoices(self, organization_id: int, filters: Dict[str, Any] = {},) -> int:
+    async def count_invoices(self, organization_id: int, filters: Dict[str, Any] = {}) -> int:
         stmt = select(func.count(SaleInvoice.id)).where(SaleInvoice.organization_id == organization_id)
         for k, v in filters.items():
             col = getattr(SaleInvoice, k, None)

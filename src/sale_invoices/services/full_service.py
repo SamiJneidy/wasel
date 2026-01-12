@@ -3,14 +3,11 @@ from typing import Any, Dict, List, Tuple
 import uuid
 from decimal import Decimal
 from sqlalchemy.exc import IntegrityError
-
-from src.customers.schemas import CustomerOut
 from src.core.enums import DocumentType, InvoiceStatus, InvoiceTaxAuthorityStatus, InvoiceType, InvoiceTypeCode, TaxAuthority
 from src.core.utils.math_helper import round_decimal
 from src.core.consts import TAX_RATE, KSA_TZ
 from src.users.schemas import UserInDB
 from src.items.services import ItemService
-from src.customers.services import CustomerService
 from src.tax_authorities.services import TaxAuthorityService
 from ..repositories import SaleInvoiceRepository
 from ..schemas import (
@@ -49,12 +46,10 @@ class SaleInvoiceService:
     def __init__(
         self,
         repo: SaleInvoiceRepository,
-        customer_service: CustomerService,
         item_service: ItemService,
         tax_authority_service: TaxAuthorityService,
     ) -> None:
         self.repo = repo
-        self.customer_service = customer_service
         self.item_service = item_service
         self.tax_authority_service = tax_authority_service
 
@@ -112,14 +107,6 @@ class SaleInvoiceService:
                 line_out.tax_authority_data = await self.tax_authority_service.get_line_tax_authority_data(user, line.id)
             result.append(line_out)
         return result
-
-    async def _get_invoice_customer(self, user: UserInDB, invoice_id: int) -> CustomerOut | None:
-        invoice = await self.repo.get_invoice(user.organization_id, invoice_id)
-        if not invoice:
-            raise InvoiceNotFoundException()
-        if not invoice.customer_id:
-            return None
-        return await self.customer_service.get(user, invoice.customer_id)
 
     async def _create_invoice_header(self, user: UserInDB, data: Dict[str, Any]) -> SaleInvoiceHeaderOut:
         invoice = await self.repo.create_invoice(user.organization_id, user.id, data)
@@ -190,10 +177,8 @@ class SaleInvoiceService:
     async def get_invoice(self, user: UserInDB, invoice_id: int) -> SaleInvoiceOut:
         header = await self._get_invoice_header(user, invoice_id)
         lines = await self._get_invoice_lines(user, invoice_id)
-        customer = await self._get_invoice_customer(user, invoice_id)
         return SaleInvoiceOut(
             invoice_lines=lines,
-            customer=customer,
             **header.model_dump(),
         )
 

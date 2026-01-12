@@ -19,6 +19,7 @@ from src.tax_authorities.zatca_phase2.models import (
     ZatcaPhase2SaleInvoiceData, 
     ZatcaPhase2SaleInvoiceLineData,
 )
+from src.projects.models import Project
 from src.points_of_sale.models import PointOfSale
 from src.customers.models import Customer
 from src.suppliers.models import Supplier

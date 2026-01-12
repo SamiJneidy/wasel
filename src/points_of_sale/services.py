@@ -16,7 +16,7 @@ class PointOfSaleService:
         self.point_of_sale_repo = point_of_sale_repo
 
     async def get(self, user: UserInDB, id: int) -> PointOfSaleOut:
-        point_of_sale = await self.point_of_sale_repo.get(user.organization_id, id)
+        point_of_sale = await self.point_of_sale_repo.get(user.organization_id, user.branch_id, id)
         if not point_of_sale:
             raise PointOfSaleNotFoundException()
         return PointOfSaleOut.model_validate(point_of_sale)
@@ -29,6 +29,7 @@ class PointOfSaleService:
     ) -> tuple[int, list[PointOfSaleOut]]:
         total, query_set = await self.point_of_sale_repo.get_points_of_sale(
             user.organization_id,
+            user.branch_id,
             pagination_params.skip,
             pagination_params.limit,
             filters.model_dump(exclude_none=True),
@@ -38,6 +39,7 @@ class PointOfSaleService:
     async def create(self, user: UserInDB, data: PointOfSaleCreate) -> PointOfSaleOut:
         point_of_sale = await self.point_of_sale_repo.create(
             user.organization_id,
+            user.branch_id,
             user.id,
             data.model_dump(),
         )
@@ -51,6 +53,7 @@ class PointOfSaleService:
     ) -> PointOfSaleOut:
         point_of_sale = await self.point_of_sale_repo.update(
             user.organization_id,
+            user.branch_id,
             user.id,
             id,
             data.model_dump(exclude_unset=True),
@@ -61,5 +64,5 @@ class PointOfSaleService:
 
     async def delete(self, user: UserInDB, id: int) -> None:
         await self.get(user, id)
-        await self.point_of_sale_repo.delete(user.organization_id, id)
+        await self.point_of_sale_repo.delete(user.organization_id, user.branch_id, id)
         return None

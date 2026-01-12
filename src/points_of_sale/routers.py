@@ -16,7 +16,7 @@ from .schemas import PointOfSaleCreate, PointOfSaleFilters, PointOfSaleOut, Poin
 from .services import PointOfSaleService
 
 router = APIRouter(
-    prefix="/points_of_sale",
+    prefix="/points-of-sale",
     tags=["Points Of Sale"],
 )
 

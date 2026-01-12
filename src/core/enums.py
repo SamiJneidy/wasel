@@ -130,3 +130,11 @@ class InvoiceTaxAuthorityStatus(str, Enum):
     ACCEPTED = "ACCEPTED"
     ACCEPTED_WITH_WARNINGS = "ACCEPTED_WITH_WARNINGS"
     REJECTED = "REJECTED"
+
+class ProjectStatus(str, Enum):
+    DRAFT = "DRAFT"
+    ACTIVE = "ACTIVE"
+    ON_HOLD = "ON_HOLD"
+    COMPLETED = "COMPLETED"
+    CANCELLED = "CANCELLED"
+
