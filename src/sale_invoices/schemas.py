@@ -22,6 +22,7 @@ from src.core.enums import (
     InvoiceStatus,
     InvoiceTaxAuthorityStatus,
 )
+from src.points_of_sale.schemas import PointOfSaleOut
 from typing import Optional, Annotated, Self, Union
 from decimal import Decimal
 import uuid
@@ -97,6 +98,7 @@ class SaleInvoiceHeaderOut(SaleInvoiceHeaderBase):
     model_config = ConfigDict(from_attributes=True)
 
 class SaleInvoiceCreate(SaleInvoiceHeaderBase):
+    point_of_sale_id: Optional[int] = None
     tax_authority_data: Optional[InvoiceTaxAuthorityDataCreate] = None
     send_to_tax_authority: bool = Field(False, description="Indicates whether to send the invoice to the tax authority upon creation")
     customer_id: Optional[int] = None
@@ -168,6 +170,7 @@ class SaleInvoiceUpdate(SaleInvoiceCreate):
 class SaleInvoiceOut(SaleInvoiceHeaderOut):
     id: int = Field(...)
     customer: Optional[CustomerOut] = None
+    point_of_sale: Optional[PointOfSaleOut] = None
     invoice_lines: list[SaleInvoiceLineOut]
     model_config = ConfigDict(from_attributes=True)
 

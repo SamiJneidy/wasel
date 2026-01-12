@@ -10,6 +10,7 @@ class SaleInvoice(Base, AuditMixin):
     id = Column(Integer, autoincrement=True, primary_key=True, index=True)
     organization_id = Column(Integer, ForeignKey('organizations.id'), nullable=True)
     branch_id = Column(Integer, ForeignKey('users.id'), nullable=True)
+    point_of_sale_id = Column(Integer, ForeignKey('points_of_sale.id'), nullable=True)
     year = Column(Integer, nullable=True, index=True)
     seq_number = Column(Integer, nullable=True)
     customer_id = Column(Integer, ForeignKey('customers.id'), nullable=True)
