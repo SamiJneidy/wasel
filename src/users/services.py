@@ -24,7 +24,8 @@ from src.auth.services.token_service import TokenService
 from src.core.services import EmailService
 from src.core.config import settings
 from src.core.enums import UserStatus, UserType
-
+from src.authorization.services import AuthorizationService
+from src.authorization.schemas import UserPermissionCreate
 
 class UserService:
     def __init__(
@@ -33,23 +34,31 @@ class UserService:
         email_service: EmailService,
         token_service: TokenService,
         organization_service: OrganizationService,
+        authorization_service: AuthorizationService
     ):
         self.user_repo = user_repo
         self.email_service = email_service
         self.token_service = token_service
         self.organization_service = organization_service
+        self.authorization_service = authorization_service
 
     async def _get_or_raise_by_email(self, email: str) -> UserInDB:
         db_user = await self.user_repo.get_by_email(email)
         if not db_user:
             raise UserNotFoundException()
-        return UserInDB.model_validate(db_user)
+        user_in_db = UserInDB.model_validate(db_user)
+        permissions = await self.authorization_service.get_user_permissions(user_in_db, user_in_db.id)
+        user_in_db.permissions = permissions
+        return UserInDB.model_validate(user_in_db)
 
     async def _get_or_raise_by_id(self, id: int) -> UserInDB:
         db_user = await self.user_repo.get(id)
         if not db_user:
             raise UserNotFoundException()
-        return UserInDB.model_validate(db_user)
+        user_in_db = UserInDB.model_validate(db_user)
+        permissions = await self.authorization_service.get_user_permissions(user_in_db, user_in_db.id)
+        user_in_db.permissions = permissions
+        return UserInDB.model_validate(user_in_db)
 
     async def get(self, id: int) -> UserInDB:
         return await self._get_or_raise_by_id(id)
@@ -94,15 +103,17 @@ class UserService:
         if await self.user_repo.get_by_email(invite.email):
             raise UserAlreadyExistsException()
         create_payload = {
-            **invite.model_dump(exclude_none=True),
+            **invite.model_dump(exclude={"permissions"}, exclude_none=True),
             "organization_id": user.organization_id,
             "type": UserType.CLIENT,
             "status": UserStatus.PENDING,
             "is_completed": False,
         }
-        user = await self.user_repo.create(create_payload)
+        created_user = await self.user_repo.create(create_payload)
+        permissions = UserPermissionCreate(permissions=invite.permissions)
+        await self.authorization_service.create_user_permissions(user, created_user.id, permissions)
         await self.send_invitation(user, invite.email, host_url)
-        return UserInDB.model_validate(user)
+        return await self.get_by_email(created_user.email)
 
     async def send_invitation(self, inviter: UserInDB, email: str, host_url: str) -> None:
         user = await self.get_by_email(email)

@@ -28,6 +28,7 @@ from src.buy_invoices.models import BuyInvoice, BuyInvoiceLine
 from src.sale_invoices.models import SaleInvoice, SaleInvoiceLine
 from src.organizations.models import Organization
 from src.branches.models import Branch
+from src.authorization.models import Permission, UserPermission
 from src.core.config import settings
 
 config.set_main_option("sqlalchemy.url", settings.SYNC_SQLALCHEMY_URL)

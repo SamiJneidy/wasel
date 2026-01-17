@@ -4,6 +4,7 @@ from src.core.schemas import AuditTimeMixin
 from src.organizations.schemas import OrganizationOut
 from src.branches.schemas import BranchOut
 from src.core.enums import UserRole, UserStatus, UserType
+from src.authorization.schemas import UserPermissionCreate
 from typing import Optional, Self
 
 class UserInDB(BaseModel, AuditTimeMixin):
@@ -22,6 +23,7 @@ class UserInDB(BaseModel, AuditTimeMixin):
     invalid_login_attempts: int = 0
     organization: Optional[OrganizationOut] = None
     branch: Optional[BranchOut] = None
+    permissions: Optional[list[str]] = None
     model_config = ConfigDict(from_attributes=True)
 
     
@@ -50,6 +52,7 @@ class UserOut(UserBase):
     id: int
     organization: Optional[OrganizationOut] = None
     branch: Optional[BranchOut] = None
+    permissions: Optional[list[str]] = None
     is_completed: bool
     status: UserStatus
     type: UserType
@@ -57,13 +60,13 @@ class UserOut(UserBase):
     model_config = ConfigDict(from_attributes=True)
 
 
-class UserInvite(BaseModel):
+class UserInvite(UserPermissionCreate):
     branch_id: int
     name: str
     email: EmailStr
     phone: Optional[str] = None
     role: UserRole
-
+    
     @field_validator("role", mode="after")
     def check_role(cls, value):
         if value == UserRole.SUPER_ADMIN:

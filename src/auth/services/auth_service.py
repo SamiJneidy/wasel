@@ -54,7 +54,7 @@ from ..exceptions import (
     UserDisabledException,
     UserNotVerifiedException,
 )
-
+from src.authorization.services import AuthorizationService
 
 class AuthService:
     def __init__(self, 
@@ -64,6 +64,7 @@ class AuthService:
         otp_service: OTPService, 
         email_service: EmailService,
         organization_service: OrganizationService,
+        authorization_service: AuthorizationService,
     ) -> None:
         self.auth_repo = auth_repo
         self.token_service = token_service
@@ -71,8 +72,8 @@ class AuthService:
         self.otp_service = otp_service
         self.email_service = email_service
         self.organization_service = organization_service
+        self.authorization_service = authorization_service
 
-    
     async def sign_up(self, data: SignUp) -> UserOut:
         """Sign up a new user using email and password. Any extra user fields can be updated from the user service in 'users' package."""
         try:
@@ -96,21 +97,23 @@ class AuthService:
 
     async def sign_up_complete(self, email: str, data: SignUpCompleteRequest) -> SignUpCompleteResponse:
         """Complete the signup process after verifying the email."""
-        data_dict = data.model_dump()
         # if data.vat_number[10] == "1":
         #     tin_number = data.vat_number[:10]
         #     data_dict.update({"organization_unit_name": tin_number})    
         # else:
         #     data_dict.update({"organization_unit_name": data.registration_name})
+        user = await self.user_service.get_by_email(email)
         organization_create = OrganizationCreate(**data.model_dump())
         organization, branch = await self.organization_service.create_organization_and_main_branch(organization_create)
+        await self.authorization_service.create_user_permissions_after_signup(organization.id, user.id)
         await self.user_service.update_by_email(
             email, 
             {
                 "is_completed": True, 
                 "organization_id": organization.id,
                 "branch_id": branch.id,
-            })
+            }
+        )
         return SignUpCompleteResponse(**organization.model_dump())
         
 
@@ -150,8 +153,7 @@ class AuthService:
 
 
     async def get_me(self, email: str) -> UserOut:
-        user = await self.user_service.get_user_out(email)
-        return user
+        return await self.user_service.get_user_out(email)
 
 
     async def request_email_verification_otp(self, data: RequestEmailVerificationOTPRequest) -> RequestEmailVerificationOTPResponse:
@@ -222,15 +224,17 @@ class AuthService:
         return ResetPasswordResponse(email=data.email)
 
 
-    def create_access_token_and_set_cookie(self, request: Request, response: Response, email: str) -> str:
+    async def create_access_token_and_set_cookie(self, request: Request, response: Response, email: str) -> str:
         """Creates an access token and sets it in the response cookies. Returns the access token."""
-        payload = AccessToken(sub=email)
+        user = await self.user_service.get_by_email(email)
+        permissions = await self.authorization_service.get_user_permissions(user, user.id)
+        payload = AccessToken(sub=email, permissions=permissions)
         access_token = self.token_service.create_access_token(payload)
         self.token_service.set_access_token_cookie(request, response, access_token)
         return access_token
 
 
-    def create_refresh_token_and_set_cookie(self, request: Request, response: Response, email: str) -> str:
+    async def create_refresh_token_and_set_cookie(self, request: Request, response: Response, email: str) -> str:
         """Creates a refresh token and sets it in the response cookies. Returns the refresh token."""
         payload = RefreshToken(sub=email)
         refresh_token = self.token_service.create_refresh_token(payload)
@@ -238,7 +242,7 @@ class AuthService:
         return refresh_token
 
 
-    def create_sign_up_complete_token_and_set_cookie(self, request: Request, response: Response, email: str) -> str:
+    async def create_sign_up_complete_token_and_set_cookie(self, request: Request, response: Response, email: str) -> str:
         """Creates a refresh token and sets it in the response cookies. Returns the refresh token."""
         payload = SignUpCompleteToken(sub=email)
         token = self.token_service.create_sign_up_complete_token(payload)
@@ -246,17 +250,17 @@ class AuthService:
         return token
 
 
-    def create_tokens_and_set_cookies(self, request: Request, response: Response, email: str) -> tuple[str, str]:
+    async def create_tokens_and_set_cookies(self, request: Request, response: Response, email: str) -> tuple[str, str]:
         """Creates access and refresh tokens and sets them in the response cookies. Returns the access and refresh tokens."""
-        access_token = self.create_access_token_and_set_cookie(request, response, email)
-        refresh_token = self.create_refresh_token_and_set_cookie(request, response, email)
+        access_token = await self.create_access_token_and_set_cookie(request, response, email)
+        refresh_token = await self.create_refresh_token_and_set_cookie(request, response, email)
         return access_token, refresh_token
 
     
-    def refresh(self, request: Request, response: Response, refresh_token: str) -> None:
+    async def refresh(self, request: Request, response: Response, refresh_token: str) -> None:
         """Refreshes an expired access token using a valid refresh token and returns the new access token."""
         email = self.token_service.verify_token(refresh_token)
-        self.create_access_token_and_set_cookie(request, response, email)
+        await self.create_access_token_and_set_cookie(request, response, email)
 
 
     async def get_user_from_token(self, token: str) -> UserOut:

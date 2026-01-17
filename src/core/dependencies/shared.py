@@ -7,7 +7,8 @@ from src.auth.services.token_service import TokenService
 from src.users.schemas import UserInDB
 from src.auth.dependencies.token_deps import TokenService, get_token_service
 from src.users.dependencies import UserService, get_user_service
-
+from src.authorization.dependencies import AuthorizationService, get_authorization_service
+from src.authorization.exceptions import PermissionDeniedException
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/swaggerlogin")
 
@@ -33,3 +34,12 @@ async def get_current_user_from_sign_up_complete_token(
     if payload["scope"] != TokenScope.SIGN_UP_COMPLETE:
         raise InvalidTokenException()
     return await user_service.get_by_email(payload["sub"])
+
+
+def require_permission(resource: str, action: str):
+    """Dependency to require a specific permission for the current user."""
+    async def checker(current_user: UserInDB = Depends(get_current_user), authorization_service: AuthorizationService = Depends(get_authorization_service)) -> None:
+        has_permission = await authorization_service.user_has_permission(current_user.organization_id, current_user.id, resource, action)
+        if not has_permission:
+            raise PermissionDeniedException(detail=f"Permission denied! Resource: {resource}, Action: {action}")
+    return checker

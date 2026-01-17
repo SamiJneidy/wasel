@@ -2,6 +2,7 @@ from pydantic import BaseModel
 from datetime import datetime
 from src.core.enums import TokenScope
 from typing import Optional
+from src.authorization.schemas import UserPermissionOut
 
 class TokenPayloadBase(BaseModel):
     sub: str
@@ -10,7 +11,7 @@ class TokenPayloadBase(BaseModel):
     exp: Optional[datetime] = None
 
 
-class AccessToken(TokenPayloadBase):
+class AccessToken(TokenPayloadBase, UserPermissionOut):
     scope: TokenScope = TokenScope.ACCESS
 
 

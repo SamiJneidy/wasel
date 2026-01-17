@@ -99,7 +99,7 @@ async def sign_up_complete(
 ) -> SingleObjectResponse[SignUpCompleteResponse]:
     data = await auth_service.sign_up_complete(current_user.email, body)
     response.delete_cookie("sign_up_complete_token")
-    auth_service.create_tokens_and_set_cookies(request, response, current_user.email)
+    await auth_service.create_tokens_and_set_cookies(request, response, current_user.email)
     return SingleObjectResponse(data=data)
 
 
@@ -129,7 +129,7 @@ async def login(
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> SingleObjectResponse[LoginResponse]:
     data = await auth_service.login(body)
-    auth_service.create_tokens_and_set_cookies(request, response, body.email)
+    await auth_service.create_tokens_and_set_cookies(request, response, body.email)
     return SingleObjectResponse(data=data)
 
 
@@ -146,7 +146,7 @@ async def refresh(
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> None:
     refresh_token = request.cookies.get("refresh_token")
-    auth_service.refresh(request, response, refresh_token)
+    await auth_service.refresh(request, response, refresh_token)
 
 
 @router.post(
@@ -163,7 +163,7 @@ async def verify_email_after_signup(
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> SingleObjectResponse[LoginResponse]:
     data = await auth_service.verify_email_after_signup(body)
-    auth_service.create_sign_up_complete_token_and_set_cookie(request, response, body.email)
+    await auth_service.create_sign_up_complete_token_and_set_cookie(request, response, body.email)
     return SingleObjectResponse(data=data)
 
 
@@ -275,5 +275,5 @@ async def swaggerlogin(
         password=login_credentials.password,
     )
     login_response: LoginResponse = await auth_service.login(login_data)
-    access_token, refresh_token = auth_service.create_tokens_and_set_cookies(request, response, login_data.email)
+    access_token, refresh_token = await auth_service.create_tokens_and_set_cookies(request, response, login_data.email)
     return {"access_token": access_token, "token_type": "bearer"}

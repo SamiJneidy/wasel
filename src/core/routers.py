@@ -10,6 +10,7 @@ from src.buy_invoices.routers import router as buy_invoices_router
 from src.sale_invoices.routers import router as sale_invoices_router
 from src.points_of_sale.routers import router as points_of_sale_router
 from src.projects.routers import router as projects_router
+from src.authorization.routers import router as authorization_router
 v1_router = APIRouter(prefix="/api/v1")
 
 v1_router.include_router(auth_router)
@@ -23,3 +24,4 @@ v1_router.include_router(buy_invoices_router)
 v1_router.include_router(sale_invoices_router)
 v1_router.include_router(points_of_sale_router)
 v1_router.include_router(projects_router)
+v1_router.include_router(authorization_router)

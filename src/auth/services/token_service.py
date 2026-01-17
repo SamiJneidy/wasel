@@ -19,7 +19,6 @@ class TokenService:
         try:
             payload_dict: dict = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
             email = payload_dict.get("sub")
-            print(payload_dict)
             if not email:
                 raise InvalidTokenException()
             return payload_dict

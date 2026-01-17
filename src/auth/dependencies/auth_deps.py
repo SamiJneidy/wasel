@@ -12,6 +12,7 @@ from src.core.config import settings
 from src.core.database import get_db
 from src.organizations.dependencies import OrganizationService, get_organization_service
 from src.users.dependencies import UserService, get_user_service
+from src.authorization.dependencies import AuthorizationService, get_authorization_service
 from src.core.services import EmailService
 
 async def get_redis():
@@ -33,6 +34,7 @@ def get_auth_service(
     otp_service: Annotated[OTPService, Depends(get_otp_service)],
     email_service: Annotated[EmailService, Depends(get_email_service)],
     organization_service: Annotated[OrganizationService, Depends(get_organization_service)],
+    authorization_service: Annotated[AuthorizationService, Depends(get_authorization_service)]
 ) -> AuthService:
     """Returns authentication service dependency."""
-    return AuthService(authentication_repo, token_service, user_service, otp_service, email_service, organization_service)
+    return AuthService(authentication_repo, token_service, user_service, otp_service, email_service, organization_service, authorization_service)

@@ -21,3 +21,9 @@ class User(Base, AuditTimeMixin):
     is_completed = Column(Boolean, nullable=False)
     organization = relationship("Organization", lazy="selectin", foreign_keys=[organization_id])
     branch = relationship("Branch", lazy="selectin", foreign_keys=[branch_id])
+
+class UserBranch(Base):
+    __tablename__ = "user_branches"
+    id = Column(Integer, autoincrement=True, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    branch_id = Column(Integer, ForeignKey("branches.id", ondelete="CASCADE"), nullable=False, index=True)
