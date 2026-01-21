@@ -28,3 +28,25 @@ class UserPermission(Base, AuditMixin):
     __table_args__ = (
         UniqueConstraint('user_id', 'permission_id', name='unique_user_permission'),
     )
+
+class Role(Base, AuditMixin):
+    __tablename__ = "roles"
+    id = Column(Integer, autoincrement=True, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    name = Column(String(100), nullable=False)
+    description = Column(String, nullable=True)
+    is_immutable = Column(Boolean, nullable=False, server_default=text("false"))
+    
+class RolePermission(Base, AuditMixin):
+    __tablename__ = "role_permissions"
+    id = Column(Integer, autoincrement=True, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    role_id = Column(Integer, ForeignKey("roles.id", ondelete="CASCADE"), nullable=False, index=True)
+    permission_id = Column(Integer, ForeignKey("permissions.id", ondelete="CASCADE"), nullable=False, index=True)
+    is_allowed = Column(Boolean, nullable=False)
+
+    permission = relationship("Permission", foreign_keys=[permission_id], lazy="joined")
+    
+    __table_args__ = (
+        UniqueConstraint('role_id', 'permission_id', name='unique_role_permission'),
+    )

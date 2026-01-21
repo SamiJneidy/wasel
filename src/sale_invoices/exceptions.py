@@ -26,3 +26,7 @@ class InvalidDocumentType(BaseAppException):
     def __init__(self, detail: str | None = "Invalid document type for the operation", status_code: int = status.HTTP_403_FORBIDDEN):
         super().__init__(detail, status_code)
 
+class CreditDebitNoteNotAllowed(BaseAppException):
+    """Raised when attempting to create a credit or debit note for an invoice with status other than ISSUED"""
+    def __init__(self, detail: str | None = "Credit and debit note creation is only allowed for invoices with status ISSUED", status_code: int = status.HTTP_403_FORBIDDEN):
+        super().__init__(detail, status_code)

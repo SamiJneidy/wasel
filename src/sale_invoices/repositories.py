@@ -57,6 +57,7 @@ class SaleInvoiceRepository:
 
         simple_filters = {k: v for k, v in filters.items() if k not in {"issue_date_range_from", "issue_date_range_to"}}
         for k, v in simple_filters.items():
+            print(v)
             col = getattr(SaleInvoice, k, None)
             if col is not None and v is not None:
                 stmt = stmt.where(col == v)

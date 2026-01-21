@@ -206,7 +206,7 @@ class BuyInvoiceService:
             invoice_lines = invoice_dict.pop("invoice_lines")
             await self.repo.update_invoice(user.organization_id, user.id, invoice_id, invoice_dict)
             await self.repo.delete_invoice_lines(invoice_id)
-            await self._create_invoice_lines(user, invoice_id, invoice_lines)
+            await self._create_invoice_lines(invoice_id, invoice_lines)
             invoice = await self.get_invoice(user, invoice_id)
             return invoice
         except IntegrityError as e:

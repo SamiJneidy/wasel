@@ -85,9 +85,10 @@ class AuthService:
             **data.model_dump(exclude={"password", "confirm_password"}),
             password=hash_password(data.password),
             type=UserType.CLIENT, 
-            role=UserRole.SUPER_ADMIN, 
             status=UserStatus.PENDING, 
-            is_completed=False
+            role_id=None, 
+            is_completed=False,
+            is_super_admin=True,
         )
         user = await self.user_service.create_user(user_create)
         email_verification_otp_request = RequestEmailVerificationOTPRequest(email=data.email)
@@ -105,6 +106,7 @@ class AuthService:
         user = await self.user_service.get_by_email(email)
         organization_create = OrganizationCreate(**data.model_dump())
         organization, branch = await self.organization_service.create_organization_and_main_branch(organization_create)
+        super_admin_role_id = await self.authorization_service.create_default_roles(organization.id)
         await self.authorization_service.create_user_permissions_after_signup(organization.id, user.id)
         await self.user_service.update_by_email(
             email, 
@@ -112,6 +114,7 @@ class AuthService:
                 "is_completed": True, 
                 "organization_id": organization.id,
                 "branch_id": branch.id,
+                "role_id": super_admin_role_id,
             }
         )
         return SignUpCompleteResponse(**organization.model_dump())
@@ -218,7 +221,7 @@ class AuthService:
         if not otp or otp.status != OTPStatus.VERIFIED or otp.email != data.email or await self.otp_service.otp_is_expired(otp.code):
             raise PasswordResetNotAllowedException()
         hashed_password = hash_password(data.password)
-        user = await self.user_service.update_by_email(data.email, data={"password": hashed_password})
+        user = await self.user_service.update_by_email(data.email, update_data={"password": hashed_password})
         await self.user_service.reset_invalid_login_attempts(data.email)
         await self.user_service.update_user_status(data.email, UserStatus.ACTIVE)
         return ResetPasswordResponse(email=data.email)

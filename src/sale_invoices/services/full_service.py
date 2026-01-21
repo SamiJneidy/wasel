@@ -12,6 +12,7 @@ from src.tax_authorities.services import TaxAuthorityService
 from ..repositories import SaleInvoiceRepository
 from ..schemas import (
     PagintationParams,
+    QuotationConvert,
     SaleInvoiceFilters,
     SaleInvoiceLineCreate,
     SaleInvoiceLineOut,
@@ -19,6 +20,7 @@ from ..schemas import (
     SaleInvoiceCreate,
     SaleInvoiceOut,
     SaleInvoiceUpdate,
+    SaleInvoiceUpdateStatus,
 )
 from ..exceptions import (
     BaseAppException,
@@ -26,6 +28,7 @@ from ..exceptions import (
     InvoiceNotFoundException,
     InvoiceUpdateNotAllowed,
     InvoiceDeleteNotAllowed,
+    CreditDebitNoteNotAllowed,
     raise_integrity_error,
 )
     
@@ -171,6 +174,18 @@ class SaleInvoiceService:
 
         return invoice
 
+    async def _validate_before_creation(self, user: UserInDB, data: SaleInvoiceCreate) -> None:
+        # Validate original_invoice_id for credit notes
+        is_note = data.invoice_type_code in {InvoiceTypeCode.CREDIT_NOTE, InvoiceTypeCode.DEBIT_NOTE}
+        if is_note:
+            original_invoice_header = await self._get_invoice_header(user, data.original_invoice_id)
+            if original_invoice_header.status != InvoiceStatus.ISSUED:
+                raise CreditDebitNoteNotAllowed()
+            if original_invoice_header.document_type == DocumentType.QUOTATION:
+                raise CreditDebitNoteNotAllowed(detail="Can not create credit or debit note for a QUOTATION")
+            if original_invoice_header.invoice_type_code == InvoiceTypeCode.INVOICE:
+                raise CreditDebitNoteNotAllowed(detail="Can not create credit or debit note for a credit or debit note")
+            
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
@@ -184,6 +199,7 @@ class SaleInvoiceService:
 
     async def create_invoice(self, user: UserInDB, data: SaleInvoiceCreate) -> SaleInvoiceOut:
         try:
+            self._validate_before_creation(user, data)
             invoice_dict = await self._calculate_amounts(data)
             seq, invoice_number = await self.generate_invoice_number(
                 user, 
@@ -230,6 +246,22 @@ class SaleInvoiceService:
         except Exception as e:
             raise e
 
+    async def update_invoice_status(self, user: UserInDB, invoice_id: int, data: SaleInvoiceUpdateStatus) -> SaleInvoiceOut:
+        try:
+            invoice_header = await self._get_invoice_header(user, invoice_id)
+            if not invoice_header:
+                raise InvoiceNotFoundException()
+            if invoice_header.status != InvoiceStatus.DRAFT:
+                raise InvoiceUpdateNotAllowed(detail="Only draft invoices can have their status updated")
+            await self.repo.update_invoice(user.organization_id, user.id, invoice_id, {"status": data.status})
+            if invoice_header.document_type==DocumentType.INVOICE and data.status == InvoiceStatus.ISSUED and data.send_to_tax_authority:
+                await self.submit_invoice_to_tax_authority(user, invoice_id)
+            return await self.get_invoice(user, invoice_header.id)
+        except IntegrityError as e:
+            raise_integrity_error(e)
+        except Exception as e:
+            raise e
+
     async def submit_invoice_to_tax_authority(self, user: UserInDB, invoice_id: int) -> SaleInvoiceOut:
         try:
             invoice = await self.get_invoice(user, invoice_id)
@@ -261,7 +293,7 @@ class SaleInvoiceService:
         except Exception as e:
             raise e
 
-    async def convert_quotation_to_invoice(self, user: UserInDB, invoice_id: int) -> SaleInvoiceOut:
+    async def convert_quotation_to_invoice(self, user: UserInDB, invoice_id: int, convert_data: QuotationConvert) -> SaleInvoiceOut:
         try:
             invoice_header = await self._get_invoice_header(user, invoice_id)
             if not invoice_header:
@@ -280,7 +312,9 @@ class SaleInvoiceService:
             invoice_dict.update({
                 "document_type": DocumentType.INVOICE, 
                 "customer_id": db_invoice.customer_id, 
-                "invoice_lines": invoice_lines_dict
+                "invoice_lines": invoice_lines_dict,
+                "status": convert_data.status,
+                "send_to_tax_authority": convert_data.send_to_tax_authority,
             })
             data = SaleInvoiceCreate(**invoice_dict)
             await self.repo.update_invoice(user.organization_id, user.id, invoice_id, {"status": InvoiceStatus.ISSUED})

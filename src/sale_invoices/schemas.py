@@ -78,7 +78,7 @@ class SaleInvoiceHeaderBase(BaseModel):
     document_currency_code: str = Field("SAR", description="The value must be SAR", example="SAR")
     actual_delivery_date: Optional[date] = Field(None, description="Actual date of delivery if applicable")
     payment_means_code: PaymentMeansCode = Field(..., description="Code representing the payment method")
-    original_invoice_id: Optional[str] = Field(None, description="ID of the original invoice if this is a correction", example=456)
+    original_invoice_id: Optional[int] = Field(None, description="ID of the original invoice if this is a correction", example=456)
     instruction_note: Optional[str] = Field(None, max_length=4000, description="Additional instructions related to the invoice")
     prices_include_tax: bool = Field(...)
     discount_amount: Decimal = Field(..., description="Total discount amount", example=50.00)
@@ -161,17 +161,41 @@ class SaleInvoiceCreate(SaleInvoiceHeaderBase):
         if is_invoice:
             if self.invoice_type == InvoiceType.STANDARD and self.customer_id is None:
                 raise ValueError("Customer is required for standard invoices")
+            if not is_note:
+                if self.original_invoice_id is not None:
+                    raise ValueError("Original invoice should be empty for standard invoices")
+                if self.instruction_note is not None:
+                    raise ValueError("Instruction note should be empty for standard invoices")
             if is_note:
                 if self.original_invoice_id is None:
                     raise ValueError("Original invoice is required for credit and debit notes")
+                if self.instruction_note is None:
+                    raise ValueError("Instruction note is required for credit and debit notes")
                 if self.status == InvoiceStatus.DRAFT:
-                    raise ValueError("Credit and debit notes must be issued immediately")
+                    raise ValueError("Credit and debit notes must be issued immediately")  
+
         return self
 
 
 class SaleInvoiceUpdate(SaleInvoiceCreate):
     pass    
 
+class SaleInvoiceUpdateStatus(BaseModel):
+    status: InvoiceStatus = Field(..., description="New status of the invoice")
+    send_to_tax_authority: bool = Field(False, description="Indicates whether to send the invoice to the tax authority upon update")
+
+class QuotationConvert(BaseModel):
+    status: InvoiceStatus = Field(..., description="The status of the new invoice created from the quotation. Can be DRAFT or ISSUED")
+    send_to_tax_authority: bool = Field(False, description="Indicates whether to send the new invoice to the tax authority upon converting")
+
+    @model_validator(mode="after")
+    def validate_model(self) -> Self:
+        if self.status not in {InvoiceStatus.DRAFT, InvoiceStatus.ISSUED}:
+            raise ValueError("The status must be either DRAFT or ISSUED")
+        if self.status == InvoiceStatus.DRAFT and self.send_to_tax_authority:
+            raise ValueError("Cannot send to tax authority when status is DRAFT")
+        return self 
+    
 class SaleInvoiceOut(SaleInvoiceHeaderOut):
     id: int = Field(...)
     invoice_lines: list[SaleInvoiceLineOut]
@@ -188,7 +212,7 @@ class SaleInvoiceFilters(BaseModel):
     issue_date_range_from: Optional[date] = Field(None, description="Date in format YYYY-MM-DD", example="2025-01-24")
     issue_date_range_to: Optional[date] = Field(None, description="Date in format YYYY-MM-DD", example="2025-01-24")
     payment_means_code: Optional[PaymentMeansCode] = Field(None, description="Code representing the payment method")
-    stauts: Optional[InvoiceStatus] = Field(None)
+    status: Optional[InvoiceStatus] = Field(None)
     tax_authority_status: Optional[InvoiceTaxAuthorityStatus] = Field(None)
 
     @field_validator("issue_date_range_from", "issue_date_range_to", mode="after")
@@ -200,6 +224,15 @@ class SaleInvoiceFilters(BaseModel):
         except Exception as e:
             raise ValueError("The input should be a valid date in the format YYYY-MM-DD") 
 
+    # @field_validator("document_type", "invoice_type", "invoice_type_code", "payment_means_code", "stauts", "tax_authority_status",  mode="after")
+    # def validate_date_format(cls, value):
+    #     if value is None:
+    #         return None
+    #     try:
+    #         return value.value
+    #     except Exception as e:
+    #         raise ValueError("Invalid Enum value") 
+    
 
 class GetInvoiceNumberRequest(BaseModel):
     document_type: DocumentType

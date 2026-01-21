@@ -16,11 +16,13 @@ class User(Base, AuditTimeMixin):
     last_login = Column(DateTime, nullable=True)
     invalid_login_attempts = Column(Integer, nullable=False, server_default=text("0"))
     type = Column(String(50), nullable=True)
-    role = Column(String, nullable=False)
+    role_id = Column(Integer, ForeignKey('roles.id', ondelete="RESTRICT"), nullable=True)
     status = Column(Enum(UserStatus), nullable=False)
     is_completed = Column(Boolean, nullable=False)
+    is_super_admin = Column(Boolean, nullable=False, server_default=text("false"))
     organization = relationship("Organization", lazy="selectin", foreign_keys=[organization_id])
     branch = relationship("Branch", lazy="selectin", foreign_keys=[branch_id])
+    role = relationship("Role", lazy="selectin", foreign_keys=[role_id])
 
 class UserBranch(Base):
     __tablename__ = "user_branches"

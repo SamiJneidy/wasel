@@ -16,11 +16,13 @@ from .dependencies.full_service import Depends, get_invoice_service
 from .schemas import (
     GetInvoiceNumberRequest,
     GetInvoiceNumberResponse,
+    QuotationConvert,
     SaleInvoiceFilters,
     SaleInvoiceHeaderOut,
     SaleInvoiceUpdate,
     SaleInvoiceCreate,
     SaleInvoiceOut,
+    SaleInvoiceUpdateStatus,
 )
 from src.core.enums import DocumentType
 
@@ -124,11 +126,12 @@ async def generate_invoice_number(
 )
 async def convert_invoice(
     id: int,
+    body: QuotationConvert,
     invoice_service: Annotated[SaleInvoiceService, Depends(get_invoice_service)],
     current_user: Annotated[UserInDB, Depends(get_current_user)],
 ) -> SingleObjectResponse[SaleInvoiceOut]:
 
-    data = await invoice_service.convert_quotation_to_invoice(current_user, id)
+    data = await invoice_service.convert_quotation_to_invoice(current_user, id, body)
     return SingleObjectResponse(data=data)
 
 @router.post(
@@ -166,6 +169,27 @@ async def update_invoice(
     current_user: Annotated[UserInDB, Depends(get_current_user)],
 ) -> SingleObjectResponse[SaleInvoiceOut]:
     data = await invoice_service.update_invoice(current_user, id, body)
+    return SingleObjectResponse(data=data)
+
+# =========================================================
+# PATCH routes
+# =========================================================
+
+@router.patch(
+    path="/{id}/status",
+    status_code=status.HTTP_200_OK,
+    response_model=SingleObjectResponse[SaleInvoiceOut],
+    responses=RESPONSES["create_invoice"],
+    summary=SUMMARIES["create_invoice"],
+    description=DOCSTRINGS["create_invoice"],
+)
+async def update_invoice_status(
+    id: int,
+    body: SaleInvoiceUpdateStatus,
+    invoice_service: Annotated[SaleInvoiceService, Depends(get_invoice_service)],
+    current_user: Annotated[UserInDB, Depends(get_current_user)],
+) -> SingleObjectResponse[SaleInvoiceOut]:
+    data = await invoice_service.update_invoice_status(current_user, id, body)
     return SingleObjectResponse(data=data)
 
 

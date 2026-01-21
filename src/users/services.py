@@ -102,6 +102,10 @@ class UserService:
     async def invite_user(self, user: UserInDB, host_url: str, invite: UserInvite) -> UserInDB:
         if await self.user_repo.get_by_email(invite.email):
             raise UserAlreadyExistsException()
+        # Validate role
+        role = await self.authorization_service.get_role(user, invite.role_id)
+        if role.name == "SUPER_ADMIN":
+            raise InvitationNotAllowedException(detail="Cannot invite user with SUPER_ADMIN role.")
         create_payload = {
             **invite.model_dump(exclude={"permissions"}, exclude_none=True),
             "organization_id": user.organization_id,
@@ -110,7 +114,7 @@ class UserService:
             "is_completed": False,
         }
         created_user = await self.user_repo.create(create_payload)
-        permissions = UserPermissionCreate(permissions=invite.permissions)
+        permissions = UserPermissionCreate(permissions=role.permissions)
         await self.authorization_service.create_user_permissions(user, created_user.id, permissions)
         await self.send_invitation(user, invite.email, host_url)
         return await self.get_by_email(created_user.email)
@@ -128,7 +132,6 @@ class UserService:
         if not host_url.endswith("/"):
             host_url = host_url + "/"
         url = f"{host_url}user-onboarding?token={token}"
-        print(url)
         await self.email_service.send_user_invitation(email, url)
         return None
 
