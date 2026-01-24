@@ -85,13 +85,12 @@ async def invite_user(
     user_service: Annotated[UserService, Depends(get_user_service)],
     current_user: Annotated[UserInDB, Depends(get_current_user)],
 ) -> SingleObjectResponse[UserOut]:
-    # Transaction ensures rollback if email sending or user creation fails
     data = await user_service.invite_user(current_user, str(request.base_url), body)
     return SingleObjectResponse(data=data)
 
 
 @router.post(
-    "/invitations/resend",
+    "/invitations/resend/{user_id}",
     response_model=SingleObjectResponse[UserOut],
     responses=RESPONSES.get("resend_invitation"),
     summary=SUMMARIES.get("resend_invitation"),
@@ -101,9 +100,10 @@ async def resend_invitation(
     request: Request,
     user_service: Annotated[UserService, Depends(get_user_service)],
     current_user: Annotated[UserInDB, Depends(get_current_user)],
-    email: str = Query(..., description="Email of the user to send invitation to."),
+    user_id: int,
 ) -> SingleObjectResponse[UserOut]:
-    data = await user_service.send_invitation(current_user, email, request.base_url)
+    user = await user_service.get(user_id)
+    data = await user_service.send_invitation(current_user, user.email, request.base_url)
     return SingleObjectResponse(data=data)
 
 

@@ -2,7 +2,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import and_, delete, func, select, update, distinct
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from sqlalchemy.orm import aliased
 from .models import BuyInvoice, BuyInvoiceLine
 
 
@@ -93,7 +93,7 @@ class BuyInvoiceRepository:
         simple_filters = {
             k: v
             for k, v in filters.items()
-            if k not in {"issue_date_range_from", "issue_date_range_to"}
+            if k not in {"issue_date_range_from", "issue_date_range_to", "invoice_number", "original_invoice_number"}
         }
 
         for k, v in simple_filters.items():
@@ -101,6 +101,23 @@ class BuyInvoiceRepository:
             if column is not None and v is not None:
                 stmt = stmt.where(column == v)
                 count_stmt = count_stmt.where(column == v)
+
+        invoice_number = filters.get("invoice_number")
+        if invoice_number:
+            stmt = stmt.where(BuyInvoice.invoice_number.ilike(f"%{invoice_number}%"))
+            count_stmt = count_stmt.where(BuyInvoice.invoice_number.ilike(f"%{invoice_number}%"))
+        
+        original_invoice_number = filters.get("original_invoice_number")
+        if original_invoice_number:
+            OriginalInvoice = aliased(BuyInvoice)
+            stmt = stmt.join(
+                OriginalInvoice,
+                BuyInvoice.original_invoice_id == OriginalInvoice.id
+            ).where(OriginalInvoice.invoice_number.ilike(f"%{original_invoice_number}%"))
+            count_stmt = count_stmt.join(
+                OriginalInvoice,
+                BuyInvoice.original_invoice_id == OriginalInvoice.id
+            ).where(OriginalInvoice.invoice_number.ilike(f"%{original_invoice_number}%"))
 
         issue_date_from = filters.get("issue_date_range_from")
         issue_date_to = filters.get("issue_date_range_to")

@@ -1,7 +1,7 @@
 from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy import and_, func, select, update, delete, distinct
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, aliased
 
 from .models import SaleInvoice, SaleInvoiceLine
 from src.core.enums import ZatcaPhase2Stage, InvoiceType
@@ -55,13 +55,29 @@ class SaleInvoiceRepository:
         stmt = select(SaleInvoice).where(SaleInvoice.organization_id == organization_id)
         count_stmt = select(func.count(SaleInvoice.id)).where(SaleInvoice.organization_id == organization_id)
 
-        simple_filters = {k: v for k, v in filters.items() if k not in {"issue_date_range_from", "issue_date_range_to"}}
+        simple_filters = {k: v for k, v in filters.items() if k not in {"issue_date_range_from", "issue_date_range_to", "invoice_number", "original_invoice_number"}}
         for k, v in simple_filters.items():
-            print(v)
             col = getattr(SaleInvoice, k, None)
             if col is not None and v is not None:
                 stmt = stmt.where(col == v)
                 count_stmt = count_stmt.where(col == v)
+
+        invoice_number = filters.get("invoice_number")
+        if invoice_number:
+            stmt = stmt.where(SaleInvoice.invoice_number.ilike(f"%{invoice_number}%"))
+            count_stmt = count_stmt.where(SaleInvoice.invoice_number.ilike(f"%{invoice_number}%"))
+
+        original_invoice_number = filters.get("original_invoice_number")
+        if original_invoice_number:
+            OriginalInvoice = aliased(SaleInvoice)
+            stmt = stmt.join(
+                OriginalInvoice,
+                SaleInvoice.original_invoice_id == OriginalInvoice.id
+            ).where(OriginalInvoice.invoice_number.ilike(f"%{original_invoice_number}%"))
+            count_stmt = count_stmt.join(
+                OriginalInvoice,
+                SaleInvoice.original_invoice_id == OriginalInvoice.id
+            ).where(OriginalInvoice.invoice_number.ilike(f"%{original_invoice_number}%"))
 
         issue_date_from = filters.get("issue_date_range_from")
         issue_date_to = filters.get("issue_date_range_to")

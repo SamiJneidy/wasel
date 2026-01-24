@@ -1,7 +1,6 @@
 from typing import Optional, Self
 from pydantic import BaseModel, EmailStr, StringConstraints, ConfigDict, Field, field_validator, model_validator
 from datetime import datetime
-from src.core.schemas import SingleObjectResponse, SuccessfulResponse, ErrorResponse
 from src.users.schemas import UserCreate, UserUpdate, UserOut, UserInDB
 from src.organizations.schemas import OrganizationCreate, OrganizationOut
 from src.core.enums import OTPStatus, OTPUsage, UserRole, UserStatus

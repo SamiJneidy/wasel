@@ -37,7 +37,7 @@ class SaleInvoice(Base, AuditMixin):
     uuid = Column(UUID, nullable=True)
     status = Column(String(50), nullable=True)
     tax_authority_status = Column(String(50), nullable=True)
-    
+    is_credited = Column(BOOLEAN, nullable=True, server_default=text("false"))
     customer = relationship("Customer", lazy="selectin", foreign_keys=[customer_id])
     point_of_sale = relationship("PointOfSale", lazy="selectin", foreign_keys=[point_of_sale_id])
     project = relationship("Project", lazy="selectin", foreign_keys=[project_id])

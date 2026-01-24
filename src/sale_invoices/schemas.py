@@ -96,6 +96,8 @@ class SaleInvoiceHeaderOut(SaleInvoiceHeaderBase):
     uuid: Optional[uuid.UUID]
     tax_authority_data: Optional[InvoiceTaxAuthorityDataOut] = None
     tax_authority_status: InvoiceTaxAuthorityStatus
+    is_credited: bool
+    original_invoice_number: Optional[str] = None
     customer: Optional[CustomerOut] = None
     point_of_sale: Optional[PointOfSaleOut] = None
     project: Optional[ProjectOut] = None
@@ -137,48 +139,44 @@ class SaleInvoiceCreate(SaleInvoiceHeaderBase):
             raise ValueError("The value must be positive")
         return value    
 
-    @model_validator(mode="after")
-    def validate_model(self) -> Self:
-        is_invoice = self.document_type == DocumentType.INVOICE
-        is_quotation = self.document_type == DocumentType.QUOTATION
-        is_note = self.invoice_type_code in {InvoiceTypeCode.CREDIT_NOTE, InvoiceTypeCode.DEBIT_NOTE}
+class SaleInvoiceUpdate(BaseModel):
+    # -------- Header fields --------
+    document_type: Optional[DocumentType] = None
+    document_currency_code: Optional[str] = None
+    actual_delivery_date: Optional[date] = None
+    payment_means_code: Optional[PaymentMeansCode] = None
+    instruction_note: Optional[str] = None
+    prices_include_tax: Optional[bool] = None
+    discount_amount: Optional[Decimal] = None
+    status: Optional[InvoiceStatus] = None
+    note: Optional[str] = None
 
-        # 1. Status validation
-        if self.status not in {InvoiceStatus.ISSUED, InvoiceStatus.DRAFT}:
-            raise ValueError("Invoice can only be created with status ISSUED or DRAFT")
+    # -------- Relations --------
+    point_of_sale_id: Optional[int] = None
+    project_id: Optional[int] = None
+    customer_id: Optional[int] = None
 
-        # 2. Quotation rules
-        if is_quotation:
-            if is_note:
-                raise ValueError("Credit and debit notes cannot be created as quotations")
-            if self.status != InvoiceStatus.DRAFT:
-                raise ValueError("Quotations must always be created in DRAFT status")
-            if self.send_to_tax_authority:
-                raise ValueError("Quotations cannot be sent to the tax authority")
-            return self
+    # -------- Tax & sending --------
+    tax_authority_data: Optional[InvoiceTaxAuthorityDataCreate] = None
+    send_to_tax_authority: Optional[bool] = None
 
-        # 3. Invoice rules
-        if is_invoice:
-            if self.invoice_type == InvoiceType.STANDARD and self.customer_id is None:
-                raise ValueError("Customer is required for standard invoices")
-            if not is_note:
-                if self.original_invoice_id is not None:
-                    raise ValueError("Original invoice should be empty for standard invoices")
-                if self.instruction_note is not None:
-                    raise ValueError("Instruction note should be empty for standard invoices")
-            if is_note:
-                if self.original_invoice_id is None:
-                    raise ValueError("Original invoice is required for credit and debit notes")
-                if self.instruction_note is None:
-                    raise ValueError("Instruction note is required for credit and debit notes")
-                if self.status == InvoiceStatus.DRAFT:
-                    raise ValueError("Credit and debit notes must be issued immediately")  
+    # -------- Lines --------
+    invoice_lines: list[SaleInvoiceLineCreate]
+    
+    @field_validator("actual_delivery_date", mode="after")
+    def validate_date_format(cls, value):
+        if value is None:
+            return None
+        try:
+            return datetime.strptime(str(value), "%Y-%m-%d").date()
+        except Exception as e:
+            raise ValueError("The input should be a valid date in the format YYYY-MM-DD")
 
-        return self
-
-
-class SaleInvoiceUpdate(SaleInvoiceCreate):
-    pass    
+    @field_validator("discount_amount", mode="after")
+    def validate_amount(cls, value):
+        if value < 0:
+            raise ValueError("The value must be positive")
+        return value    
 
 class SaleInvoiceUpdateStatus(BaseModel):
     status: InvoiceStatus = Field(..., description="New status of the invoice")
@@ -213,8 +211,11 @@ class SaleInvoiceFilters(BaseModel):
     issue_date_range_to: Optional[date] = Field(None, description="Date in format YYYY-MM-DD", example="2025-01-24")
     payment_means_code: Optional[PaymentMeansCode] = Field(None, description="Code representing the payment method")
     status: Optional[InvoiceStatus] = Field(None)
+    invoice_number: Optional[str] = Field(None)
     tax_authority_status: Optional[InvoiceTaxAuthorityStatus] = Field(None)
-
+    is_credited: Optional[bool] = Field(None)
+    original_invoice_number: Optional[str] = Field(None, description="Partial or full original invoice number to search for")
+    
     @field_validator("issue_date_range_from", "issue_date_range_to", mode="after")
     def validate_date_format(cls, value):
         if value is None:

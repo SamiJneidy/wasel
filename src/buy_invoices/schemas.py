@@ -74,6 +74,8 @@ class BuyInvoiceHeaderOut(BuyInvoiceHeaderBase):
     invoice_number: str
     seq_number: Optional[int] = None
     uuid: Optional[uuid.UUID]
+    is_debited: Optional[bool] = None
+    original_invoice_number: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
 class BuyInvoiceCreate(BuyInvoiceHeaderBase):
@@ -108,8 +110,51 @@ class BuyInvoiceCreate(BuyInvoiceHeaderBase):
             raise ValueError("Invoice level discount is forbidden when the invoice containes different tax categories.")
         return self
 
-class BuyInvoiceUpdate(BuyInvoiceCreate):
-    pass
+class BuyInvoiceUpdate(BaseModel):
+    # -------- Header fields --------
+    invoice_number: Optional[str] = None
+    issue_date: Optional[date] = None
+    document_currency_code: Optional[str] = None
+    actual_delivery_date: Optional[date] = None
+    payment_means_code: Optional[PaymentMeansCode] = None
+    instruction_note: Optional[str] = None
+    note: Optional[str] = None
+    discount_amount: Optional[Decimal] = None
+    prices_include_tax: Optional[bool] = None
+
+    # -------- Relations --------
+    supplier_id: Optional[int] = None
+
+    # -------- Lines --------
+    invoice_lines: list[BuyInvoiceLineCreate]
+    
+    @field_validator("invoice_lines", mode="after")
+    def validate_invoice_lines(cls, value):
+        if len(value) == 0:
+            raise ValueError("The invoice must have at least 1 invoice line")
+        return value
+    
+    @field_validator("issue_date", "actual_delivery_date", mode="after")
+    def validate_date_format(cls, value):
+        if value is None:
+            return None
+        try:
+            return datetime.strptime(str(value), "%Y-%m-%d").date()
+        except Exception as e:
+            raise ValueError("The input should be a valid date in the format YYYY-MM-DD")
+
+    @field_validator("discount_amount", mode="after")
+    def validate_amount(cls, value):
+        if value < 0:
+            raise ValueError("The value must be positive")
+        return value    
+    
+    @model_validator(mode="after")
+    def validate_model(self) -> Self:
+        tax_categories = set(line.classified_tax_category for line in self.invoice_lines)
+        if(len(tax_categories) > 1 and self.discount_amount > 0):
+            raise ValueError("Invoice level discount is forbidden when the invoice containes different tax categories.")
+        return self
 
 class BuyInvoiceOut(BuyInvoiceHeaderOut):
     id: int
@@ -124,7 +169,9 @@ class BuyInvoiceFilters(BaseModel):
     issue_date_range_from: Optional[date] = Field(None, description="Date in format YYYY-MM-DD", example="2025-01-24")
     issue_date_range_to: Optional[date] = Field(None, description="Date in format YYYY-MM-DD", example="2025-01-24")
     payment_means_code: Optional[PaymentMeansCode] = Field(None, description="Code representing the payment method")
-
+    invoice_number: Optional[str] = Field(None, description="Partial or full invoice number to search for")
+    original_invoice_number: Optional[str] = Field(None, description="Partial or full original invoice number to search for")
+    
     @field_validator("issue_date_range_from", "issue_date_range_to", mode="after")
     def validate_date_format(cls, value):
         if value is None:

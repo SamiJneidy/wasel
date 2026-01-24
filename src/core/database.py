@@ -38,3 +38,38 @@ async def get_db() -> AsyncIterator[AsyncSession]:
             
         finally:
             await session.close()
+
+
+#################
+# TRUNCARTE SCRIPT
+
+
+# DO $$
+# DECLARE
+#   tbls text := '';
+#   r record;
+# BEGIN
+#   FOR r IN
+#     SELECT quote_ident(n.nspname) || '.' || quote_ident(c.relname) AS full_table
+#     FROM pg_class c
+#     JOIN pg_namespace n ON n.oid = c.relnamespace
+#     WHERE c.relkind = 'r'
+#       AND n.nspname = 'public'
+#       AND NOT (quote_ident(n.nspname) || '.' || quote_ident(c.relname)) IN (
+#         'public.alembic_version', 'public.permissions'
+#       )
+#   LOOP
+#     tbls := tbls || CASE WHEN tbls = '' THEN '' ELSE ', ' END || r.full_table;
+#   END LOOP;
+
+#   IF tbls = '' THEN
+#     RAISE NOTICE 'No tables to truncate in public (all excluded).';
+#     RETURN;
+#   END IF;
+
+#   EXECUTE 'TRUNCATE TABLE ' || tbls || ' RESTART IDENTITY CASCADE;';
+#   RAISE NOTICE 'Truncated tables: %', tbls;
+# END;
+# $$ LANGUAGE plpgsql;
+
+#############################

@@ -30,3 +30,8 @@ class CreditDebitNoteNotAllowed(BaseAppException):
     """Raised when attempting to create a credit or debit note for an invoice with status other than ISSUED"""
     def __init__(self, detail: str | None = "Credit and debit note creation is only allowed for invoices with status ISSUED", status_code: int = status.HTTP_403_FORBIDDEN):
         super().__init__(detail, status_code)
+
+class SaleInvoiceValidationException(BaseAppException):
+    """Raised when invoice business rules are violated"""
+    def __init__(self, detail: str | None = "Invoice validation failed", status_code: int = status.HTTP_422_UNPROCESSABLE_ENTITY):
+        super().__init__(detail, status_code)

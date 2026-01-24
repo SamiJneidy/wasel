@@ -433,7 +433,7 @@ class ZatcaPhase2Service(TaxAuthorityService):
                 invoice_data["issue_time"] = datetime.now(KSA_TZ).time().isoformat(timespec='seconds')
                 invoice_data["actual_delivery_date"] = datetime.now(KSA_TZ).date().isoformat()
                 if code != InvoiceTypeCode.INVOICE:
-                    invoice_data["original_invoice_id"] = last_invoice_number
+                    invoice_data["original_invoice_number"] = last_invoice_number
                     invoice_data["instruction_note"] = "Correction of invoice"
                 invoice_data = self._convert_dict_to_str(invoice_data)
                 try:
@@ -474,6 +474,7 @@ class ZatcaPhase2Service(TaxAuthorityService):
         payload = ZatcaPhase2BranchDataCreate.model_validate(branch_tax_authority_data).model_dump()
         payload.update({
             "icv": 1,
+            "pih": "NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ==",
             "stage": ZatcaPhase2Stage.PRODUCTION,
         })
         branch_tax_authority_data = await self.zatca_repo.create_branch_tax_authority_data(user.id, user.organization_id, branch_id, payload)
@@ -535,7 +536,6 @@ class ZatcaPhase2Service(TaxAuthorityService):
             raise ZatcaBranchDataNotFoundException()
         csid = await self._get_csid(user.organization_id, user.branch_id, branch_tax_authority_data.stage)
         invoice_data = await self._prepare_invoice_for_signing(user, branch_tax_authority_data, invoice)
-        invoice_data["original_invoice_number"] = metadata["original_invoice_number"]
         try:
             invoice_request = invoice_helper.sign_and_get_request(invoice_data, csid.private_key, csid.certificate)
         except Exception as e:

@@ -28,6 +28,7 @@ class BuyInvoice(Base, AuditMixin):
     uuid = Column(UUID, nullable=True)
     supplier_id = Column(Integer, ForeignKey('suppliers.id', ondelete="RESTRICT"), nullable=True)
     prices_include_tax = Column(BOOLEAN)
+    is_debited = Column(BOOLEAN, nullable=True)
 
 
 class BuyInvoiceLine(Base):

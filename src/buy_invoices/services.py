@@ -24,6 +24,7 @@ from .repositories import BuyInvoiceRepository
 from .exceptions import (
     BaseAppException,
     BuyInvoiceNotFoundException,
+    BuyInvoiceValidationException,
     raise_integrity_error,
 )
 from .schemas import (
@@ -53,11 +54,23 @@ class BuyInvoiceService:
     # Private methods
     # -------------------------------------------------------------------------
 
+    async def _validate_invoice_before_create(self, organization_id: int, data: BuyInvoiceCreate) -> None:
+        if data.original_invoice_id:
+            original_invoice = await self.repo.get_invoice(organization_id, data.original_invoice_id)
+            if not original_invoice:
+                raise BuyInvoiceNotFoundException(detail="Original invoice not found")
+            if original_invoice.is_debited:
+                raise BuyInvoiceValidationException(detail="Original invoice has already been debited")
+
     async def _get_invoice_header(self, user: UserInDB, invoice_id: int) -> BuyInvoiceHeaderOut:
-        invoice = await self.repo.get_invoice(user.organization_id, invoice_id)
-        if not invoice:
+        db_invoice = await self.repo.get_invoice(user.organization_id, invoice_id)
+        if not db_invoice:
             raise BuyInvoiceNotFoundException()
-        return BuyInvoiceHeaderOut.model_validate(invoice)
+        invoice = BuyInvoiceHeaderOut.model_validate(db_invoice)
+        if db_invoice.original_invoice_id:
+            orignial_invoice = await self.repo.get_invoice(user.organization_id, db_invoice.original_invoice_id)
+            invoice.original_invoice_number = orignial_invoice.invoice_number
+        return invoice
 
     async def _get_invoice_lines(self, user: UserInDB, invoice_id: int) -> List[BuyInvoiceLineOut]:
         invoice_lines = await self.repo.get_invoice_lines_by_invoice_id(invoice_id)
@@ -175,9 +188,9 @@ class BuyInvoiceService:
 
     async def create_buy_invoice(self, user: UserInDB, data: BuyInvoiceCreate) -> BuyInvoiceOut:
         try:
+            await self._validate_invoice_before_create(user.organization_id, data)
             invoice_dict = await self._calculate_amounts(data)
             invoice_lines = invoice_dict.pop("invoice_lines")
-            # Additional fields
             last_invoice = await self.repo.get_last_invoice(user.organization_id, user.branch_id, {})
             seq_number = (last_invoice.seq_number if last_invoice else 0) + 1
             header_uuid = uuid.uuid4()
@@ -185,11 +198,10 @@ class BuyInvoiceService:
                 "uuid": header_uuid,
                 "seq_number": seq_number,
             })
-            # Create header
             header = await self._create_invoice_header(user, invoice_dict)
-            # Create lines
             await self._create_invoice_lines(header.id, invoice_lines)
-            # Return full invoice
+            if data.original_invoice_id:
+                await self.repo.update_invoice(user.organization_id, user.id, data.original_invoice_id, {"is_debited": True})
             return await self.get_invoice(user, header.id)
         except IntegrityError as e:
             raise_integrity_error(e)
@@ -201,7 +213,6 @@ class BuyInvoiceService:
             invoice_header = await self._get_invoice_header(user, invoice_id)
             if not invoice_header:
                 raise BuyInvoiceNotFoundException()
-            # Calculate invoice amounts
             invoice_dict = await self._calculate_amounts(data)
             invoice_lines = invoice_dict.pop("invoice_lines")
             await self.repo.update_invoice(user.organization_id, user.id, invoice_id, invoice_dict)
