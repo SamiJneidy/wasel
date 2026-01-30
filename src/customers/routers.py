@@ -1,15 +1,14 @@
-from math import ceil
-
 from fastapi import APIRouter, status
 
-from src.core.dependencies.shared import get_current_user
+from src.core.dependencies.auth import get_request_context
+from src.core.utils.math_helper import calc_total_pages
 from src.core.schemas import (
     PaginatedResponse,
     PagintationParams,
     SingleObjectResponse,
 )
 from src.docs.customers import DOCSTRINGS, RESPONSES, SUMMARIES
-from src.users.schemas import UserInDB
+from src.core.schemas.context import RequestContext
 
 from .dependencies import Annotated, Depends, get_customer_service
 from .schemas import CustomerCreate, CustomerFilters, CustomerOut, CustomerUpdate
@@ -34,23 +33,19 @@ router = APIRouter(
 )
 async def get_customers_for_user(
     customer_service: Annotated[CustomerService, Depends(get_customer_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
     pagination_params: PagintationParams = Depends(),
     filters: CustomerFilters = Depends(),
 ) -> PaginatedResponse[CustomerOut]:
-    total_rows, data = await customer_service.get_customers_for_user(
-        current_user,
+    total_rows, data = await customer_service.get_customers(
+        request_context,
         pagination_params,
         filters,
     )
     return PaginatedResponse(
         data=data,
         total_rows=total_rows,
-        total_pages=(
-            ceil(total_rows / pagination_params.limit)
-            if pagination_params.limit is not None
-            else 1
-        ),
+        total_pages=calc_total_pages(total_rows, pagination_params.limit),
         page=pagination_params.page,
         limit=pagination_params.limit,
     )
@@ -66,9 +61,9 @@ async def get_customers_for_user(
 async def get_customer(
     id: int,
     customer_service: Annotated[CustomerService, Depends(get_customer_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
 ) -> SingleObjectResponse[CustomerOut]:
-    data = await customer_service.get(current_user, id)
+    data = await customer_service.get_customer(request_context, id)
     return SingleObjectResponse(data=data)
 
 
@@ -87,9 +82,9 @@ async def get_customer(
 async def create_customer(
     body: CustomerCreate,
     customer_service: Annotated[CustomerService, Depends(get_customer_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
 ) -> SingleObjectResponse[CustomerOut]:
-    data = await customer_service.create(current_user, body)
+    data = await customer_service.create_customer(request_context, body)
     return SingleObjectResponse(data=data)
 
 
@@ -108,9 +103,9 @@ async def update_customer(
     id: int,
     body: CustomerUpdate,
     customer_service: Annotated[CustomerService, Depends(get_customer_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
 ) -> SingleObjectResponse[CustomerOut]:
-    data = await customer_service.update(current_user, id, body)
+    data = await customer_service.update_customer(request_context, id, body)
     return SingleObjectResponse(data=data)
 
 
@@ -128,6 +123,6 @@ async def update_customer(
 async def delete_customer(
     id: int,
     customer_service: Annotated[CustomerService, Depends(get_customer_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
 ) -> None:
-    return await customer_service.delete(current_user, id)
+    return await customer_service.delete_customer(request_context, id)

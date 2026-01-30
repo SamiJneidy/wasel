@@ -10,7 +10,7 @@ class ItemRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get(self, organization_id: int, id: int) -> Optional[Item]:
+    async def get_item(self, organization_id: int, id: int) -> Optional[Item]:
         stmt = (
             select(Item)
             .where(Item.id == id, Item.organization_id == organization_id)
@@ -57,7 +57,7 @@ class ItemRepository:
         items = result.scalars().all()
         return total_rows, items
 
-    async def create(self, organization_id: int, user_id: int, data: Dict[str, Any]) -> Optional[Item]:
+    async def create_item(self, organization_id: int, user_id: int, data: Dict[str, Any]) -> Optional[Item]:
         item = Item(**data)
         item.organization_id = organization_id
         item.created_by = user_id
@@ -66,7 +66,7 @@ class ItemRepository:
         await self.db.refresh(item)
         return item
 
-    async def update(
+    async def update_item(
         self,
         organization_id: int,
         user_id: int,
@@ -83,7 +83,7 @@ class ItemRepository:
         await self.db.flush()
         return result.scalars().first()
 
-    async def delete(self, organization_id: int, id: int) -> None:
+    async def delete_item(self, organization_id: int, id: int) -> None:
         stmt = delete(Item).where(Item.id == id, Item.organization_id == organization_id)
         await self.db.execute(stmt)
         await self.db.flush()

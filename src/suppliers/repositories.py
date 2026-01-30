@@ -10,7 +10,7 @@ class SupplierRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get(self, organization_id: int, id: int) -> Optional[Supplier]:
+    async def get_supplier(self, organization_id: int, id: int) -> Optional[Supplier]:
         stmt = (
             select(Supplier)
             .where(Supplier.id == id, Supplier.organization_id == organization_id)
@@ -57,7 +57,7 @@ class SupplierRepository:
         suppliers = result.scalars().all()
         return total_rows, suppliers
 
-    async def create(self, organization_id: int, user_id: int, data: Dict[str, Any]) -> Optional[Supplier]:
+    async def create_supplier(self, organization_id: int, user_id: int, data: Dict[str, Any]) -> Optional[Supplier]:
         supplier = Supplier(**data)
         supplier.organization_id = organization_id
         supplier.created_by = user_id
@@ -66,7 +66,7 @@ class SupplierRepository:
         await self.db.refresh(supplier)
         return supplier
 
-    async def update(self, organization_id: int, user_id: int, id: int, data: Dict[str, Any]) -> Optional[Supplier]:
+    async def update_supplier(self, organization_id: int, user_id: int, id: int, data: Dict[str, Any]) -> Optional[Supplier]:
         stmt = (
             update(Supplier)
             .where(Supplier.id == id, Supplier.organization_id == organization_id)
@@ -77,7 +77,7 @@ class SupplierRepository:
         await self.db.flush()
         return result.scalars().first()
 
-    async def delete(self, organization_id: int, id: int) -> None:
+    async def delete_supplier(self, organization_id: int, id: int) -> None:
         stmt = delete(Supplier).where(Supplier.id == id, Supplier.organization_id == organization_id)
         await self.db.execute(stmt)
         await self.db.flush()

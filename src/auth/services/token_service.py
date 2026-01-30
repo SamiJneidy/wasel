@@ -18,8 +18,14 @@ class TokenService:
     def decode_token(self, token: str) -> dict:  
         try:
             payload_dict: dict = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-            email = payload_dict.get("sub")
-            if not email:
+            user_id = payload_dict.get("sub")
+            if not user_id:
+                raise InvalidTokenException()
+            try:
+                payload_dict["sub"] = int(payload_dict["sub"])
+                payload_dict["branch_id"] = int(payload_dict["branch_id"])
+                payload_dict["organization_id"] = int(payload_dict["organization_id"])
+            except Exception as e:
                 raise InvalidTokenException()
             return payload_dict
         except jwt.InvalidTokenError:
@@ -52,18 +58,6 @@ class TokenService:
         payload = token.model_dump()
         return self._create_token(payload)
     
-
-    def verify_token(self, token: str) -> str:
-        """Verifies if a token is valid or not and returns the user's email if the token was valid."""   
-        try:
-            payload_dict: dict = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-            email = payload_dict.get("sub")
-            if not email:
-                raise InvalidTokenException()
-            return email
-        except jwt.InvalidTokenError:
-            raise InvalidTokenException()
-
 
     def set_token_cookies(self, response: Response, access_token: str, refresh_token: str) -> None:
         self.set_access_token_cookie(response, access_token)

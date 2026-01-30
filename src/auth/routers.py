@@ -34,7 +34,8 @@ from .dependencies import (
     get_auth_service,
     get_redis,
 )
-from src.core.dependencies.shared import get_current_user, get_current_user_from_sign_up_complete_token, oauth2_scheme
+from src.core.dependencies.auth import get_request_context, get_current_user_from_sign_up_complete_token, oauth2_scheme
+from src.core.schemas.context import RequestContext
 from src.docs.auth import RESPONSES, DOCSTRINGS, SUMMARIES
 
 
@@ -52,17 +53,16 @@ router = APIRouter(
 # ---------------------------------------------------------------------
 @router.get(
     "/me",
-    response_model=SingleObjectResponse[UserOut],
+    response_model=SingleObjectResponse[RequestContext],
     responses=RESPONSES["get_me"],
     summary=SUMMARIES["get_me"],
     description=DOCSTRINGS["get_me"],
 )
 async def get_me(
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
-) -> SingleObjectResponse[UserOut]:
-    data = await auth_service.get_me(current_user.email)
-    return SingleObjectResponse(data=data)
+) -> SingleObjectResponse[RequestContext]:
+    return SingleObjectResponse(data=request_context)
 
 
 # ---------------------------------------------------------------------
@@ -95,11 +95,17 @@ async def sign_up_complete(
     response: Response,
     body: SignUpCompleteRequest,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user_from_sign_up_complete_token)],
+    request_context: Annotated[RequestContext, Depends(get_current_user_from_sign_up_complete_token)],
 ) -> SingleObjectResponse[SignUpCompleteResponse]:
-    data = await auth_service.sign_up_complete(current_user.email, body)
+    data = await auth_service.sign_up_complete(request_context.user.email, body)
     response.delete_cookie("sign_up_complete_token")
-    await auth_service.create_tokens_and_set_cookies(request, response, current_user.email)
+    await auth_service.create_tokens_and_set_cookies(
+        request, 
+        response, 
+        request_context.user.id, 
+        request_context.branch.id, 
+        request_context.organization.id
+    )
     return SingleObjectResponse(data=data)
 
 
@@ -129,7 +135,16 @@ async def login(
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> SingleObjectResponse[LoginResponse]:
     data = await auth_service.login(body)
-    await auth_service.create_tokens_and_set_cookies(request, response, body.email)
+    #########################################
+    # SET CURRENT BRANCH AS THE DEFAULT BRANCH IN THE USERS'S DATA
+    #########################################
+    await auth_service.create_tokens_and_set_cookies(
+        request, 
+        response, 
+        data.user.id,
+        data.user.branch_id,
+        data.user.organization_id
+    )
     return SingleObjectResponse(data=data)
 
 
@@ -163,7 +178,7 @@ async def verify_email_after_signup(
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> SingleObjectResponse[LoginResponse]:
     data = await auth_service.verify_email_after_signup(body)
-    await auth_service.create_sign_up_complete_token_and_set_cookie(request, response, body.email)
+    await auth_service.create_sign_up_complete_token_and_set_cookie(request, response, data.user.id)
     return SingleObjectResponse(data=data)
 
 
@@ -275,5 +290,5 @@ async def swaggerlogin(
         password=login_credentials.password,
     )
     login_response: LoginResponse = await auth_service.login(login_data)
-    access_token, refresh_token = await auth_service.create_tokens_and_set_cookies(request, response, login_data.email)
+    access_token, refresh_token = await auth_service.create_tokens_and_set_cookies(request, response, login_response.user.id)
     return {"access_token": access_token, "token_type": "bearer"}

@@ -77,7 +77,7 @@ class AuthService:
     async def sign_up(self, data: SignUp) -> UserOut:
         """Sign up a new user using email and password. Any extra user fields can be updated from the user service in 'users' package."""
         try:
-            user = await self.user_service.get_by_email(data.email)
+            user = await self.user_service.get_user_by_email(data.email)
             raise UserAlreadyExistsException()
         except UserNotFoundException:
             pass
@@ -103,7 +103,7 @@ class AuthService:
         #     data_dict.update({"organization_unit_name": tin_number})    
         # else:
         #     data_dict.update({"organization_unit_name": data.registration_name})
-        user = await self.user_service.get_by_email(email)
+        user = await self.user_service.get_user_by_email(email)
         organization_create = OrganizationCreate(**data.model_dump())
         organization, branch = await self.organization_service.create_organization_and_main_branch(organization_create)
         super_admin_role_id = await self.authorization_service.create_default_roles(organization.id)
@@ -131,11 +131,11 @@ class AuthService:
             "is_completed": True
         })
         await self.user_service.update_by_email(user.email, data_dict)
-        return await self.user_service.get_by_email(user.email)
+        return await self.user_service.get_user_by_email(user.email)
 
 
     async def login(self, credentials: LoginRequest) -> LoginResponse:
-        db_user = await self.user_service.get_by_email(credentials.email)
+        db_user = await self.user_service.get_user_in_db(credentials.email)
         if db_user.status == UserStatus.DISABLED:
             raise UserDisabledException()
         if db_user.status == UserStatus.BLOCKED:
@@ -151,17 +151,17 @@ class AuthService:
             raise InvalidCredentialsException()
         await self.user_service.reset_invalid_login_attempts(credentials.email)
         await self.user_service.update_last_login(credentials.email, datetime.utcnow())
-        user = await self.user_service.get_user_out(db_user.email)
+        user = await self.user_service.get_user_by_email(db_user.email)
         return LoginResponse(user=user)
 
 
     async def get_me(self, email: str) -> UserOut:
-        return await self.user_service.get_user_out(email)
+        return await self.user_service.get_user_by_email(email)
 
 
     async def request_email_verification_otp(self, data: RequestEmailVerificationOTPRequest) -> RequestEmailVerificationOTPResponse:
         """Creates an OTP code for email verification and sends it to the email. This function will not work for blocked users."""
-        user = await self.user_service.get_by_email(data.email)
+        user = await self.user_service.get_user_by_email(data.email)
         if user.status == UserStatus.BLOCKED:
             raise UserBlockedException()
         if user.status == UserStatus.DISABLED:
@@ -175,7 +175,7 @@ class AuthService:
 
     async def request_password_reset_otp(self, data: RequestPasswordResetOTPRequest) -> RequestPasswordResetOTPResponse:
         """Request an OTP code for password reset."""
-        user = await self.user_service.get_by_email(data.email)
+        user = await self.user_service.get_user_by_email(data.email)
         if user.status == UserStatus.PENDING:
             raise UserNotVerifiedException()
         if user.status == UserStatus.BLOCKED:
@@ -211,7 +211,7 @@ class AuthService:
         await self.verify_email_verification_otp(data)
         await self.user_service.reset_invalid_login_attempts(data.email)
         await self.user_service.update_last_login(data.email, datetime.utcnow())
-        user = await self.user_service.get_by_email(data.email)
+        user = await self.user_service.get_user_by_email(data.email)
         return LoginResponse(user=user)
     
 
@@ -227,47 +227,48 @@ class AuthService:
         return ResetPasswordResponse(email=data.email)
 
 
-    async def create_access_token_and_set_cookie(self, request: Request, response: Response, email: str) -> str:
+    async def create_access_token_and_set_cookie(self, request: Request, response: Response, user_id: int, branch_id: int, organization_id: int) -> str:
         """Creates an access token and sets it in the response cookies. Returns the access token."""
-        user = await self.user_service.get_by_email(email)
-        permissions = await self.authorization_service.get_user_permissions(user, user.id)
-        payload = AccessToken(sub=email, permissions=permissions)
+        user = await self.user_service.get_user(user_id)
+        permissions = await self.authorization_service.get_user_permissions(organization_id, user.id)
+        payload = AccessToken(sub=user_id, permissions=permissions, branch_id=branch_id, organization_id=organization_id)
         access_token = self.token_service.create_access_token(payload)
         self.token_service.set_access_token_cookie(request, response, access_token)
         return access_token
 
 
-    async def create_refresh_token_and_set_cookie(self, request: Request, response: Response, email: str) -> str:
+    async def create_refresh_token_and_set_cookie(self, request: Request, response: Response, user_id: int, branch_id: int, organization_id: int) -> str:
         """Creates a refresh token and sets it in the response cookies. Returns the refresh token."""
-        payload = RefreshToken(sub=email)
+        payload = RefreshToken(sub=user_id, branch_id=branch_id, organization_id=organization_id)
         refresh_token = self.token_service.create_refresh_token(payload)
         self.token_service.set_refresh_token_cookie(request, response, refresh_token)
         return refresh_token
 
 
-    async def create_sign_up_complete_token_and_set_cookie(self, request: Request, response: Response, email: str) -> str:
+    async def create_sign_up_complete_token_and_set_cookie(self, request: Request, response: Response, user_id: int) -> str:
         """Creates a refresh token and sets it in the response cookies. Returns the refresh token."""
-        payload = SignUpCompleteToken(sub=email)
+        payload = SignUpCompleteToken(sub=user_id)
         token = self.token_service.create_sign_up_complete_token(payload)
         self.token_service.set_sign_up_complete_token_cookie(request, response, token)
         return token
 
 
-    async def create_tokens_and_set_cookies(self, request: Request, response: Response, email: str) -> tuple[str, str]:
+    async def create_tokens_and_set_cookies(self, request: Request, response: Response, user_id: int, branch_id: int, organization_id: int) -> tuple[str, str]:
         """Creates access and refresh tokens and sets them in the response cookies. Returns the access and refresh tokens."""
-        access_token = await self.create_access_token_and_set_cookie(request, response, email)
-        refresh_token = await self.create_refresh_token_and_set_cookie(request, response, email)
+        access_token = await self.create_access_token_and_set_cookie(request, response, user_id, branch_id, organization_id)
+        refresh_token = await self.create_refresh_token_and_set_cookie(request, response, user_id, branch_id, organization_id)
         return access_token, refresh_token
 
     
     async def refresh(self, request: Request, response: Response, refresh_token: str) -> None:
         """Refreshes an expired access token using a valid refresh token and returns the new access token."""
-        email = self.token_service.verify_token(refresh_token)
-        await self.create_access_token_and_set_cookie(request, response, email)
+        token_payload: dict = self.token_service.decode_token(refresh_token)
+        user_id, branch_id, organization_id = token_payload["sub"], token_payload["branch_id"], token_payload["organization_id"]
+        await self.create_access_token_and_set_cookie(request, response, user_id, branch_id, organization_id)
 
 
     async def get_user_from_token(self, token: str) -> UserOut:
         """Extracts user from a valid token."""
-        email = self.token_service.verify_token(token)
-        user = await self.user_service.get_by_email(email)
-        return user
+        token_payload: dict = self.token_service.decode_token(token)
+        user_id: int = token_payload["sub"]
+        return await self.user_service.get_user(user_id)

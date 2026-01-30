@@ -13,7 +13,7 @@ from cryptography.x509.oid import NameOID, ObjectIdentifier
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
-from src.users.schemas import UserInDB
+from src.core.schemas.context import RequestContext
 from src.core.utils.json_helper import ToStrEncoder
 from src.core.utils.math_helper import round_decimal
 from .schemas import (
@@ -44,7 +44,6 @@ from .exceptions import (
     ZatcaRequestFailedException,
     ZatcaInvoiceSigningException,
     ZatcaBranchDataNotFoundException,
-    ZatcaRequestFailedException,
 )
 from ..exceptions import IncorrectTaxAuthorityException, InvoiceNotAcceptedException
 from src.items.services import ItemService
@@ -137,7 +136,7 @@ class ZatcaPhase2Service(TaxAuthorityService):
             return "NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ=="
         return pih
 
-    async def _get_new_icv(self, organization_id: int, branch_id: int, stage: ZatcaPhase2Stage) -> str:
+    async def _get_new_icv(self, organization_id: int, branch_id: int, stage: ZatcaPhase2Stage) -> int:
         icv = await self.zatca_repo.get_icv(organization_id, branch_id, stage)
         if icv is None:
             return 1
@@ -234,6 +233,8 @@ class ZatcaPhase2Service(TaxAuthorityService):
             branch_tax_authority_data.branch_id, 
             ZatcaPhase2Stage.COMPLIANCE
         )
+        if not compliance_csid:
+            raise ZatcaCSIDNotIssuedException("Compliance CSID not found. Need to have Compliance CSID in order to issue production one.")
         zatca_csid = await self._send_production_csid_request(
             compliance_csid.request_id, 
             compliance_csid.binary_security_token, 
@@ -308,6 +309,7 @@ class ZatcaPhase2Service(TaxAuthorityService):
         else:
             zatca_status = InvoiceTaxAuthorityStatus.REJECTED
         try:
+            response_json = {}
             response_json: dict = response.json()
         except Exception:
             zatca_status = InvoiceTaxAuthorityStatus.NOT_SENT
@@ -338,6 +340,7 @@ class ZatcaPhase2Service(TaxAuthorityService):
         try:
             response_json: dict = response.json()
         except Exception:
+            response_json = {}
             zatca_status = InvoiceTaxAuthorityStatus.NOT_SENT
         return ZatcaPhase2InvoiceResponse(
             tax_authority=TaxAuthority.ZATCA_PHASE2,
@@ -346,7 +349,7 @@ class ZatcaPhase2Service(TaxAuthorityService):
             response=response_json
         )
 
-    async def _prepare_invoice_for_signing(self, user: UserInDB, branch_tax_authority_data: ZatcaPhase2BranchDataInDB, invoice: SaleInvoiceOut) -> dict[str, str]:
+    async def _prepare_invoice_for_signing(self, ctx: RequestContext, branch_tax_authority_data: ZatcaPhase2BranchDataInDB, invoice: SaleInvoiceOut) -> dict[str, str]:
         """Create a dictionary representing the invoice and transform all numeric values into strings."""
         invoice_lines = invoice.invoice_lines
         invoice_dict = invoice.model_dump(exclude_none=True, exclude_unset=True)
@@ -373,7 +376,7 @@ class ZatcaPhase2Service(TaxAuthorityService):
 
         # Invoice can have document level discount amount only if all lines have the same VAT category
         if invoice.discount_amount > 0:
-            line_tax_authority_data = await self.get_line_tax_authority_data(user, invoice_lines[0].id)
+            line_tax_authority_data = await self.get_line_tax_authority_data(ctx, invoice_lines[0].id)
             tax_exemption_reason_code = line_tax_authority_data.tax_exemption_reason_code if line_tax_authority_data else None
             tax_exemption_reason = line_tax_authority_data.tax_exemption_reason if line_tax_authority_data else None
             has_total_discount = True
@@ -386,14 +389,14 @@ class ZatcaPhase2Service(TaxAuthorityService):
         else:
             has_total_discount = False
             for line in invoice_lines:
-                line_tax_authority_data = await self.get_line_tax_authority_data(user, line.id)
+                line_tax_authority_data = await self.get_line_tax_authority_data(ctx, line.id)
                 tax_exemption_reason_code = line_tax_authority_data.tax_exemption_reason_code if line_tax_authority_data else None
                 tax_exemption_reason = line_tax_authority_data.tax_exemption_reason if line_tax_authority_data else None
                 tax_category = line.classified_tax_category
                 tax_categories[tax_category]['taxable_amount'] += line.line_extension_amount
                 tax_categories[tax_category]['tax_amount'] += line.tax_amount
                 tax_categories[tax_category]['tax_exemption_reason_code'] = tax_exemption_reason_code
-                tax_categories[tax_category]['tax_exemption_reason'] = tax_exemption_reason_code
+                tax_categories[tax_category]['tax_exemption_reason'] = tax_exemption_reason
                 tax_categories[tax_category]['used'] = True
         tax_categories = {k: v for k, v in tax_categories.items() if v['used'] == True}
 
@@ -404,7 +407,7 @@ class ZatcaPhase2Service(TaxAuthorityService):
         })
         return self._convert_dict_to_str(invoice_dict)
 
-    async def _send_compliance_invoices(self, user: UserInDB, invoicing_type: InvoicingType) -> None:
+    async def _send_compliance_invoices(self, ctx: RequestContext, invoicing_type: InvoicingType) -> None:
         invoice_types = []
         if invoicing_type == InvoicingType.STANDARD:
             invoice_types = [InvoiceType.STANDARD]
@@ -417,8 +420,8 @@ class ZatcaPhase2Service(TaxAuthorityService):
         last_invoice_number = ""
         pih = "NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ=="
         icv = 1
-        branch_tax_authority_data = await self._get_branch_tax_authority_data_by_stage(user, user.branch_id, ZatcaPhase2Stage.COMPLIANCE)
-        csid = await self._get_csid(user.organization_id, user.branch_id, ZatcaPhase2Stage.COMPLIANCE)
+        branch_tax_authority_data = await self._get_branch_tax_authority_data_by_stage(ctx, ctx.branch.id, ZatcaPhase2Stage.COMPLIANCE)
+        csid = await self._get_csid(ctx.organization.id, ctx.branch.id, ZatcaPhase2Stage.COMPLIANCE)
         for type in invoice_types:
             for code in invoice_type_codes:
                 invoice_data = invoice_data_template.copy()
@@ -451,8 +454,8 @@ class ZatcaPhase2Service(TaxAuthorityService):
                     last_invoice_number = invoice_data["invoice_number"]
         return None
         
-    async def create_branch_tax_authority_data(self, user: UserInDB, branch_id: int, data: ZatcaPhase2BranchDataCreate) -> ZatcaPhase2BranchDataInDB:
-        if user.organization.tax_authority != TaxAuthority.ZATCA_PHASE2:
+    async def create_branch_tax_authority_data(self, ctx: RequestContext, branch_id: int, data: ZatcaPhase2BranchDataCreate) -> ZatcaPhase2BranchDataInDB:
+        if ctx.organization.tax_authority != TaxAuthority.ZATCA_PHASE2:
             raise IncorrectTaxAuthorityException()
         
         payload = data.model_dump()
@@ -461,15 +464,15 @@ class ZatcaPhase2Service(TaxAuthorityService):
             "stage": ZatcaPhase2Stage.COMPLIANCE,
             "pih": "NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ==",
         })
-        branch_tax_authority_data = await self.zatca_repo.create_branch_tax_authority_data(user.id, user.organization_id, branch_id, payload)
+        branch_tax_authority_data = await self.zatca_repo.create_branch_tax_authority_data(ctx.id, ctx.organization.id, branch_id, payload)
         return ZatcaPhase2BranchDataInDB.model_validate(branch_tax_authority_data)   
     
-    async def complete_branch_tax_authority_data(self, user: UserInDB, branch_id: int, data: ZatcaPhase2BranchDataComplete) -> ZatcaPhase2BranchDataInDB:
-        if user.organization.tax_authority != TaxAuthority.ZATCA_PHASE2:
+    async def complete_branch_tax_authority_data(self, ctx: RequestContext, branch_id: int, data: ZatcaPhase2BranchDataComplete) -> ZatcaPhase2BranchDataInDB:
+        if ctx.organization.tax_authority != TaxAuthority.ZATCA_PHASE2:
             raise IncorrectTaxAuthorityException()
-        branch_tax_authority_data = await self._get_branch_tax_authority_data_by_stage(user, branch_id, ZatcaPhase2Stage.COMPLIANCE)
+        branch_tax_authority_data = await self._get_branch_tax_authority_data_by_stage(ctx, branch_id, ZatcaPhase2Stage.COMPLIANCE)
         await self._generate_compliance_csid(branch_tax_authority_data, data.otp)
-        await self._send_compliance_invoices(user, branch_tax_authority_data.invoicing_type)
+        await self._send_compliance_invoices(ctx, branch_tax_authority_data.invoicing_type)
         await self._generate_production_csid(branch_tax_authority_data)
         payload = ZatcaPhase2BranchDataCreate.model_validate(branch_tax_authority_data).model_dump()
         payload.update({
@@ -477,17 +480,17 @@ class ZatcaPhase2Service(TaxAuthorityService):
             "pih": "NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ==",
             "stage": ZatcaPhase2Stage.PRODUCTION,
         })
-        branch_tax_authority_data = await self.zatca_repo.create_branch_tax_authority_data(user.id, user.organization_id, branch_id, payload)
+        branch_tax_authority_data = await self.zatca_repo.create_branch_tax_authority_data(ctx.user.id, ctx.organization.id, branch_id, payload)
         return ZatcaPhase2BranchDataInDB.model_validate(branch_tax_authority_data)   
     
-    async def _get_branch_tax_authority_data_by_stage(self, user: UserInDB, branch_id: int, stage: ZatcaPhase2Stage) -> Optional[ZatcaPhase2BranchDataInDB]:
+    async def _get_branch_tax_authority_data_by_stage(self, ctx: RequestContext, branch_id: int, stage: ZatcaPhase2Stage) -> Optional[ZatcaPhase2BranchDataInDB]:
         tax_authority_data = await self.zatca_repo.get_branch_tax_authority_data_by_branch(branch_id, stage)
         if tax_authority_data is None:
             return None
             # raise ZatcaBranchDataNotFoundException()
         return ZatcaPhase2BranchDataInDB.model_validate(tax_authority_data)
 
-    async def get_branch_tax_authority_data(self, user: UserInDB, branch_id: int, tax_integration_status: BranchTaxIntegrationStatus) -> Optional[ZatcaPhase2BranchDataInDB]:
+    async def get_branch_tax_authority_data(self, ctx: RequestContext, branch_id: int, tax_integration_status: BranchTaxIntegrationStatus) -> Optional[ZatcaPhase2BranchDataInDB]:
         if tax_integration_status == BranchTaxIntegrationStatus.COMPLETED:
             tax_authority_data = await self.zatca_repo.get_branch_tax_authority_data_by_branch(branch_id, ZatcaPhase2Stage.PRODUCTION)
         else:
@@ -496,46 +499,46 @@ class ZatcaPhase2Service(TaxAuthorityService):
             return None
         return ZatcaPhase2BranchDataInDB.model_validate(tax_authority_data)
 
-    async def create_invoice_tax_authority_data(self, user: UserInDB, invoice_id: int, data: ZatcaPhase2InvoiceDataOut) -> ZatcaPhase2InvoiceDataOut:
+    async def create_invoice_tax_authority_data(self, ctx: RequestContext, invoice_id: int, data: ZatcaPhase2InvoiceDataOut) -> ZatcaPhase2InvoiceDataOut:
         tax_authority_data = await self.zatca_repo.create_invoice_tax_authority_data(invoice_id, data.model_dump())
         return ZatcaPhase2InvoiceDataOut.model_validate(tax_authority_data)
 
-    async def create_line_tax_authority_data(self, user: UserInDB, invoice_id: int, invoice_line_id: int, data: ZatcaPhase2InvoiceLineDataCreate) -> ZatcaPhase2InvoiceLineDataOut:
+    async def create_line_tax_authority_data(self, ctx: RequestContext, invoice_id: int, invoice_line_id: int, data: ZatcaPhase2InvoiceLineDataCreate) -> ZatcaPhase2InvoiceLineDataOut:
         tax_authority_data = await self.zatca_repo.create_line_tax_authority_data(invoice_id, invoice_line_id, data.model_dump())
         return ZatcaPhase2InvoiceLineDataOut.model_validate(tax_authority_data)
     
-    async def get_invoice_tax_authority_data(self, user: UserInDB, invoice_id: int) -> Optional[ZatcaPhase2InvoiceDataOut]:
+    async def get_invoice_tax_authority_data(self, ctx: RequestContext, invoice_id: int) -> Optional[ZatcaPhase2InvoiceDataOut]:
         tax_authority_data = await self.zatca_repo.get_invoice_tax_authority_data(invoice_id)
         if tax_authority_data is None:
             return None
         return ZatcaPhase2InvoiceDataOut.model_validate(tax_authority_data)
 
-    async def get_line_tax_authority_data(self, user: UserInDB, invoice_line_id: int) -> Optional[ZatcaPhase2InvoiceLineDataOut]:
+    async def get_line_tax_authority_data(self, ctx: RequestContext, invoice_line_id: int) -> Optional[ZatcaPhase2InvoiceLineDataOut]:
         tax_authority_data = await self.zatca_repo.get_line_tax_authority_data(invoice_line_id)
         if tax_authority_data is None:
             return None
         return ZatcaPhase2InvoiceLineDataOut.model_validate(tax_authority_data)
     
-    async def delete_invoice_tax_authority_data(self, user: UserInDB, invoice_id: int) -> None:
+    async def delete_invoice_tax_authority_data(self, ctx: RequestContext, invoice_id: int) -> None:
         await self.zatca_repo.delete_invoice_tax_authority_data(invoice_id)
         return None
     
-    async def delete_lines_tax_authority_data(self, user: UserInDB, invoice_id: int) -> None:
+    async def delete_lines_tax_authority_data(self, ctx: RequestContext, invoice_id: int) -> None:
         await self.zatca_repo.delete_lines_tax_authority_data(invoice_id)
         return None
         
-    async def sign_and_submit_invoice(self, user: UserInDB, invoice: SaleInvoiceOut, metadata: dict = {}) -> ZatcaPhase2InvoiceDataOut:
+    async def sign_and_submit_invoice(self, ctx: RequestContext, invoice: SaleInvoiceOut, metadata: dict = {}) -> ZatcaPhase2InvoiceDataOut:
         """Signs the invoice and send it to the relevant tax authority."""
 
-        if user.branch.tax_integration_status == BranchTaxIntegrationStatus.COMPLETED:
-            branch_tax_authority_data = await self._get_branch_tax_authority_data_by_stage(user, user.branch_id, ZatcaPhase2Stage.PRODUCTION)
+        if ctx.branch.tax_integration_status == BranchTaxIntegrationStatus.COMPLETED:
+            branch_tax_authority_data = await self._get_branch_tax_authority_data_by_stage(ctx, ctx.branch.id, ZatcaPhase2Stage.PRODUCTION)
         else:
-            branch_tax_authority_data = await self._get_branch_tax_authority_data_by_stage(user, user.branch_id, ZatcaPhase2Stage.COMPLIANCE)
+            branch_tax_authority_data = await self._get_branch_tax_authority_data_by_stage(ctx, ctx.branch.id, ZatcaPhase2Stage.COMPLIANCE)
          
         if branch_tax_authority_data is None:
             raise ZatcaBranchDataNotFoundException()
-        csid = await self._get_csid(user.organization_id, user.branch_id, branch_tax_authority_data.stage)
-        invoice_data = await self._prepare_invoice_for_signing(user, branch_tax_authority_data, invoice)
+        csid = await self._get_csid(ctx.organization.id, ctx.branch.id, branch_tax_authority_data.stage)
+        invoice_data = await self._prepare_invoice_for_signing(ctx, branch_tax_authority_data, invoice)
         try:
             invoice_request = invoice_helper.sign_and_get_request(invoice_data, csid.private_key, csid.certificate)
         except Exception as e:
@@ -560,7 +563,7 @@ class ZatcaPhase2Service(TaxAuthorityService):
             invoice_hash = invoice_request["invoiceHash"],
             stage = branch_tax_authority_data.stage,
         )
-        tax_authority_data = await self.create_invoice_tax_authority_data(user, invoice_id=invoice.id, data=tax_authority_data)
+        tax_authority_data = await self.create_invoice_tax_authority_data(ctx, invoice_id=invoice.id, data=tax_authority_data)
         await self.zatca_repo.update_pih_and_icv(branch_tax_authority_data.branch_id, invoice_request["invoiceHash"])
         return tax_authority_data
 
@@ -570,7 +573,7 @@ class ZatcaPhase2Service(TaxAuthorityService):
 
 
 
-    # async def _send_compliance_invoices(self, user: UserInDB, invoicing_type: InvoicingType) -> None:
+    # async def _send_compliance_invoices(self, ctx: RequestContext, invoicing_type: InvoicingType) -> None:
     #     invoice_types = []
     #     if invoicing_type == InvoicingType.STANDARD:
     #         invoice_types = [InvoiceType.STANDARD]
@@ -581,13 +584,13 @@ class ZatcaPhase2Service(TaxAuthorityService):
      
     #     invoice_type_codes = [InvoiceTypeCode.INVOICE, InvoiceTypeCode.CREDIT_NOTE, InvoiceTypeCode.DEBIT_NOTE]
         
-    #     items_count, items = await self.item_service.item_repo.get_items(user.organization_id)
+    #     items_count, items = await self.item_service.item_repo.get_items(ctx.organization.id)
     #     if len(items) == 0:
     #         raise NoItemFoundException()
     #     item_id = items[0].id
         
     #     if InvoiceType.STANDARD in invoice_types:
-    #         customers_count, customers = await self.customer_service.customer_repo.get_customers(user.organization_id)
+    #         customers_count, customers = await self.customer_service.customer_repo.get_customers(ctx.organization.id)
     #         if len(customers) == 0:
     #             raise NoCustomerFoundException()
     #         customer_id = customers[0].id

@@ -1,19 +1,18 @@
-from math import ceil
-
 from fastapi import APIRouter, status
 
-from src.core.dependencies.shared import get_current_user
+from src.core.dependencies.auth import get_request_context
+from src.core.utils.math_helper import calc_total_pages
 from src.core.schemas import (
     PaginatedResponse,
     PagintationParams,
     SingleObjectResponse,
 )
 # from src.docs.points_of_sale import DOCSTRINGS, RESPONSES, SUMMARIES
-from src.users.schemas import UserInDB
 
 from .dependencies import Annotated, Depends, get_point_of_sale_service
 from .schemas import PointOfSaleCreate, PointOfSaleFilters, PointOfSaleOut, PointOfSaleUpdate
 from .services import PointOfSaleService
+from src.core.schemas.context import RequestContext
 
 router = APIRouter(
     prefix="/points-of-sale",
@@ -34,23 +33,15 @@ router = APIRouter(
 )
 async def get_points_of_sale(
     point_of_sale_service: Annotated[PointOfSaleService, Depends(get_point_of_sale_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
     pagination_params: PagintationParams = Depends(),
     filters: PointOfSaleFilters = Depends(),
 ) -> PaginatedResponse[PointOfSaleOut]:
-    total_rows, data = await point_of_sale_service.get_points_of_sale(
-        current_user,
-        pagination_params,
-        filters,
-    )
+    total_rows, data = await point_of_sale_service.get_points_of_sale(request_context, pagination_params, filters)
     return PaginatedResponse(
         data=data,
         total_rows=total_rows,
-        total_pages=(
-            ceil(total_rows / pagination_params.limit)
-            if pagination_params.limit is not None
-            else 1
-        ),
+        total_pages=calc_total_pages(total_rows, pagination_params.limit),
         page=pagination_params.page,
         limit=pagination_params.limit,
     )
@@ -66,9 +57,9 @@ async def get_points_of_sale(
 async def get_point_of_sale(
     id: int,
     point_of_sale_service: Annotated[PointOfSaleService, Depends(get_point_of_sale_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
 ) -> SingleObjectResponse[PointOfSaleOut]:
-    data = await point_of_sale_service.get(current_user, id)
+    data = await point_of_sale_service.get_point_of_sale(request_context, id)
     return SingleObjectResponse(data=data)
 
 
@@ -87,9 +78,9 @@ async def get_point_of_sale(
 async def create_point_of_sale(
     body: PointOfSaleCreate,
     point_of_sale_service: Annotated[PointOfSaleService, Depends(get_point_of_sale_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
 ) -> SingleObjectResponse[PointOfSaleOut]:
-    data = await point_of_sale_service.create(current_user, body)
+    data = await point_of_sale_service.create_point_of_sale(request_context, body)
     return SingleObjectResponse(data=data)
 
 
@@ -108,9 +99,9 @@ async def update_point_of_sale(
     id: int,
     body: PointOfSaleUpdate,
     point_of_sale_service: Annotated[PointOfSaleService, Depends(get_point_of_sale_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
 ) -> SingleObjectResponse[PointOfSaleOut]:
-    data = await point_of_sale_service.update(current_user, id, body)
+    data = await point_of_sale_service.update_point_of_sale(request_context, id, body)
     return SingleObjectResponse(data=data)
 
 
@@ -128,6 +119,6 @@ async def update_point_of_sale(
 async def delete_point_of_sale(
     id: int,
     point_of_sale_service: Annotated[PointOfSaleService, Depends(get_point_of_sale_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
 ) -> None:
-    return await point_of_sale_service.delete(current_user, id)
+    return await point_of_sale_service.delete_point_of_sale(request_context, id)

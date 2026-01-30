@@ -26,6 +26,7 @@ from src.core.config import settings
 from src.core.enums import UserStatus, UserType
 from src.authorization.services import AuthorizationService
 from src.authorization.schemas import UserPermissionCreate
+from src.core.schemas.context import RequestContext
 
 class UserService:
     def __init__(
@@ -47,7 +48,7 @@ class UserService:
         if not db_user:
             raise UserNotFoundException()
         user_in_db = UserInDB.model_validate(db_user)
-        permissions = await self.authorization_service.get_user_permissions(user_in_db, user_in_db.id)
+        permissions = await self.authorization_service.get_user_permissions(user_in_db.organization_id, user_in_db.id)
         user_in_db.permissions = permissions
         return UserInDB.model_validate(user_in_db)
 
@@ -56,29 +57,25 @@ class UserService:
         if not db_user:
             raise UserNotFoundException()
         user_in_db = UserInDB.model_validate(db_user)
-        permissions = await self.authorization_service.get_user_permissions(user_in_db, user_in_db.id)
+        permissions = await self.authorization_service.get_user_permissions(user_in_db.organization_id, user_in_db.id)
         user_in_db.permissions = permissions
         return UserInDB.model_validate(user_in_db)
 
-    async def get(self, id: int) -> UserInDB:
-        return await self._get_or_raise_by_id(id)
-
-    async def get_user_out(self, email: str) -> UserOut:
+    async def get_user_in_db(self, email: str) -> UserInDB:
         user = await self._get_or_raise_by_email(email)
-        user_out = UserOut.model_validate(user)
-        try:
-            user_org = await self.organization_service.get_organization(user.organization_id)
-        except OrganizationNotFoundException:
-            user_org = None
-        user_out.organization = user_org
-        return user_out
+        return UserInDB.model_validate(user)
 
-    async def get_by_email(self, email: str) -> UserInDB:
-        return await self._get_or_raise_by_email(email)
+    async def get_user(self, id: int) -> UserOut:
+        user = await self._get_or_raise_by_id(id)
+        return UserOut.model_validate(user)
+    
+    async def get_user_by_email(self, email: str) -> UserOut:
+        user = await self._get_or_raise_by_email(email)
+        return UserOut.model_validate(user)
 
-    async def get_users_by_org_id(self, org_id: int, pagination_params: PagintationParams, filters: UserFilters) -> tuple[int, list[UserOut]]:
+    async def get_users(self, ctx: RequestContext, pagination_params: PagintationParams, filters: UserFilters) -> tuple[int, list[UserOut]]:
         total, query_set = await self.user_repo.get_users_by_org(
-            org_id,
+            ctx.organization.id,
             pagination_params.skip,
             pagination_params.limit,
             filters.model_dump(exclude_none=True),
@@ -99,34 +96,34 @@ class UserService:
             raise UserNotFoundException()
         return UserInDB.model_validate(db_user)
 
-    async def invite_user(self, user: UserInDB, host_url: str, invite: UserInvite) -> UserInDB:
+    async def invite_user(self, ctx: RequestContext, host_url: str, invite: UserInvite) -> UserInDB:
         if await self.user_repo.get_by_email(invite.email):
             raise UserAlreadyExistsException()
         # Validate role
-        role = await self.authorization_service.get_role(user, invite.role_id)
+        role = await self.authorization_service.get_role(ctx, invite.role_id)
         if role.name == "SUPER_ADMIN":
             raise InvitationNotAllowedException(detail="Cannot invite user with SUPER_ADMIN role.")
         create_payload = {
             **invite.model_dump(exclude={"permissions"}, exclude_none=True),
-            "organization_id": user.organization_id,
+            "organization_id": ctx.organization.id,
             "type": UserType.CLIENT,
             "status": UserStatus.PENDING,
             "is_completed": False,
         }
         created_user = await self.user_repo.create(create_payload)
         permissions = UserPermissionCreate(permissions=role.permissions)
-        await self.authorization_service.create_user_permissions(user, created_user.id, permissions)
-        await self.send_invitation(user, invite.email, host_url)
-        return await self.get_by_email(created_user.email)
+        await self.authorization_service.create_user_permissions(ctx, created_user.id, permissions)
+        await self.send_invitation(ctx.user, invite.email, host_url)
+        return await self.get_user_by_email(created_user.email)
 
-    async def send_invitation(self, inviter: UserInDB, email: str, host_url: str) -> None:
-        user = await self.get_by_email(email)
+    async def send_invitation(self, inviter: UserOut, email: str, host_url: str) -> None:
+        user = await self.get_user_by_email(email)
         if user.is_completed or user.status != UserStatus.PENDING:
             raise InvitationNotAllowedException()
         payload = UserInviteToken(
             sub=email,
             invited_by=inviter.id,
-            organization_id=inviter.organization_id,
+            organization_id=inviter.organization.id,
         )
         token = self.token_service.create_user_invitation_token(payload)
         if not host_url.endswith("/"):

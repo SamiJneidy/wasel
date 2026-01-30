@@ -5,7 +5,7 @@ from fastapi import APIRouter, status, Depends
 from src.tax_authorities.schemas import BranchTaxAuthorityDataComplete, BranchTaxAuthorityDataCreate
 
 from .services import BranchService
-from src.users.schemas import UserInDB
+from src.core.schemas.context import RequestContext
 from .schemas import (
     BranchCreate,
     BranchUpdate,
@@ -13,8 +13,9 @@ from .schemas import (
     ObjectListResponse,
     SingleObjectResponse,
 )
-from .dependencies import get_branch_service
-from src.core.dependencies.shared import get_current_user, require_permission
+from .dependencies.services import get_branch_service
+from src.core.dependencies.auth import get_request_context
+from src.core.dependencies.authorization import require_permission
 from src.docs.branches import RESPONSES, DOCSTRINGS, SUMMARIES
 router = APIRouter(
     prefix="/branches",
@@ -34,10 +35,10 @@ router = APIRouter(
 )
 async def get_branches_for_organization(
     branch_service: Annotated[BranchService, Depends(get_branch_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
     permission = Depends(require_permission("branches", "read")),
 ) -> ObjectListResponse[BranchOutWithTaxAuthority]:
-    data = await branch_service.get_branches_for_organization(current_user)
+    data = await branch_service.get_branches(request_context)
     return ObjectListResponse(data=data)
 
 
@@ -53,10 +54,10 @@ async def get_branches_for_organization(
 async def get_branch(
     id: int,
     branch_service: Annotated[BranchService, Depends(get_branch_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
     permission = Depends(require_permission("branches", "read")),
 ) -> SingleObjectResponse[BranchOutWithTaxAuthority]:
-    data = await branch_service.get_branch(current_user, id)
+    data = await branch_service.get_branch(request_context, id)
     return SingleObjectResponse(data=data)
 
 
@@ -74,10 +75,10 @@ async def get_branch(
 async def create_branch(
     body: BranchCreate,
     branch_service: Annotated[BranchService, Depends(get_branch_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
     permission = Depends(require_permission("branches", "create")),
 ) -> SingleObjectResponse[BranchOutWithTaxAuthority]:
-    data = await branch_service.create_branch(current_user, body)
+    data = await branch_service.create_branch(request_context, body)
     return SingleObjectResponse(data=data)
 
 
@@ -95,9 +96,9 @@ async def create_branch_tax_authority_data(
     branch_id: int,
     body: BranchTaxAuthorityDataCreate,
     branch_service: Annotated[BranchService, Depends(get_branch_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
 ) -> SingleObjectResponse[BranchOutWithTaxAuthority]:
-    data = await branch_service.create_branch_tax_authority_data(current_user, branch_id, body)
+    data = await branch_service.create_branch_tax_authority_data(request_context, branch_id, body)
     return SingleObjectResponse(data=data)
 
 
@@ -115,9 +116,9 @@ async def complete_branch_tax_authority_data(
     branch_id: int,
     body: BranchTaxAuthorityDataComplete,
     branch_service: Annotated[BranchService, Depends(get_branch_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
 ) -> SingleObjectResponse[BranchOutWithTaxAuthority]:
-    data = await branch_service.complete_branch_tax_authority_data(current_user, branch_id, body)
+    data = await branch_service.complete_branch_tax_authority_data(request_context, branch_id, body)
     return SingleObjectResponse(data=data)
 
 
@@ -135,10 +136,10 @@ async def update_branch(
     id: int,
     body: BranchUpdate,
     branch_service: Annotated[BranchService, Depends(get_branch_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
     permission = Depends(require_permission("branches", "update")),
 ) -> SingleObjectResponse[BranchOutWithTaxAuthority]:
-    data = await branch_service.update_branch(current_user, id, body)
+    data = await branch_service.update_branch(request_context, id, body)
     return SingleObjectResponse(data=data)
 
 
@@ -155,8 +156,8 @@ async def update_branch(
 async def delete_branch(
     id: int,
     branch_service: Annotated[BranchService, Depends(get_branch_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
     permission = Depends(require_permission("branches", "delete")),
 ) -> None:
-    await branch_service.delete_branch(current_user, id)
+    await branch_service.delete_branch(request_context, id)
     return None

@@ -1,14 +1,13 @@
-from math import ceil
-
 from fastapi import APIRouter, status
 
-from src.core.dependencies.shared import get_current_user
+from src.core.utils.math_helper import calc_total_pages
+from src.core.dependencies.auth import get_request_context
 from src.core.schemas import (
     PaginatedResponse,
     PagintationParams,
     SingleObjectResponse,
 )
-from src.users.schemas import UserInDB
+from src.core.schemas.context import RequestContext
 from src.docs.invoices import RESPONSES, DOCSTRINGS, SUMMARIES
 
 from .dependencies import Annotated, Depends, get_invoice_service
@@ -37,23 +36,19 @@ router = APIRouter(
 )
 async def get_invoices(
     invoice_service: Annotated[BuyInvoiceService, Depends(get_invoice_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
     pagination: PagintationParams = Depends(),
     filters: BuyInvoiceFilters = Depends(),
 ) -> PaginatedResponse[BuyInvoiceOut]:
     total_rows, data = await invoice_service.get_invoices(
-        current_user,
+        request_context,
         pagination,
         filters,
     )
     return PaginatedResponse(
         data=data,
         total_rows=total_rows,
-        total_pages=(
-            ceil(total_rows / pagination.limit)
-            if pagination.limit is not None
-            else 1
-        ),
+        total_pages=calc_total_pages(total_rows, pagination.limit),
         page=pagination.page,
         limit=pagination.limit,
     )
@@ -69,9 +64,9 @@ async def get_invoices(
 async def get_invoice(
     id: int,
     invoice_service: Annotated[BuyInvoiceService, Depends(get_invoice_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
 ) -> SingleObjectResponse[BuyInvoiceOut]:
-    data = await invoice_service.get_invoice(current_user, id)
+    data = await invoice_service.get_invoice(request_context, id)
     return SingleObjectResponse(data=data)
 
 
@@ -89,9 +84,9 @@ async def get_invoice(
 async def create_invoice(
     body: BuyInvoiceCreate,
     invoice_service: Annotated[BuyInvoiceService, Depends(get_invoice_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
 ) -> SingleObjectResponse[BuyInvoiceOut]:
-    data = await invoice_service.create_buy_invoice(current_user, body)
+    data = await invoice_service.create_buy_invoice(request_context, body)
     return SingleObjectResponse(data=data)
 
 
@@ -110,9 +105,9 @@ async def update_invoice(
     id: int,
     body: BuyInvoiceUpdate,
     invoice_service: Annotated[BuyInvoiceService, Depends(get_invoice_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
 ) -> SingleObjectResponse[BuyInvoiceOut]:
-    data = await invoice_service.update_invoice(current_user, id, body)
+    data = await invoice_service.update_invoice(request_context, id, body)
     return SingleObjectResponse(data=data)
 
 
@@ -126,6 +121,6 @@ async def update_invoice(
 async def delete_invoice(
     id: int,
     invoice_service: Annotated[BuyInvoiceService, Depends(get_invoice_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
 ) -> None:
-    await invoice_service.delete_invoice(current_user, id)
+    await invoice_service.delete_invoice(request_context, id)

@@ -2,14 +2,14 @@ from math import ceil
 
 from fastapi import APIRouter, status
 
-from src.core.dependencies.shared import get_current_user
+from src.core.dependencies.auth import get_request_context
 from src.core.schemas import (
     PaginatedResponse,
     PagintationParams,
     SingleObjectResponse,
 )
 # from src.docs.projects import DOCSTRINGS, RESPONSES, SUMMARIES
-from src.users.schemas import UserInDB
+from src.core.schemas.context import RequestContext
 
 from .dependencies import Annotated, Depends, get_project_service
 from .schemas import ProjectCreate, ProjectFilters, ProjectOut, ProjectUpdate
@@ -34,12 +34,12 @@ router = APIRouter(
 )
 async def get_projects(
     project_service: Annotated[ProjectService, Depends(get_project_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
     pagination_params: PagintationParams = Depends(),
     filters: ProjectFilters = Depends(),
 ) -> PaginatedResponse[ProjectOut]:
     total_rows, data = await project_service.get_projects(
-        current_user,
+        request_context,
         pagination_params,
         filters,
     )
@@ -66,9 +66,9 @@ async def get_projects(
 async def get_project(
     id: int,
     project_service: Annotated[ProjectService, Depends(get_project_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
 ) -> SingleObjectResponse[ProjectOut]:
-    data = await project_service.get(current_user, id)
+    data = await project_service.get_project(request_context, id)
     return SingleObjectResponse(data=data)
 
 
@@ -87,9 +87,9 @@ async def get_project(
 async def create_project(
     body: ProjectCreate,
     project_service: Annotated[ProjectService, Depends(get_project_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
 ) -> SingleObjectResponse[ProjectOut]:
-    data = await project_service.create(current_user, body)
+    data = await project_service.create_project(request_context, body)
     return SingleObjectResponse(data=data)
 
 
@@ -108,9 +108,9 @@ async def update_project(
     id: int,
     body: ProjectUpdate,
     project_service: Annotated[ProjectService, Depends(get_project_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
 ) -> SingleObjectResponse[ProjectOut]:
-    data = await project_service.update(current_user, id, body)
+    data = await project_service.update_project(request_context, id, body)
     return SingleObjectResponse(data=data)
 
 
@@ -128,6 +128,6 @@ async def update_project(
 async def delete_project(
     id: int,
     project_service: Annotated[ProjectService, Depends(get_project_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
 ) -> None:
-    return await project_service.delete(current_user, id)
+    return await project_service.delete_project(request_context, id)

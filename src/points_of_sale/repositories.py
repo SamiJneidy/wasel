@@ -10,7 +10,7 @@ class PointOfSaleRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get(self, organization_id: int, branch_id: int, id: int) -> Optional[PointOfSale]:
+    async def get_point_of_sale(self, organization_id: int, branch_id: int, id: int) -> Optional[PointOfSale]:
         stmt = (
             select(PointOfSale)
             .where(
@@ -68,7 +68,7 @@ class PointOfSaleRepository:
         points_of_sale = result.scalars().all()
         return total_rows, points_of_sale
 
-    async def create(self, organization_id: int, branch_id: int, user_id: int, data: Dict[str, Any]) -> Optional[PointOfSale]:
+    async def create_point_of_sale(self, organization_id: int, branch_id: int, user_id: int, data: Dict[str, Any]) -> Optional[PointOfSale]:
         item = PointOfSale(**data)
         item.organization_id = organization_id
         item.branch_id = branch_id
@@ -78,7 +78,7 @@ class PointOfSaleRepository:
         await self.db.refresh(item)
         return item
 
-    async def update(
+    async def update_point_of_sale(
         self,
         organization_id: int,
         branch_id: int,
@@ -100,7 +100,7 @@ class PointOfSaleRepository:
         await self.db.flush()
         return result.scalars().first()
 
-    async def delete(self, organization_id: int, branch_id: int, id: int) -> None:
+    async def delete_point_of_sale(self, organization_id: int, branch_id: int, id: int) -> None:
         stmt = delete(PointOfSale).where(
             PointOfSale.id == id,
             PointOfSale.organization_id == organization_id,

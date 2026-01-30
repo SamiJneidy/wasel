@@ -51,8 +51,8 @@ class UserUpdate(BaseModel):
 
 class UserOut(UserBase):
     id: int
-    organization: Optional[OrganizationOut] = None
-    branch: Optional[BranchOut] = None
+    organization_id: Optional[int] = None
+    branch_id: Optional[int] = None
     role: Optional[RoleOut] = None
     permissions: Optional[list[str]] = None
     is_completed: bool

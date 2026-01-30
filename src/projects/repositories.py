@@ -10,7 +10,7 @@ class ProjectRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get(self, organization_id: int, branch_id: int, id: int) -> Optional[Project]:
+    async def get_project(self, organization_id: int, branch_id: int, id: int) -> Optional[Project]:
         stmt = (
             select(Project)
             .where(Project.id == id, Project.organization_id == organization_id, Project.branch_id == branch_id)
@@ -58,7 +58,7 @@ class ProjectRepository:
         projects = result.scalars().all()
         return total_rows, projects
 
-    async def create(self, organization_id: int, branch_id: int, user_id: int, data: Dict[str, Any]) -> Optional[Project]:
+    async def create_project(self, organization_id: int, branch_id: int, user_id: int, data: Dict[str, Any]) -> Optional[Project]:
         item = Project(**data)
         item.organization_id = organization_id
         item.created_by = user_id
@@ -68,7 +68,7 @@ class ProjectRepository:
         await self.db.refresh(item)
         return item
 
-    async def update(
+    async def update_project(
         self,
         organization_id: int,
         branch_id: int,
@@ -86,7 +86,7 @@ class ProjectRepository:
         await self.db.flush()
         return result.scalars().first()
 
-    async def delete(self, organization_id: int, branch_id: int, id: int) -> None:
+    async def delete_project(self, organization_id: int, branch_id: int, id: int) -> None:
         stmt = delete(Project).where(Project.id == id, Project.organization_id == organization_id, Project.branch_id == branch_id)
         await self.db.execute(stmt)
         await self.db.flush()

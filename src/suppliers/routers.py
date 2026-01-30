@@ -1,15 +1,14 @@
-from math import ceil
-
 from fastapi import APIRouter, status
 
-from src.core.dependencies.shared import get_current_user
+from src.core.dependencies.auth import get_request_context
+from src.core.schemas.context import RequestContext
 from src.core.schemas import (
     PaginatedResponse,
     PagintationParams,
     SingleObjectResponse,
 )
+from src.core.utils.math_helper import calc_total_pages
 from src.docs.suppliers import DOCSTRINGS, RESPONSES, SUMMARIES
-from src.users.schemas import UserInDB
 
 from .dependencies import Annotated, Depends, get_supplier_service
 from .schemas import SupplierCreate, SupplierFilters, SupplierOut, SupplierUpdate
@@ -34,23 +33,19 @@ router = APIRouter(
 )
 async def get_suppliers_for_user(
     supplier_service: Annotated[SupplierService, Depends(get_supplier_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
     pagination_params: PagintationParams = Depends(),
     filters: SupplierFilters = Depends(),
 ) -> PaginatedResponse[SupplierOut]:
-    total_rows, data = await supplier_service.get_suppliers_for_user(
-        current_user,
+    total_rows, data = await supplier_service.get_suppliers(
+        request_context,
         pagination_params,
         filters,
     )
     return PaginatedResponse(
         data=data,
         total_rows=total_rows,
-        total_pages=(
-            ceil(total_rows / pagination_params.limit)
-            if pagination_params.limit is not None
-            else 1
-        ),
+        total_pages=calc_total_pages(total_rows, pagination_params.limit),
         page=pagination_params.page,
         limit=pagination_params.limit,
     )
@@ -66,9 +61,9 @@ async def get_suppliers_for_user(
 async def get_supplier(
     id: int,
     supplier_service: Annotated[SupplierService, Depends(get_supplier_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
 ) -> SingleObjectResponse[SupplierOut]:
-    data = await supplier_service.get(current_user, id)
+    data = await supplier_service.get_supplier(request_context, id)
     return SingleObjectResponse(data=data)
 
 
@@ -87,9 +82,9 @@ async def get_supplier(
 async def create_supplier(
     body: SupplierCreate,
     supplier_service: Annotated[SupplierService, Depends(get_supplier_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
 ) -> SingleObjectResponse[SupplierOut]:
-    data = await supplier_service.create(current_user, body)
+    data = await supplier_service.create_supplier(request_context, body)
     return SingleObjectResponse(data=data)
 
 
@@ -108,9 +103,9 @@ async def update_supplier(
     id: int,
     body: SupplierUpdate,
     supplier_service: Annotated[SupplierService, Depends(get_supplier_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
 ) -> SingleObjectResponse[SupplierOut]:
-    data = await supplier_service.update(current_user, id, body)
+    data = await supplier_service.update_supplier(request_context, id, body)
     return SingleObjectResponse(data=data)
 
 
@@ -128,6 +123,6 @@ async def update_supplier(
 async def delete_supplier(
     id: int,
     supplier_service: Annotated[SupplierService, Depends(get_supplier_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
 ) -> None:
-    return await supplier_service.delete(current_user, id)
+    return await supplier_service.delete_supplier(request_context, id)

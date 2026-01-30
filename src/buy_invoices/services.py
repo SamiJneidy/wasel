@@ -15,7 +15,7 @@ from src.core.enums import (
     TaxCategory,
 )
 from src.core.utils.math_helper import round_decimal
-from src.users.schemas import UserInDB
+from src.core.schemas.context import RequestContext
 from src.items.services import ItemService
 from src.suppliers.services import SupplierService
 from src.suppliers.schemas import SupplierOut
@@ -62,36 +62,36 @@ class BuyInvoiceService:
             if original_invoice.is_debited:
                 raise BuyInvoiceValidationException(detail="Original invoice has already been debited")
 
-    async def _get_invoice_header(self, user: UserInDB, invoice_id: int) -> BuyInvoiceHeaderOut:
-        db_invoice = await self.repo.get_invoice(user.organization_id, invoice_id)
+    async def _get_invoice_header(self, ctx: RequestContext, invoice_id: int) -> BuyInvoiceHeaderOut:
+        db_invoice = await self.repo.get_invoice(ctx.organization.id, invoice_id)
         if not db_invoice:
             raise BuyInvoiceNotFoundException()
         invoice = BuyInvoiceHeaderOut.model_validate(db_invoice)
         if db_invoice.original_invoice_id:
-            orignial_invoice = await self.repo.get_invoice(user.organization_id, db_invoice.original_invoice_id)
+            orignial_invoice = await self.repo.get_invoice(ctx.organization.id, db_invoice.original_invoice_id)
             invoice.original_invoice_number = orignial_invoice.invoice_number
         return invoice
 
-    async def _get_invoice_lines(self, user: UserInDB, invoice_id: int) -> List[BuyInvoiceLineOut]:
+    async def _get_invoice_lines(self, ctx: RequestContext, invoice_id: int) -> List[BuyInvoiceLineOut]:
         invoice_lines = await self.repo.get_invoice_lines_by_invoice_id(invoice_id)
         result: List[BuyInvoiceLineOut] = []
         for line in invoice_lines:
-            item = await self.item_service.get(user, line.item_id)
+            item = await self.item_service.get_item(ctx, line.item_id)
             line_out = BuyInvoiceLineOut.model_validate(line)
             line_out.item = item
             result.append(line_out)
         return result
 
-    async def _get_invoice_supplier(self, user: UserInDB, invoice_id: int) -> SupplierOut | None:
-        invoice = await self.repo.get_invoice(user.organization_id,invoice_id,)
+    async def _get_invoice_supplier(self, ctx: RequestContext, invoice_id: int) -> SupplierOut | None:
+        invoice = await self.repo.get_invoice(ctx.organization.id,invoice_id,)
         if not invoice:
             raise BuyInvoiceNotFoundException()
-        return await self.supplier_service.get(user, invoice.supplier_id)
+        return await self.supplier_service.get_supplier(ctx, invoice.supplier_id)
     
-    async def _create_invoice_header(self, user: UserInDB, data: Dict[str, Any]) -> BuyInvoiceHeaderOut:
+    async def _create_invoice_header(self, ctx: RequestContext, data: Dict[str, Any]) -> BuyInvoiceHeaderOut:
         invoice = await self.repo.create_invoice(
-            user.organization_id,
-            user.id,
+            ctx.organization.id,
+            ctx.user.id,
             data,
         )
         return BuyInvoiceHeaderOut.model_validate(invoice)
@@ -167,70 +167,70 @@ class BuyInvoiceService:
     # -------------------------------------------------------------------------
     # Public methods
     # -------------------------------------------------------------------------
-    async def get_new_invoice_number(self, user: UserInDB, invoice_id: int) -> str:
+    async def get_new_invoice_number(self, ctx: RequestContext, invoice_id: int) -> str:
         invoice = await self.repo.get_invoice(
-            user.organization_id,
+            ctx.organization.id,
             invoice_id,
         )
         if not invoice:
             raise BuyInvoiceNotFoundException()
         return f"INV-{str(invoice.icv).zfill(7)}"
 
-    async def get_invoice(self, user: UserInDB, invoice_id: int) -> BuyInvoiceOut:
-        header = await self._get_invoice_header(user, invoice_id)
-        lines = await self._get_invoice_lines(user, invoice_id)
-        supplier = await self._get_invoice_supplier(user, invoice_id)
+    async def get_invoice(self, ctx: RequestContext, invoice_id: int) -> BuyInvoiceOut:
+        header = await self._get_invoice_header(ctx, invoice_id)
+        lines = await self._get_invoice_lines(ctx, invoice_id)
+        supplier = await self._get_invoice_supplier(ctx, invoice_id)
         return BuyInvoiceOut(
             invoice_lines=lines,
             supplier=supplier,
             **header.model_dump(),
         )
 
-    async def create_buy_invoice(self, user: UserInDB, data: BuyInvoiceCreate) -> BuyInvoiceOut:
+    async def create_buy_invoice(self, ctx: RequestContext, data: BuyInvoiceCreate) -> BuyInvoiceOut:
         try:
-            await self._validate_invoice_before_create(user.organization_id, data)
+            await self._validate_invoice_before_create(ctx.organization.id, data)
             invoice_dict = await self._calculate_amounts(data)
             invoice_lines = invoice_dict.pop("invoice_lines")
-            last_invoice = await self.repo.get_last_invoice(user.organization_id, user.branch_id, {})
+            last_invoice = await self.repo.get_last_invoice(ctx.organization.id, ctx.branch_id, {})
             seq_number = (last_invoice.seq_number if last_invoice else 0) + 1
             header_uuid = uuid.uuid4()
             invoice_dict.update({
                 "uuid": header_uuid,
                 "seq_number": seq_number,
             })
-            header = await self._create_invoice_header(user, invoice_dict)
+            header = await self._create_invoice_header(ctx, invoice_dict)
             await self._create_invoice_lines(header.id, invoice_lines)
             if data.original_invoice_id:
-                await self.repo.update_invoice(user.organization_id, user.id, data.original_invoice_id, {"is_debited": True})
-            return await self.get_invoice(user, header.id)
+                await self.repo.update_invoice(ctx.organization.id, ctx.user.id, data.original_invoice_id, {"is_debited": True})
+            return await self.get_invoice(ctx, header.id)
         except IntegrityError as e:
             raise_integrity_error(e)
         except BaseAppException as e:
             raise e
     
-    async def update_invoice(self, user: UserInDB, invoice_id: int, data: BuyInvoiceUpdate) -> BuyInvoiceOut:
+    async def update_invoice(self, ctx: RequestContext, invoice_id: int, data: BuyInvoiceUpdate) -> BuyInvoiceOut:
         try:
-            invoice_header = await self._get_invoice_header(user, invoice_id)
+            invoice_header = await self._get_invoice_header(ctx, invoice_id)
             if not invoice_header:
                 raise BuyInvoiceNotFoundException()
             invoice_dict = await self._calculate_amounts(data)
             invoice_lines = invoice_dict.pop("invoice_lines")
-            await self.repo.update_invoice(user.organization_id, user.id, invoice_id, invoice_dict)
+            await self.repo.update_invoice(ctx.organization.id, ctx.user.id, invoice_id, invoice_dict)
             await self.repo.delete_invoice_lines(invoice_id)
             await self._create_invoice_lines(invoice_id, invoice_lines)
-            invoice = await self.get_invoice(user, invoice_id)
+            invoice = await self.get_invoice(ctx, invoice_id)
             return invoice
         except IntegrityError as e:
             raise_integrity_error(e)
         except Exception as e:
             raise e
         
-    async def delete_invoice(self, user: UserInDB, invoice_id: int) -> None:
+    async def delete_invoice(self, ctx: RequestContext, invoice_id: int) -> None:
         try:
-            db_invoice = await self._get_invoice_header(user, invoice_id)
+            db_invoice = await self._get_invoice_header(ctx, invoice_id)
             if not db_invoice:
                 raise BuyInvoiceNotFoundException()
-            await self.repo.delete_invoice(user.organization_id, user.id, invoice_id)
+            await self.repo.delete_invoice(ctx.organization.id, ctx.user.id, invoice_id)
             return None
         except IntegrityError as e:
             raise_integrity_error(e)
@@ -239,12 +239,12 @@ class BuyInvoiceService:
         
     async def get_invoices(
         self,
-        user: UserInDB,
+        ctx: RequestContext,
         pagination: PagintationParams,
         filters: BuyInvoiceFilters,
     ) -> Tuple[int, List[BuyInvoiceOut]]:
         total, invoices = await self.repo.get_invoices(
-            user.organization_id,
+            ctx.organization.id,
             pagination.skip,
             pagination.limit,
             filters.model_dump(exclude_none=True),
@@ -254,5 +254,5 @@ class BuyInvoiceService:
         # You can optimize later with joins if needed.
         result: List[BuyInvoiceOut] = []
         for invoice in invoices:
-            result.append(await self.get_invoice(user, invoice.id))
+            result.append(await self.get_invoice(ctx, invoice.id))
         return total, result

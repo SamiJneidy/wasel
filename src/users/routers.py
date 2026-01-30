@@ -4,7 +4,7 @@ from typing import Annotated
 from src.core.schemas import SingleObjectResponse, ObjectListResponse, PagintationParams, PaginatedResponse
 from .schemas import UserInDB, UserInvite, UserOut, UserFilters
 from .dependencies import UserService, Depends, get_user_service
-from src.core.dependencies.shared import get_current_user
+from src.core.dependencies.auth import get_request_context
 from src.docs.users import RESPONSES, DOCSTRINGS, SUMMARIES
 
 router = APIRouter(
@@ -24,12 +24,12 @@ router = APIRouter(
     # description=DOCSTRINGS["get_user_by_email"],
 )
 async def get_users(
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[UserInDB, Depends(get_request_context)],
     user_service: Annotated[UserService, Depends(get_user_service)],
     pagination_params: Annotated[PagintationParams, Depends()],
     filters: Annotated[UserFilters, Depends()],
 ) -> PaginatedResponse[UserOut]:
-    total_rows, data = await user_service.get_users_by_org_id(current_user.organization_id, pagination_params, filters)
+    total_rows, data = await user_service.get_users(request_context, pagination_params, filters)
     return PaginatedResponse(
         data=data,
         total_rows=total_rows,
@@ -50,7 +50,7 @@ async def get_user_by_id(
     id: int,
     user_service: Annotated[UserService, Depends(get_user_service)],
 ) -> SingleObjectResponse[UserOut]:
-    data = await user_service.get(id)
+    data = await user_service.get_user(id)
     return SingleObjectResponse(data=data)
 
 
@@ -65,7 +65,7 @@ async def get_user_by_email(
     email: str,
     user_service: Annotated[UserService, Depends(get_user_service)],
 ) -> SingleObjectResponse[UserOut]:
-    data = await user_service.get_by_email(email)
+    data = await user_service.get_user_by_email(email)
     return SingleObjectResponse(data=data)
 
 
@@ -83,7 +83,7 @@ async def invite_user(
     request: Request,
     body: UserInvite,
     user_service: Annotated[UserService, Depends(get_user_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    current_user: Annotated[UserInDB, Depends(get_request_context)],
 ) -> SingleObjectResponse[UserOut]:
     data = await user_service.invite_user(current_user, str(request.base_url), body)
     return SingleObjectResponse(data=data)
@@ -99,10 +99,10 @@ async def invite_user(
 async def resend_invitation(
     request: Request,
     user_service: Annotated[UserService, Depends(get_user_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    current_user: Annotated[UserInDB, Depends(get_request_context)],
     user_id: int,
 ) -> SingleObjectResponse[UserOut]:
-    user = await user_service.get(user_id)
+    user = await user_service.get_user(user_id)
     data = await user_service.send_invitation(current_user, user.email, request.base_url)
     return SingleObjectResponse(data=data)
 

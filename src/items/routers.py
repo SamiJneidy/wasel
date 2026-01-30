@@ -1,15 +1,14 @@
-from math import ceil
-
+from src.core.utils.math_helper import calc_total_pages
 from fastapi import APIRouter, status
 
-from src.core.dependencies.shared import get_current_user
+from src.core.dependencies.auth import get_request_context
 from src.core.schemas import (
     PaginatedResponse,
     PagintationParams,
     SingleObjectResponse,
 )
 from src.docs.items import DOCSTRINGS, RESPONSES, SUMMARIES
-from src.users.schemas import UserInDB
+from src.core.schemas.context import RequestContext
 
 from .dependencies import Annotated, Depends, get_item_service
 from .schemas import ItemCreate, ItemFilters, ItemOut, ItemUpdate
@@ -34,23 +33,19 @@ router = APIRouter(
 )
 async def get_items(
     item_service: Annotated[ItemService, Depends(get_item_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
     pagination_params: PagintationParams = Depends(),
     filters: ItemFilters = Depends(),
 ) -> PaginatedResponse[ItemOut]:
     total_rows, data = await item_service.get_items(
-        current_user,
+        request_context,
         pagination_params,
         filters,
     )
     return PaginatedResponse(
         data=data,
         total_rows=total_rows,
-        total_pages=(
-            ceil(total_rows / pagination_params.limit)
-            if pagination_params.limit is not None
-            else 1
-        ),
+        total_pages=calc_total_pages(total_rows, pagination_params.limit),
         page=pagination_params.page,
         limit=pagination_params.limit,
     )
@@ -66,9 +61,9 @@ async def get_items(
 async def get_item(
     id: int,
     item_service: Annotated[ItemService, Depends(get_item_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
 ) -> SingleObjectResponse[ItemOut]:
-    data = await item_service.get(current_user, id)
+    data = await item_service.get_item(request_context, id)
     return SingleObjectResponse(data=data)
 
 
@@ -87,9 +82,9 @@ async def get_item(
 async def create_item(
     body: ItemCreate,
     item_service: Annotated[ItemService, Depends(get_item_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
 ) -> SingleObjectResponse[ItemOut]:
-    data = await item_service.create(current_user, body)
+    data = await item_service.create_item(request_context, body)
     return SingleObjectResponse(data=data)
 
 
@@ -108,9 +103,9 @@ async def update_item(
     id: int,
     body: ItemUpdate,
     item_service: Annotated[ItemService, Depends(get_item_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
 ) -> SingleObjectResponse[ItemOut]:
-    data = await item_service.update(current_user, id, body)
+    data = await item_service.update_item(request_context, id, body)
     return SingleObjectResponse(data=data)
 
 
@@ -128,6 +123,6 @@ async def update_item(
 async def delete_item(
     id: int,
     item_service: Annotated[ItemService, Depends(get_item_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
 ) -> None:
-    return await item_service.delete(current_user, id)
+    return await item_service.delete_item(request_context, id)

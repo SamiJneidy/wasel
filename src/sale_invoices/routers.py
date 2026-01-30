@@ -1,15 +1,15 @@
-from math import ceil
 from fastapi import APIRouter, status
 from typing import Annotated
 
-from src.core.dependencies.shared import get_current_user
+from src.core.dependencies.auth import get_request_context
 from src.core.schemas import (
     PaginatedResponse,
     PagintationParams,
     SingleObjectResponse,
 )
+from src.core.utils.math_helper import calc_total_pages
 
-from src.users.schemas import UserInDB
+from src.core.schemas.context import RequestContext
 from src.docs.invoices import RESPONSES, DOCSTRINGS, SUMMARIES
 
 from .dependencies.full_service import Depends, get_invoice_service
@@ -43,16 +43,15 @@ router = APIRouter(
 )
 async def get_invoices(
     invoice_service: Annotated[SaleInvoiceService, Depends(get_invoice_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
     pagination: PagintationParams = Depends(),
     filters: SaleInvoiceFilters = Depends(),
 ) -> PaginatedResponse[SaleInvoiceOut]:
-    from datetime import datetime
-    total_rows, data = await invoice_service.get_invoices(current_user, pagination, filters)
+    total_rows, data = await invoice_service.get_invoices(request_context, pagination, filters)
     return PaginatedResponse(
         data=data,
         total_rows=total_rows,
-        total_pages=ceil(total_rows / pagination.limit) if pagination.limit else 1,
+        total_pages=calc_total_pages(total_rows, pagination.limit),
         page=pagination.page,
         limit=pagination.limit,
     )
@@ -67,10 +66,10 @@ async def get_invoices(
 async def get_invoice(
     id: int,
     invoice_service: Annotated[SaleInvoiceService, Depends(get_invoice_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
 ) -> SingleObjectResponse[SaleInvoiceOut]:
 
-    data = await invoice_service.get_invoice(current_user, id)
+    data = await invoice_service.get_invoice(request_context, id)
     return SingleObjectResponse(data=data)
 
 
@@ -89,9 +88,9 @@ async def get_invoice(
 async def create_invoice(
     body: SaleInvoiceCreate,
     invoice_service: Annotated[SaleInvoiceService, Depends(get_invoice_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
 ) -> SingleObjectResponse[SaleInvoiceOut]:
-    data = await invoice_service.create_invoice(current_user, body)
+    data = await invoice_service.create_invoice(request_context, body)
     return SingleObjectResponse(data=data)
 
 
@@ -105,10 +104,10 @@ async def create_invoice(
 async def generate_invoice_number(
     data: GetInvoiceNumberRequest,
     invoice_service: Annotated[SaleInvoiceService, Depends(get_invoice_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
 ) -> SingleObjectResponse[GetInvoiceNumberResponse]:
     seq_number, invoice_number = await invoice_service.generate_invoice_number(
-        current_user,
+        request_context,
         data.document_type,
         data.invoice_type,
         data.invoice_type_code,
@@ -128,10 +127,10 @@ async def convert_invoice(
     id: int,
     body: QuotationConvert,
     invoice_service: Annotated[SaleInvoiceService, Depends(get_invoice_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
 ) -> SingleObjectResponse[SaleInvoiceOut]:
 
-    data = await invoice_service.convert_quotation_to_invoice(current_user, id, body)
+    data = await invoice_service.convert_quotation_to_invoice(request_context, id, body)
     return SingleObjectResponse(data=data)
 
 @router.post(
@@ -145,9 +144,9 @@ async def convert_invoice(
 async def submit_invoice_to_tax_authority(
     id: int,
     invoice_service: Annotated[SaleInvoiceService, Depends(get_invoice_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
 ) -> SingleObjectResponse[SaleInvoiceOut]:
-    data = await invoice_service.submit_invoice_to_tax_authority(current_user, id)
+    data = await invoice_service.submit_invoice_to_tax_authority(request_context, id)
     return SingleObjectResponse(data=data)
 
 # =========================================================
@@ -166,9 +165,9 @@ async def update_invoice(
     id: int,
     body: SaleInvoiceUpdate,
     invoice_service: Annotated[SaleInvoiceService, Depends(get_invoice_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
 ) -> SingleObjectResponse[SaleInvoiceOut]:
-    data = await invoice_service.update_invoice(current_user, id, body)
+    data = await invoice_service.update_invoice(request_context, id, body)
     return SingleObjectResponse(data=data)
 
 # =========================================================
@@ -187,9 +186,9 @@ async def update_invoice_status(
     id: int,
     body: SaleInvoiceUpdateStatus,
     invoice_service: Annotated[SaleInvoiceService, Depends(get_invoice_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
 ) -> SingleObjectResponse[SaleInvoiceOut]:
-    data = await invoice_service.update_invoice_status(current_user, id, body)
+    data = await invoice_service.update_invoice_status(request_context, id, body)
     return SingleObjectResponse(data=data)
 
 
@@ -207,7 +206,7 @@ async def update_invoice_status(
 async def delete_invoice(
     id: int,
     invoice_service: Annotated[SaleInvoiceService, Depends(get_invoice_service)],
-    current_user: Annotated[UserInDB, Depends(get_current_user)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
 ) -> None:
 
-    await invoice_service.delete_invoice(current_user, id)
+    await invoice_service.delete_invoice(request_context, id)

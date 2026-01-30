@@ -10,7 +10,7 @@ class CustomerRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get(self, organization_id: int, id: int) -> Optional[Customer]:
+    async def get_customer(self, organization_id: int, id: int) -> Optional[Customer]:
         stmt = (
             select(Customer)
             .where(Customer.id == id, Customer.organization_id == organization_id)
@@ -50,7 +50,7 @@ class CustomerRepository:
         customers = result.scalars().all()
         return total_rows, customers
 
-    async def create(self, organization_id: int, user_id: int, data: Dict[str, Any]) -> Optional[Customer]:
+    async def create_customer(self, organization_id: int, user_id: int, data: Dict[str, Any]) -> Optional[Customer]:
         customer = Customer(**data)
         customer.organization_id = organization_id
         customer.created_by = user_id
@@ -59,7 +59,7 @@ class CustomerRepository:
         await self.db.refresh(customer)
         return customer
 
-    async def update(self, organization_id: int, user_id: int, id: int, data: Dict[str, Any]) -> Optional[Customer]:
+    async def update_customer(self, organization_id: int, user_id: int, id: int, data: Dict[str, Any]) -> Optional[Customer]:
         stmt = (
             update(Customer)
             .where(Customer.id == id, Customer.organization_id == organization_id)
@@ -70,7 +70,7 @@ class CustomerRepository:
         await self.db.flush()
         return result.scalars().first()
 
-    async def delete(self, organization_id: int, id: int) -> None:
+    async def delete_customer(self, organization_id: int, id: int) -> None:
         stmt = (delete(Customer).where(Customer.id == id, Customer.organization_id == organization_id))
         result = await self.db.execute(stmt)
         await self.db.flush()

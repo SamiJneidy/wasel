@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from src.core.enums import DocumentType, InvoiceStatus, InvoiceTaxAuthorityStatus, InvoiceType, InvoiceTypeCode, TaxAuthority
 from src.core.utils.math_helper import round_decimal
 from src.core.consts import TAX_RATE, KSA_TZ
-from src.users.schemas import UserInDB
+from src.core.schemas.context import RequestContext
 from src.items.services import ItemService
 from src.tax_authorities.services import TaxAuthorityService
 from ..repositories import SaleInvoiceRepository
@@ -127,53 +127,53 @@ class SaleInvoiceService:
         if is_invoice and data.instruction_note is not None:
             raise SaleInvoiceValidationException("Instruction note should be empty for invoices")
 
-    async def _get_invoice_header(self, user: UserInDB, invoice_id: int) -> SaleInvoiceHeaderOut:
-        db_invoice = await self.repo.get_invoice(user.organization_id, invoice_id)
+    async def _get_invoice_header(self, ctx: RequestContext, invoice_id: int) -> SaleInvoiceHeaderOut:
+        db_invoice = await self.repo.get_invoice(ctx.organization.id, invoice_id)
         if not db_invoice:
             raise InvoiceNotFoundException()
         invoice = SaleInvoiceHeaderOut.model_validate(db_invoice)
         if db_invoice.original_invoice_id:
-            original_invoice = await self.repo.get_invoice(user.organization_id, db_invoice.original_invoice_id)
+            original_invoice = await self.repo.get_invoice(ctx.organization.id, db_invoice.original_invoice_id)
             invoice.original_invoice_number = original_invoice.invoice_number if original_invoice else None
-        if user.organization.tax_authority == TaxAuthority.ZATCA_PHASE2:
-            invoice.tax_authority_data = await self.tax_authority_service.get_invoice_tax_authority_data(user, invoice_id)
+        if ctx.organization.tax_authority == TaxAuthority.ZATCA_PHASE2:
+            invoice.tax_authority_data = await self.tax_authority_service.get_invoice_tax_authority_data(ctx, invoice_id)
         return invoice
     
-    async def _get_invoice_lines(self, user: UserInDB, invoice_id: int) -> List[SaleInvoiceLineOut]:
+    async def _get_invoice_lines(self, ctx: RequestContext, invoice_id: int) -> List[SaleInvoiceLineOut]:
         invoice_lines = await self.repo.get_invoice_lines_by_invoice_id(invoice_id)
         result: List[SaleInvoiceLineOut] = []
         for line in invoice_lines:
-            item = await self.item_service.get(user, line.item_id)
+            item = await self.item_service.get_item(ctx, line.item_id)
             line_out = SaleInvoiceLineOut.model_validate(line)
             line_out.item = item
-            if user.organization.tax_authority == TaxAuthority.ZATCA_PHASE2:
+            if ctx.organization.tax_authority == TaxAuthority.ZATCA_PHASE2:
                 line_out.tax_authority_data = await self.tax_authority_service.get_line_tax_authority_data(line.id)
             result.append(line_out)
         return result
 
-    async def _get_invoice_lines(self, user: UserInDB, invoice_id: int) -> List[SaleInvoiceLineOut]:
+    async def _get_invoice_lines(self, ctx: RequestContext, invoice_id: int) -> List[SaleInvoiceLineOut]:
         invoice_lines = await self.repo.get_invoice_lines_by_invoice_id(invoice_id)
         result: List[SaleInvoiceLineOut] = []
         for line in invoice_lines:
-            item = await self.item_service.get(user, line.item_id)
+            item = await self.item_service.get_item(ctx, line.item_id)
             line_out = SaleInvoiceLineOut.model_validate(line)
             line_out.item = item
-            if user.organization.tax_authority == TaxAuthority.ZATCA_PHASE2:
-                line_out.tax_authority_data = await self.tax_authority_service.get_line_tax_authority_data(user, line.id)
+            if ctx.organization.tax_authority == TaxAuthority.ZATCA_PHASE2:
+                line_out.tax_authority_data = await self.tax_authority_service.get_line_tax_authority_data(ctx, line.id)
             result.append(line_out)
         return result
 
-    async def _create_invoice_header(self, user: UserInDB, data: Dict[str, Any]) -> SaleInvoiceHeaderOut:
-        invoice = await self.repo.create_invoice(user.organization_id, user.id, data)
+    async def _create_invoice_header(self, ctx: RequestContext, data: Dict[str, Any]) -> SaleInvoiceHeaderOut:
+        invoice = await self.repo.create_invoice(ctx.organization.id, ctx.user.id, data)
         return SaleInvoiceHeaderOut.model_validate(invoice)
 
-    async def _create_invoice_lines(self, user: UserInDB, invoice_id: int, data: List[Dict[str, Any]]) -> None:
+    async def _create_invoice_lines(self, ctx: RequestContext, invoice_id: int, data: List[Dict[str, Any]]) -> None:
         for line in data:
             line["tax_rate"] = TAX_RATE[line["classified_tax_category"]]
             line_metadata = line.pop("tax_authority_data", None)
             db_line = await self.repo.create_invoice_line(invoice_id, line)
-            if user.organization.tax_authority == TaxAuthority.ZATCA_PHASE2 and line_metadata is not None:
-                await self.tax_authority_service.create_line_tax_authority_data(user, invoice_id, db_line.id, line_metadata)
+            if ctx.organization.tax_authority == TaxAuthority.ZATCA_PHASE2 and line_metadata is not None:
+                await self.tax_authority_service.create_line_tax_authority_data(ctx, invoice_id, db_line.id, line_metadata)
 
     async def _calculate_amounts(self, data: SaleInvoiceCreate) -> Dict[str, Any]:
         invoice: Dict[str, Any] = data.model_dump(exclude={"tax_authority_data", "send_to_tax_authority"}, exclude_none=True)
@@ -229,7 +229,7 @@ class SaleInvoiceService:
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
-    async def generate_invoice_number(self, user: UserInDB, document_type: DocumentType, invoice_type: InvoiceType, invoice_type_code: InvoiceTypeCode) -> tuple[int, str]:
+    async def generate_invoice_number(self, ctx: RequestContext, document_type: DocumentType, invoice_type: InvoiceType, invoice_type_code: InvoiceTypeCode) -> tuple[int, str]:
         """Returns the sequence number along with the formatted invoice number."""
         year = datetime.now().year
         if document_type == DocumentType.INVOICE:
@@ -244,27 +244,27 @@ class SaleInvoiceService:
                 "document_type": document_type,
                 "year": year
             }
-        last_invoice = await self.repo.get_last_invoice(user.organization_id, user.branch_id, filters)
+        last_invoice = await self.repo.get_last_invoice(ctx.organization.id, ctx.branch.id, filters)
         seq_number = (last_invoice.seq_number if last_invoice else 0) + 1
         number = str(seq_number).zfill(6)
         two_digit_year = str(year)[2:]
         prefix = self.INVOICE_NUMBER_PREFIX[document_type][invoice_type_code][invoice_type]
         return seq_number, f"{prefix}-{two_digit_year}-{number}"
 
-    async def get_invoice(self, user: UserInDB, invoice_id: int) -> SaleInvoiceOut:
-        header = await self._get_invoice_header(user, invoice_id)
-        lines = await self._get_invoice_lines(user, invoice_id)
+    async def get_invoice(self, ctx: RequestContext, invoice_id: int) -> SaleInvoiceOut:
+        header = await self._get_invoice_header(ctx, invoice_id)
+        lines = await self._get_invoice_lines(ctx, invoice_id)
         return SaleInvoiceOut(
             invoice_lines=lines,
             **header.model_dump(),
         )
 
-    async def create_invoice(self, user: UserInDB, data: SaleInvoiceCreate) -> SaleInvoiceOut:
+    async def create_invoice(self, ctx: RequestContext, data: SaleInvoiceCreate) -> SaleInvoiceOut:
         try:
-            await self._validate_invoice_before_create(user.organization_id, data)
+            await self._validate_invoice_before_create(ctx.organization.id, data)
             invoice_dict = await self._calculate_amounts(data)
             seq, invoice_number = await self.generate_invoice_number(
-                user, 
+                ctx, 
                 data.document_type, 
                 data.invoice_type, 
                 data.invoice_type_code,
@@ -277,22 +277,22 @@ class SaleInvoiceService:
                 "tax_authority_status": InvoiceTaxAuthorityStatus.NOT_SENT,
 
             })
-            invoice_header = await self._create_invoice_header(user, invoice_dict)
-            await self._create_invoice_lines(user, invoice_header.id, invoice_lines)
+            invoice_header = await self._create_invoice_header(ctx, invoice_dict)
+            await self._create_invoice_lines(ctx, invoice_header.id, invoice_lines)
             if data.document_type==DocumentType.INVOICE and data.send_to_tax_authority:
-                await self.submit_invoice_to_tax_authority(user, invoice_header.id)
+                await self.submit_invoice_to_tax_authority(ctx, invoice_header.id)
             if data.original_invoice_id:
-                await self.repo.update_invoice(user.organization_id, user.id, data.original_invoice_id, {"is_credited": True}) 
-            return await self.get_invoice(user, invoice_header.id)
+                await self.repo.update_invoice(ctx.organization.id, ctx.user.id, data.original_invoice_id, {"is_credited": True}) 
+            return await self.get_invoice(ctx, invoice_header.id)
         except IntegrityError as e:
             raise_integrity_error(e)
         except BaseAppException as e:
             raise e
 
-    async def update_invoice(self, user: UserInDB, invoice_id: int, data: SaleInvoiceUpdate) -> SaleInvoiceOut:
+    async def update_invoice(self, ctx: RequestContext, invoice_id: int, data: SaleInvoiceUpdate) -> SaleInvoiceOut:
         try:
-            await self._validate_invoice_before_update(user.organization_id, invoice_id, data)
-            invoice_header = await self._get_invoice_header(user, invoice_id)
+            await self._validate_invoice_before_update(ctx.organization.id, invoice_id, data)
+            invoice_header = await self._get_invoice_header(ctx, invoice_id)
             if not invoice_header:
                 raise InvoiceNotFoundException()
             if invoice_header.status == InvoiceStatus.ISSUED or invoice_header.tax_authority_status == InvoiceTaxAuthorityStatus.ACCEPTED:
@@ -300,36 +300,36 @@ class SaleInvoiceService:
             # Calculate invoice amounts
             invoice_dict = await self._calculate_amounts(data)
             invoice_lines = invoice_dict.pop("invoice_lines")
-            await self.repo.update_invoice(user.organization_id, user.id, invoice_id, invoice_dict)
+            await self.repo.update_invoice(ctx.organization.id, ctx.user.id, invoice_id, invoice_dict)
             await self.repo.delete_invoice_lines(invoice_id)
-            await self._create_invoice_lines(user, invoice_id, invoice_lines)
+            await self._create_invoice_lines(ctx, invoice_id, invoice_lines)
             if data.document_type==DocumentType.INVOICE and data.send_to_tax_authority:
-                await self.submit_invoice_to_tax_authority(user, invoice_id)
-            return await self.get_invoice(user, invoice_header.id)
+                await self.submit_invoice_to_tax_authority(ctx, invoice_id)
+            return await self.get_invoice(ctx, invoice_header.id)
         except IntegrityError as e:
             raise_integrity_error(e)
         except Exception as e:
             raise e
 
-    async def update_invoice_status(self, user: UserInDB, invoice_id: int, data: SaleInvoiceUpdateStatus) -> SaleInvoiceOut:
+    async def update_invoice_status(self, ctx: RequestContext, invoice_id: int, data: SaleInvoiceUpdateStatus) -> SaleInvoiceOut:
         try:
-            invoice_header = await self._get_invoice_header(user, invoice_id)
+            invoice_header = await self._get_invoice_header(ctx, invoice_id)
             if not invoice_header:
                 raise InvoiceNotFoundException()
             if invoice_header.status != InvoiceStatus.DRAFT:
                 raise InvoiceUpdateNotAllowed(detail="Only draft invoices can have their status updated")
-            await self.repo.update_invoice(user.organization_id, user.id, invoice_id, {"status": data.status})
+            await self.repo.update_invoice(ctx.organization.id, ctx.user.id, invoice_id, {"status": data.status})
             if invoice_header.document_type==DocumentType.INVOICE and data.status == InvoiceStatus.ISSUED and data.send_to_tax_authority:
-                await self.submit_invoice_to_tax_authority(user, invoice_id)
-            return await self.get_invoice(user, invoice_header.id)
+                await self.submit_invoice_to_tax_authority(ctx, invoice_id)
+            return await self.get_invoice(ctx, invoice_header.id)
         except IntegrityError as e:
             raise_integrity_error(e)
         except Exception as e:
             raise e
 
-    async def submit_invoice_to_tax_authority(self, user: UserInDB, invoice_id: int) -> SaleInvoiceOut:
+    async def submit_invoice_to_tax_authority(self, ctx: RequestContext, invoice_id: int) -> SaleInvoiceOut:
         try:
-            invoice = await self.get_invoice(user, invoice_id)
+            invoice = await self.get_invoice(ctx, invoice_id)
             if not invoice:
                 raise InvoiceNotFoundException()
             if invoice.document_type != DocumentType.INVOICE:
@@ -339,30 +339,30 @@ class SaleInvoiceService:
             if invoice.tax_authority_status in {InvoiceTaxAuthorityStatus.ACCEPTED, InvoiceTaxAuthorityStatus.ACCEPTED_WITH_WARNINGS}:
                 raise InvoiceUpdateNotAllowed(detail="Invoice has already been sent to the tax authority successfully")
 
-            tax_authority_result = await self.tax_authority_service.sign_and_submit_invoice(user, invoice)
+            tax_authority_result = await self.tax_authority_service.sign_and_submit_invoice(ctx, invoice)
             await self.repo.update_invoice(
-                user.organization_id, 
-                user.id, 
+                ctx.organization.id, 
+                ctx.user.id, 
                 invoice.id, 
                 {"tax_authority_status": tax_authority_result.status}
             )
-            return await self.get_invoice(user, invoice.id)
+            return await self.get_invoice(ctx, invoice.id)
         except IntegrityError as e:
             raise_integrity_error(e)
         except Exception as e:
             raise e
 
-    async def convert_quotation_to_invoice(self, user: UserInDB, invoice_id: int, convert_data: QuotationConvert) -> SaleInvoiceOut:
+    async def convert_quotation_to_invoice(self, ctx: RequestContext, invoice_id: int, convert_data: QuotationConvert) -> SaleInvoiceOut:
         try:
-            invoice_header = await self._get_invoice_header(user, invoice_id)
+            invoice_header = await self._get_invoice_header(ctx, invoice_id)
             if not invoice_header:
                 raise InvoiceNotFoundException()
             if invoice_header.status == InvoiceStatus.ISSUED or invoice_header.document_type == DocumentType.INVOICE:
                 raise InvoiceUpdateNotAllowed(detail="Only quotations with status DRAFT can be converted to invoices")
             # Duplicate the invoice
-            db_invoice = await self.repo.get_invoice(user.organization_id, invoice_id)
+            db_invoice = await self.repo.get_invoice(ctx.organization.id, invoice_id)
             invoice_dict = invoice_header.model_dump()
-            invoice_lines = await self._get_invoice_lines(user, invoice_id)
+            invoice_lines = await self._get_invoice_lines(ctx, invoice_id)
             invoice_lines_dict = []
             for line in invoice_lines:
                 line_dict = line.model_dump()
@@ -376,21 +376,21 @@ class SaleInvoiceService:
                 "send_to_tax_authority": convert_data.send_to_tax_authority,
             })
             data = SaleInvoiceCreate(**invoice_dict)
-            await self.repo.update_invoice(user.organization_id, user.id, invoice_id, {"status": InvoiceStatus.ISSUED})
-            return await self.create_invoice(user, data)
+            await self.repo.update_invoice(ctx.organization.id, ctx.user.id, invoice_id, {"status": InvoiceStatus.ISSUED})
+            return await self.create_invoice(ctx, data)
         except IntegrityError as e:
             raise_integrity_error(e)
         except Exception as e:
             raise e
         
-    async def delete_invoice(self, user: UserInDB, invoice_id: int) -> None:
+    async def delete_invoice(self, ctx: RequestContext, invoice_id: int) -> None:
         try:
-            db_invoice = await self._get_invoice_header(user, invoice_id)
+            db_invoice = await self._get_invoice_header(ctx, invoice_id)
             if not db_invoice:
                 raise InvoiceNotFoundException()
             if db_invoice.status == InvoiceStatus.ISSUED or db_invoice.tax_authority_status == InvoiceTaxAuthorityStatus.ACCEPTED:
                 raise InvoiceDeleteNotAllowed()
-            await self.repo.delete_invoice(user.organization_id, invoice_id)
+            await self.repo.delete_invoice(ctx.organization.id, invoice_id)
             return None
         except IntegrityError as e:
             raise_integrity_error(e)
@@ -399,17 +399,17 @@ class SaleInvoiceService:
     
     async def get_invoices(
         self,
-        user: UserInDB,
+        ctx: RequestContext,
         pagination: PagintationParams,
         filters: SaleInvoiceFilters,
     ) -> Tuple[int, List[SaleInvoiceOut]]:
         total, invoices = await self.repo.get_invoices_by_organization_id(
-            user.organization_id,
+            ctx.organization.id,
             pagination.skip,
             pagination.limit,
             filters.model_dump(exclude_none=True),
         )
         result: List[SaleInvoiceOut] = []
         for invoice in invoices:
-            result.append(await self.get_invoice(user, invoice.id))
+            result.append(await self.get_invoice(ctx, invoice.id))
         return total, result
