@@ -1,92 +1,77 @@
 from sqlalchemy.exc import IntegrityError
-from src.core.schemas.context import RequestContext
-from .repositories import AuthorizationRepository
-from .schemas import (
+from ..repositories.permissions_repo import PermissionRepository
+from ..schemas import (
     RolePermissionCreateInternal,
-    UserPermissionCreate,
     UserPermissionCreateInternal,
-    UserPermissionUpdate,
-    UserPermissionOut,
-    PermissionOut,
+    PermissionInDB,
     RoleCreate,
     RoleUpdate,
     RoleWithPermissionsOut,
 )
-from .exceptions import (
+from ..exceptions import (
     InvalidPermissionException,
     RoleCannotBeDeletedException,
     RoleNotFoundException,
     RoleImmutableException
 )
-from .default_roles import DEFAULT_ROLES
+from ..default_roles import DEFAULT_ROLES
 
-class AuthorizationService:
+class PermissionService:
     def __init__(
         self,
-        authorization_repo: AuthorizationRepository,
+        permissions_repo: PermissionRepository,
     ):
-        self.authorization_repo = authorization_repo
+        self.permissions_repo = permissions_repo
     
     async def _validate_permissions(self, permissions: list[str]) -> None:
-        if len(permissions) == 0:
-            raise InvalidPermissionException(detail="The permissions list has to have at least 1 element")
-        
-        sorted_permissions = sorted(permissions)
-        for i in range(len(sorted_permissions)-1):
-            if sorted_permissions[i] == sorted_permissions[i+1]:
-                raise InvalidPermissionException(detail=f"Duplicate permission deteced: {sorted_permissions[i]}")
-            
         all_permissions = await self.get_permissions_formatted()
-        for perm in permissions:
-            try:
-                found = all_permissions.index(perm)
-            except ValueError:
-                raise InvalidPermissionException(detail=f"Permission {perm} does not exist.")
+        if not set(permissions).issubset(set(all_permissions)):
+            raise InvalidPermissionException(detail=f"Invalid permission provided")
 
     async def _validate_immutable_role(self, organization_id: int, role_id: int) -> None:
-        role = await self.authorization_repo.get_role(organization_id, role_id)
+        role = await self.permissions_repo.get_role(organization_id, role_id)
         if not role:
             raise RoleNotFoundException()
         if role.is_immutable:
             raise RoleImmutableException()
         
     async def get_user_permissions(self, organization_id: int, user_id: int) -> list[str]:
-        permissions = await self.authorization_repo.get_user_permissions(organization_id, user_id)
+        permissions = await self.permissions_repo.get_user_permissions(organization_id, user_id)
         return [f"{perm.permission.resource}:{perm.permission.action}" for perm in permissions if perm.is_allowed]
     
-    async def get_permissions(self) -> list[PermissionOut]:
-        permissions = await self.authorization_repo.get_permissions()
-        return [PermissionOut.model_validate(perm) for perm in permissions]
+    async def get_permissions(self) -> list[PermissionInDB]:
+        permissions = await self.permissions_repo.get_permissions()
+        return [PermissionInDB.model_validate(perm) for perm in permissions]
 
     async def get_permissions_formatted(self) -> list[str]:
-        permissions = await self.authorization_repo.get_permissions()
+        permissions = await self.permissions_repo.get_permissions()
         return [f"{perm.resource}:{perm.action}" for perm in permissions]
 
     async def user_has_permission(self, organization_id: int, user_id: int, resource: str, action: str) -> bool:
-        permission = await self.authorization_repo.get_single_permission(organization_id, user_id, resource, action)
+        permission = await self.permissions_repo.get_single_permission(organization_id, user_id, resource, action)
         if permission is None or permission.is_allowed == False:
             return False
         return True
 
-    async def create_user_permissions(self, ctx: RequestContext, user_id: int, data: UserPermissionCreate) -> list[str]:
-        permissions = await self.authorization_repo.get_permissions()
-        await self._validate_permissions(data.permissions)
+    async def create_user_permissions(self, organization_id: int, user_id: int, permissions_list: list[str]) -> list[str]:
+        permissions = await self.permissions_repo.get_permissions()
+        await self._validate_permissions(permissions_list)
         # Create permissions
         user_permissions: list[dict] = []
         for perm in permissions:
-            is_allowed = perm.resource + ":" + perm.action in data.permissions
+            is_allowed = perm.resource + ":" + perm.action in permissions_list
             permission = UserPermissionCreateInternal(
                 user_id=user_id,
-                organization_id=ctx.organization.id,
+                organization_id=organization_id,
                 permission_id=perm.id,
                 is_allowed=is_allowed,
             )
             user_permissions.append(permission.model_dump())
-        await self.authorization_repo.create_user_permissions(user_permissions)
-        return await self.get_user_permissions(ctx, user_id)
+        await self.permissions_repo.create_user_permissions(user_permissions)
+        return await self.get_user_permissions(organization_id, user_id)
     
     async def create_user_permissions_after_signup(self, organization_id: int, user_id: int) -> None:
-        permissions = await self.authorization_repo.get_permissions()
+        permissions = await self.permissions_repo.get_permissions()
         # Create permissions
         user_permissions: list[dict] = []
         for perm in permissions:
@@ -97,20 +82,20 @@ class AuthorizationService:
                 is_allowed=True,
             )
             user_permissions.append(permission.model_dump())
-        await self.authorization_repo.create_user_permissions(user_permissions)
+        await self.permissions_repo.create_user_permissions(user_permissions)
 
-    async def update_user_permissions(self, ctx: RequestContext, user_id: int, data: UserPermissionUpdate) -> list[str]:
-        await self.authorization_repo.delete_user_permissions(ctx.organization.id, user_id)
-        return await self.create_user_permissions(ctx, user_id, data)
+    async def update_user_permissions(self, organization_id: int, user_id: int, permissions_list: list[str]) -> list[str]:
+        await self.permissions_repo.delete_user_permissions(organization_id, user_id)
+        return await self.create_user_permissions(organization_id, user_id, permissions_list)
     
-    async def delete_user_permissions(self, ctx: RequestContext, user_id: int) -> None:
-        await self.authorization_repo.delete_user_permissions(ctx.organization.id, user_id)
+    async def delete_user_permissions(self, organization_id: int, user_id: int) -> None:
+        await self.permissions_repo.delete_user_permissions(organization_id, user_id)
 
-    async def get_role(self, ctx: RequestContext, role_id: int) -> RoleWithPermissionsOut:
-        role = await self.authorization_repo.get_role(ctx.organization.id, role_id)
+    async def get_role(self, organization_id: int, role_id: int) -> RoleWithPermissionsOut:
+        role = await self.permissions_repo.get_role(organization_id, role_id)
         if not role:
             raise RoleNotFoundException()
-        permissions = await self.authorization_repo.get_role_permissions(ctx.organization.id, role_id)
+        permissions = await self.permissions_repo.get_role_permissions(organization_id, role_id)
         allowed_permissions = [f"{perm.permission.resource}:{perm.permission.action}" for perm in permissions if perm.is_allowed]
         return RoleWithPermissionsOut(
             id=role.id, 
@@ -119,11 +104,11 @@ class AuthorizationService:
             permissions=allowed_permissions,
         )
 
-    async def get_roles(self, ctx: RequestContext) -> list[RoleWithPermissionsOut]:
-        roles = await self.authorization_repo.get_roles(ctx.organization.id)
+    async def get_roles(self, organization_id: int) -> list[RoleWithPermissionsOut]:
+        roles = await self.permissions_repo.get_roles(organization_id)
         roles_list: list[RoleWithPermissionsOut] = []
         for role in roles:
-            permissions = await self.authorization_repo.get_role_permissions(ctx.organization.id, role.id)
+            permissions = await self.permissions_repo.get_role_permissions(organization_id, role.id)
             allowed_permissions = [f"{perm.permission.resource}:{perm.permission.action}" for perm in permissions if perm.is_allowed]
             roles_list.append(
                 RoleWithPermissionsOut(
@@ -135,24 +120,24 @@ class AuthorizationService:
             )
         return roles_list
 
-    async def create_role(self, ctx: RequestContext, data: RoleCreate) -> RoleWithPermissionsOut:
+    async def create_role(self, organization_id: int, data: RoleCreate) -> RoleWithPermissionsOut:
         role_data = {
             "name": data.name,
             "description": data.description,
             "is_immutable": False,
         }
-        role = await self.authorization_repo.create_role(ctx.organization.id, role_data)
-        await self._create_role_permissions(ctx.organization.id, role.id, data.permissions)
-        return await self.get_role(ctx, role.id)
+        role = await self.permissions_repo.create_role(organization_id, role_data)
+        await self._create_role_permissions(organization_id, role.id, data.permissions)
+        return await self.get_role(organization_id, role.id)
 
     async def create_default_roles(self, organization_id: int) -> int:
         """Created default roles for a new organization and returns the id of the SUPER_ADMIN role."""
         super_admin_role_id = None
-        permissions = await self.authorization_repo.get_permissions()
+        permissions = await self.permissions_repo.get_permissions()
         for role, data in DEFAULT_ROLES.items():
             role_permissions = data.pop("permissions")
             role_data = data
-            role = await self.authorization_repo.create_role(organization_id, role_data)
+            role = await self.permissions_repo.create_role(organization_id, role_data)
             if role_data["name"] == "SUPER_ADMIN":
                 super_admin_role_id = role.id
             permissions_list: list[dict] = []
@@ -165,11 +150,11 @@ class AuthorizationService:
                     is_allowed=is_allowed,
                 )
                 permissions_list.append(permission.model_dump())
-            await self.authorization_repo.create_role_permissions(permissions_list)
+            await self.permissions_repo.create_role_permissions(permissions_list)
         return super_admin_role_id
     
     async def _create_role_permissions(self, organization_id: int, role_id: int, permissions_list: list[str]) -> None:
-        permissions = await self.authorization_repo.get_permissions()
+        permissions = await self.permissions_repo.get_permissions()
         await self._validate_permissions(permissions_list)
         # Create permissions
         role_permissions: list[dict] = []
@@ -182,20 +167,20 @@ class AuthorizationService:
                 is_allowed=is_allowed,
             )
             role_permissions.append(permission.model_dump())
-        await self.authorization_repo.create_role_permissions(role_permissions)
+        await self.permissions_repo.create_role_permissions(role_permissions)
 
-    async def update_role(self, ctx: RequestContext, role_id: int, data: RoleUpdate) -> RoleWithPermissionsOut:
-        await self._validate_immutable_role(ctx.organization.id, role_id)
+    async def update_role(self, organization_id: int, role_id: int, data: RoleUpdate) -> RoleWithPermissionsOut:
+        await self._validate_immutable_role(organization_id, role_id)
         role_data = data.model_dump(exclude={"permissions"}, exclude_none=True)
-        await self.authorization_repo.update_role(ctx.organization.id, role_id, role_data)
-        await self.authorization_repo.delete_role_permissions(ctx.organization.id, role_id)
-        await self._create_role_permissions(ctx.organization.id, role_id, data.permissions)
-        return await self.get_role(ctx, role_id)
+        await self.permissions_repo.update_role(organization_id, role_id, role_data)
+        await self.permissions_repo.delete_role_permissions(organization_id, role_id)
+        await self._create_role_permissions(organization_id, role_id, data.permissions)
+        return await self.get_role(organization_id, role_id)
     
-    async def delete_role(self, ctx: RequestContext, role_id: int) -> None:
-        await self._validate_immutable_role(ctx.organization.id, role_id)
+    async def delete_role(self, organization_id: int, role_id: int) -> None:
+        await self._validate_immutable_role(organization_id, role_id)
         try:
-            await self.authorization_repo.delete_role_permissions(ctx.organization.id, role_id)
-            await self.authorization_repo.delete_role(ctx.organization.id, role_id)
+            await self.permissions_repo.delete_role_permissions(organization_id, role_id)
+            await self.permissions_repo.delete_role(organization_id, role_id)
         except IntegrityError as e:
             raise RoleCannotBeDeletedException(detail="Role cannot be deleted because it is assigned to one or more users.")

@@ -3,6 +3,8 @@ from pydantic import BaseModel, EmailStr, StringConstraints, ConfigDict, Field, 
 from datetime import datetime
 from src.users.schemas import UserCreate, UserUpdate, UserOut, UserInDB
 from src.organizations.schemas import OrganizationCreate, OrganizationOut
+from src.branches.schemas import BranchOut
+from src.authorization.schemas import UserPermissionOut
 from src.core.enums import OTPStatus, OTPUsage, UserRole, UserStatus
 
 class SignUp(BaseModel):
@@ -100,3 +102,9 @@ class ResetPasswordRequest(BaseModel):
 
 class ResetPasswordResponse(BaseModel):
     email: EmailStr = Field(..., example="user@example.com")
+
+class CurrentUserSessionOut(BaseModel):
+    user: UserOut
+    branch: BranchOut
+    organization: OrganizationOut
+    access: UserPermissionOut

@@ -1,18 +1,11 @@
 from fastapi import Depends
-from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Annotated
-from .schemas import UserOut
-from .repositories import UserRepository
-from .services import UserService
-from src.core.database import get_db
+from ..services import UserService
 from src.organizations.dependencies import OrganizationService, get_organization_service
 from src.core.dependencies.email_deps import EmailService, get_email_service
 from src.auth.dependencies.token_deps import TokenService, get_token_service
 from src.authorization.dependencies import AuthorizationService, get_authorization_service
-
-def get_user_repository(db: Annotated[AsyncSession, Depends(get_db)]) -> UserRepository:
-    """Returns user repository dependency."""
-    return UserRepository(db)
+from .repositories import UserRepository, get_user_repository
 
 def get_user_service(
     user_repo: Annotated[UserRepository, Depends(get_user_repository)],

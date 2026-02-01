@@ -83,6 +83,10 @@ class ZatcaPhase2BranchDataCreate(ZatcaPhase2BranchDataBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ZatcaPhase2BranchDataUpdate(ZatcaPhase2BranchDataBase):
+    model_config = ConfigDict(from_attributes=True)
+
+
 class ZatcaPhase2BranchDataInDB(ZatcaPhase2BranchDataBase):
     stage: str
     organization_id: int

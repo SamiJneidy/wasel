@@ -28,9 +28,17 @@ class ZatcaBranchDataNotFoundException(BaseAppException):
     ):
         super().__init__(detail, status_code)
     
+class ZatcaBranchDataUpdateNotAllowedException(BaseAppException):
+    def __init__(self, 
+        detail: str | None = "Tax authority data for this branch is already created and cannot be updated", 
+        status_code: int = status.HTTP_403_FORBIDDEN,
+    ):
+        super().__init__(detail, status_code)
+
 class ZatcaBranchDataAlreadyCreatedException(BaseAppException):
     def __init__(self, 
         detail: str | None = "Tax authority data for this branch is already created", 
         status_code: int = status.HTTP_409_CONFLICT,
     ):
         super().__init__(detail, status_code)
+

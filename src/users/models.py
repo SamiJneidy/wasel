@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Integer, String, DateTime, ForeignKey, Enum, func, text
+from sqlalchemy import Boolean, Column, Integer, String, DateTime, ForeignKey, Enum, UniqueConstraint, func, text
 from sqlalchemy.orm import relationship
 from src.core.database import Base
 from src.core.models import AuditTimeMixin
@@ -8,7 +8,7 @@ class User(Base, AuditTimeMixin):
     __tablename__ = "users"
     id = Column(Integer, autoincrement=True, primary_key=True, index=True)
     organization_id = Column(Integer, ForeignKey('organizations.id'), nullable=True)
-    branch_id = Column(Integer, ForeignKey('branches.id'), nullable=True)
+    default_branch_id = Column(Integer, ForeignKey('branches.id'), nullable=True)
     name = Column(String(100), nullable=True)
     email = Column(String(100), unique=True, nullable=False, index=True)
     password = Column(String, nullable=True)
@@ -21,11 +21,6 @@ class User(Base, AuditTimeMixin):
     is_completed = Column(Boolean, nullable=False)
     is_super_admin = Column(Boolean, nullable=False, server_default=text("false"))
     organization = relationship("Organization", lazy="selectin", foreign_keys=[organization_id])
-    branch = relationship("Branch", lazy="selectin", foreign_keys=[branch_id])
+    default_branch = relationship("Branch", lazy="selectin", foreign_keys=[default_branch_id])
     role = relationship("Role", lazy="selectin", foreign_keys=[role_id])
 
-class UserBranch(Base):
-    __tablename__ = "user_branches"
-    id = Column(Integer, autoincrement=True, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    branch_id = Column(Integer, ForeignKey("branches.id", ondelete="CASCADE"), nullable=False, index=True)

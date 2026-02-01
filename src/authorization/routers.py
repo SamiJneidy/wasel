@@ -2,10 +2,10 @@ from math import ceil
 from fastapi import APIRouter, Query, Request, Depends
 from typing import Annotated
 from src.core.schemas import SingleObjectResponse, ObjectListResponse, PagintationParams, PaginatedResponse
-from .schemas import UserPermissionCreate, UserPermissionUpdate, UserPermissionOut, PermissionOut, RoleCreate, RoleUpdate, RoleWithPermissionsOut
+from .schemas import UserPermissionCreate, UserPermissionUpdate, UserPermissionOut, PermissionInDB, RoleCreate, RoleUpdate, RoleWithPermissionsOut
 from src.core.schemas.context import RequestContext
 from .dependencies import AuthorizationService, get_authorization_service
-from src.users.dependencies import UserService, get_user_service
+from src.users.dependencies.services import UserService, get_user_service
 from src.core.dependencies.auth import get_request_context
 from src.docs.users import RESPONSES, DOCSTRINGS, SUMMARIES
 from fastapi import status
@@ -22,12 +22,12 @@ router = APIRouter(
 
 @router.get(
     path="/permissions",
-    response_model=ObjectListResponse[PermissionOut],
+    response_model=ObjectListResponse[PermissionInDB],
 )
 async def get_permissions(
     request_context: Annotated[RequestContext, Depends(get_request_context)],
     authorization_service: Annotated[AuthorizationService, Depends(get_authorization_service)],
-) -> ObjectListResponse[PermissionOut]:
+) -> ObjectListResponse[PermissionInDB]:
     data = await authorization_service.get_permissions()
     return ObjectListResponse(data=data)
 
@@ -62,7 +62,7 @@ async def get_role(
     return SingleObjectResponse(data=role)
 
 @router.get(
-    path="/permissions/user/{user_id}",
+    path="/user/{user_id}/permissions",
     response_model=SingleObjectResponse[UserPermissionOut],
     # responses=RESPONSES["get_user_by_email"],
     # summary=SUMMARIES["get_user_by_email"],
@@ -75,8 +75,7 @@ async def get_user_permissions(
     user_id: int,
 ) -> SingleObjectResponse[UserPermissionOut]:
     user = await user_service.get_user(user_id)
-    permissions = await authorization_service.get_user_permissions(request_context.organization.id, user_id)
-    data = UserPermissionOut(permissions=permissions)
+    data = await authorization_service.get_user_permissions(request_context, user_id)
     return SingleObjectResponse(data=data)
 
 # ---------------------------------------------------------------------
@@ -100,19 +99,18 @@ async def create_role(
 # ---------------------------------------------------------------------
 
 @router.put(
-    path="/permissions/{user_id}",
+    path="/users/{user_id}/permissions",
     response_model=SingleObjectResponse[UserPermissionOut],
 )
 async def update_user_permissions(
     user_id: int,
-    data: UserPermissionUpdate,
+    body: UserPermissionUpdate,
     request_context: Annotated[RequestContext, Depends(get_request_context)],
     authorization_service: Annotated[AuthorizationService, Depends(get_authorization_service)],
     user_service: Annotated[UserService, Depends(get_user_service)],
 ) -> SingleObjectResponse[UserPermissionOut]:
     user = await user_service.get_user(user_id)
-    permissions = await authorization_service.update_user_permissions(request_context, user_id, data)
-    data = UserPermissionOut(permissions=permissions)
+    data = await authorization_service.update_user_permissions(request_context, user_id, body)
     return SingleObjectResponse(data=data)
 
 @router.put(
@@ -133,7 +131,7 @@ async def update_role(
 # DELETE routes
 # ---------------------------------------------------------------------
 @router.delete(
-    path="roles/{role_id}",
+    path="/roles/{role_id}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
 async def delete_role(

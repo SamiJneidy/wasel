@@ -70,7 +70,7 @@ class SaleInvoiceServiceRaw:
                 "document_type": document_type,
                 "year": year
             }
-        last_invoice = await self.repo.get_last_invoice(user.organization_id, user.branch_id, filters)
+        last_invoice = await self.repo.get_last_invoice(user.organization_id, user.default_branch_id, filters)
         seq_number = (last_invoice.seq_number if last_invoice else 0) + 1
         number = str(seq_number).zfill(6)
         two_digit_year = str(year)[2:]

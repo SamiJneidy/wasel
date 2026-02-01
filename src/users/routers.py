@@ -3,7 +3,7 @@ from fastapi import APIRouter, Query, Request
 from typing import Annotated
 from src.core.schemas import SingleObjectResponse, ObjectListResponse, PagintationParams, PaginatedResponse
 from .schemas import UserInDB, UserInvite, UserOut, UserFilters
-from .dependencies import UserService, Depends, get_user_service
+from .dependencies.services import UserService, Depends, get_user_service
 from src.core.dependencies.auth import get_request_context
 from src.docs.users import RESPONSES, DOCSTRINGS, SUMMARIES
 

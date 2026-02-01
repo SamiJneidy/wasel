@@ -3,13 +3,12 @@ from fastapi import Request, Response
 
 from src.organizations.exceptions import OrganizationNotFoundException
 from .token_service import TokenService
-from src.core.enums import OTPStatus, OTPUsage, UserRole, UserStatus, UserType, ZatcaPhase2Stage
+from src.core.enums import OTPStatus, OTPUsage, UserStatus, UserType
 from src.core.services import EmailService
 from src.users.schemas import UserInDB, UserOut
 from src.core.config import settings
 from src.users.services import UserService
 from src.organizations.services import OrganizationService
-from src.branches.services import BranchService
 from .otp_service import OTPService
 from ..repositories import AuthRepository
 from ..utils import hash_password, verify_password
@@ -54,7 +53,7 @@ from ..exceptions import (
     UserDisabledException,
     UserNotVerifiedException,
 )
-from src.authorization.services import AuthorizationService
+from src.authorization.services.authorization_service import AuthorizationService
 
 class AuthService:
     def __init__(self, 
@@ -96,7 +95,7 @@ class AuthService:
         return user
 
 
-    async def sign_up_complete(self, email: str, data: SignUpCompleteRequest) -> SignUpCompleteResponse:
+    async def sign_up_complete(self, email: str, data: SignUpCompleteRequest) -> tuple[int, int, SignUpCompleteResponse]:
         """Complete the signup process after verifying the email."""
         # if data.vat_number[10] == "1":
         #     tin_number = data.vat_number[:10]
@@ -113,11 +112,11 @@ class AuthService:
             {
                 "is_completed": True, 
                 "organization_id": organization.id,
-                "branch_id": branch.id,
+                "default_branch_id": branch.id,
                 "role_id": super_admin_role_id,
             }
         )
-        return SignUpCompleteResponse(**organization.model_dump())
+        return organization.id, branch.id, SignUpCompleteResponse(**organization.model_dump())
         
 
     async def accept_invitation(self, data: UserInviteAcceptRequest) -> UserOut:
@@ -230,8 +229,7 @@ class AuthService:
     async def create_access_token_and_set_cookie(self, request: Request, response: Response, user_id: int, branch_id: int, organization_id: int) -> str:
         """Creates an access token and sets it in the response cookies. Returns the access token."""
         user = await self.user_service.get_user(user_id)
-        permissions = await self.authorization_service.get_user_permissions(organization_id, user.id)
-        payload = AccessToken(sub=user_id, permissions=permissions, branch_id=branch_id, organization_id=organization_id)
+        payload = AccessToken(sub=user_id, branch_id=branch_id, organization_id=organization_id)
         access_token = self.token_service.create_access_token(payload)
         self.token_service.set_access_token_cookie(request, response, access_token)
         return access_token

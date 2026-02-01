@@ -32,6 +32,11 @@ class TaxAuthorityService(ABC):
         pass
 
     @abstractmethod
+    async def update_branch_tax_authority_data(self, request_context: RequestContext, branch_id: int, data: Any) -> Optional[BranchTaxAuthorityDataOut]:
+        """Update branch compliance data for tax authority. Not always possible"""
+        pass
+
+    @abstractmethod
     async def complete_branch_tax_authority_data(self, request_context: RequestContext, branch_id: int, data: Any) -> Optional[BranchTaxAuthorityDataOut]:
         """Completes branch compliance data for tax authority."""
         pass

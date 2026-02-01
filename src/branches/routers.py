@@ -2,16 +2,15 @@ from typing import Annotated
 
 from fastapi import APIRouter, status, Depends
 
-from src.tax_authorities.schemas import BranchTaxAuthorityDataComplete, BranchTaxAuthorityDataCreate
+from src.tax_authorities.schemas import BranchTaxAuthorityDataComplete, BranchTaxAuthorityDataCreate, BranchTaxAuthorityDataUpdate
 
 from .services import BranchService
+from src.core.schemas.common import ObjectListResponse, SingleObjectResponse
 from src.core.schemas.context import RequestContext
 from .schemas import (
     BranchCreate,
     BranchUpdate,
     BranchOutWithTaxAuthority,
-    ObjectListResponse,
-    SingleObjectResponse,
 )
 from .dependencies.services import get_branch_service
 from src.core.dependencies.auth import get_request_context
@@ -33,7 +32,7 @@ router = APIRouter(
     # summary=SUMMARIES["get_branches_for_user"],
     # description=DOCSTRINGS["get_branches_for_user"],
 )
-async def get_branches_for_organization(
+async def get_branches(
     branch_service: Annotated[BranchService, Depends(get_branch_service)],
     request_context: Annotated[RequestContext, Depends(get_request_context)],
     permission = Depends(require_permission("branches", "read")),
@@ -85,7 +84,7 @@ async def create_branch(
 # ---------------------------------------------------------------------
 
 @router.post(
-    path="/tax-authority-data/{branch_id}",
+    path="/tax-authority-data",
     status_code=status.HTTP_201_CREATED,
     response_model=SingleObjectResponse[BranchOutWithTaxAuthority],
     # responses=RESPONSES["create_branch"],
@@ -93,19 +92,18 @@ async def create_branch(
     # description=DOCSTRINGS["create_branch"],
 )
 async def create_branch_tax_authority_data(
-    branch_id: int,
     body: BranchTaxAuthorityDataCreate,
     branch_service: Annotated[BranchService, Depends(get_branch_service)],
     request_context: Annotated[RequestContext, Depends(get_request_context)],
 ) -> SingleObjectResponse[BranchOutWithTaxAuthority]:
-    data = await branch_service.create_branch_tax_authority_data(request_context, branch_id, body)
+    data = await branch_service.create_branch_tax_authority_data(request_context, body)
     return SingleObjectResponse(data=data)
 
 
 # ---------------------------------------------------------------------
 
 @router.post(
-    path="/tax-authority-data/complete/{branch_id}",
+    path="/tax-authority-data/complete",
     status_code=status.HTTP_201_CREATED,
     response_model=SingleObjectResponse[BranchOutWithTaxAuthority],
     # responses=RESPONSES["create_branch"],
@@ -113,18 +111,34 @@ async def create_branch_tax_authority_data(
     # description=DOCSTRINGS["create_branch"],
 )
 async def complete_branch_tax_authority_data(
-    branch_id: int,
     body: BranchTaxAuthorityDataComplete,
     branch_service: Annotated[BranchService, Depends(get_branch_service)],
     request_context: Annotated[RequestContext, Depends(get_request_context)],
 ) -> SingleObjectResponse[BranchOutWithTaxAuthority]:
-    data = await branch_service.complete_branch_tax_authority_data(request_context, branch_id, body)
+    data = await branch_service.complete_branch_tax_authority_data(request_context, body)
     return SingleObjectResponse(data=data)
 
 
 # ---------------------------------------------------------------------
-# PATCH routes
+# PUT routes
 # ---------------------------------------------------------------------
+
+@router.put(
+    path="/tax-authority-data",
+    status_code=status.HTTP_201_CREATED,
+    response_model=SingleObjectResponse[BranchOutWithTaxAuthority],
+    # responses=RESPONSES["create_branch"],
+    # summary=SUMMARIES["create_branch"],
+    # description=DOCSTRINGS["create_branch"],
+)
+async def update_branch_tax_authority_data(
+    body: BranchTaxAuthorityDataUpdate,
+    branch_service: Annotated[BranchService, Depends(get_branch_service)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
+) -> SingleObjectResponse[BranchOutWithTaxAuthority]:
+    data = await branch_service.update_branch_tax_authority_data(request_context, body)
+    return SingleObjectResponse(data=data)
+
 @router.put(
     path="/{id}",
     response_model=SingleObjectResponse[BranchOutWithTaxAuthority],

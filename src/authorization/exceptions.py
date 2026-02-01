@@ -25,3 +25,8 @@ class RoleImmutableException(BaseAppException):
     """Raised when trying to modify an immutable role."""
     def __init__(self, detail: str | None = "Role is immutable", status_code: int = status.HTTP_403_FORBIDDEN):
         super().__init__(detail, status_code)
+
+class InvalidBranchesException(BaseAppException):
+    """Raised when the branches set for a user are not valid."""
+    def __init__(self, detail: str | None = "Invalid list of branches", status_code: int = status.HTTP_422_UNPROCESSABLE_ENTITY):
+        super().__init__(detail, status_code)

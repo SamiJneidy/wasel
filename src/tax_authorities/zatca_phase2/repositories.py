@@ -63,6 +63,17 @@ class ZatcaRepository:
         await self.db.refresh(branch)
         return branch
 
+    async def update_branch_tax_authority_data(self, user_id: int, organization_id: int, branch_id: int, data: dict) -> ZatcaPhase2BranchData | None:
+        stmt = (
+            update(ZatcaPhase2BranchData)
+            .where(ZatcaPhase2BranchData.organization_id == organization_id, ZatcaPhase2BranchData.branch_id == branch_id)
+            .values(updated_by = user_id, **data)
+            .returning(ZatcaPhase2BranchData)
+        )
+        result = await self.db.execute(stmt)
+        await self.db.flush()
+        return result.scalars().first()
+
     async def update_pih_and_icv(self, branch_id: int, pih: str) -> ZatcaPhase2BranchData | None:
         stmt = (
             update(ZatcaPhase2BranchData)

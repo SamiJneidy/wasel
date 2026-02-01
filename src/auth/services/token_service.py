@@ -21,12 +21,6 @@ class TokenService:
             user_id = payload_dict.get("sub")
             if not user_id:
                 raise InvalidTokenException()
-            try:
-                payload_dict["sub"] = int(payload_dict["sub"])
-                payload_dict["branch_id"] = int(payload_dict["branch_id"])
-                payload_dict["organization_id"] = int(payload_dict["organization_id"])
-            except Exception as e:
-                raise InvalidTokenException()
             return payload_dict
         except jwt.InvalidTokenError:
             raise InvalidTokenException()

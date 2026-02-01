@@ -4,11 +4,11 @@ from datetime import datetime
 from sqlalchemy import select, update, delete, insert, func
 from src.core.database import AsyncSession
 
-from .models import Permission, UserPermission, Role, RolePermission
+from ..models import Permission, UserPermission, Role, RolePermission
 from src.core.enums import UserStatus
 
 
-class AuthorizationRepository:
+class PermissionRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 

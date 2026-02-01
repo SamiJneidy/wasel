@@ -2,6 +2,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 from typing import Annotated, Optional, Union
 from src.core.enums import TaxExemptionReasonCode, ZatcaPhase2Stage, TaxAuthority
 from .zatca_phase2.schemas import (
+    ZatcaPhase2BranchDataUpdate,
     ZatcaPhase2InvoiceLineDataCreate,
     ZatcaPhase2InvoiceLineDataOut,
     ZatcaPhase2InvoiceDataOut,
@@ -36,6 +37,11 @@ BranchTaxAuthorityDataOut = Annotated[
 
 BranchTaxAuthorityDataCreate = Annotated[
     Union[ZatcaPhase2BranchDataCreate],
+    Field(discriminator="tax_authority")
+]
+
+BranchTaxAuthorityDataUpdate = Annotated[
+    Union[ZatcaPhase2BranchDataUpdate],
     Field(discriminator="tax_authority")
 ]
 

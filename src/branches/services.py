@@ -4,7 +4,7 @@ from .schemas import BranchOut, BranchCreate, BranchUpdate, BranchOutWithTaxAuth
 from .repositories import BranchRepository
 from .exceptions import BranchNotFoundException
 from src.core.enums import TaxAuthority, BranchStatus, BranchTaxIntegrationStatus
-from src.tax_authorities.schemas import BranchTaxAuthorityDataCreate
+from src.tax_authorities.schemas import BranchTaxAuthorityDataCreate, BranchTaxAuthorityDataUpdate
 from src.tax_authorities.services import TaxAuthorityService
 
 class BranchService:
@@ -41,22 +41,23 @@ class BranchService:
         branch = await self.branch_repo.create_branch(data_dict)
         return BranchOutWithTaxAuthority.model_validate(branch)
 
-    async def create_branch_tax_authority_data(self, ctx: RequestContext, branch_id: int, data: BranchTaxAuthorityDataCreate) -> BranchOutWithTaxAuthority:
-        branch = await self.get_branch(ctx, branch_id)
-        await self.tax_authority_service.create_branch_tax_authority_data(ctx, branch_id, data)
-        await self.branch_repo.update_branch(branch_id, {
-            "tax_integration_status": BranchTaxIntegrationStatus.PENDING_OTP,    
-        })
-        return await self.get_branch(ctx, branch_id)
+    async def create_branch_tax_authority_data(self, ctx: RequestContext, data: BranchTaxAuthorityDataCreate) -> BranchOutWithTaxAuthority:
+        await self.tax_authority_service.create_branch_tax_authority_data(ctx, ctx.branch.id, data)
+        await self.branch_repo.update_branch(ctx.branch.id, {"tax_integration_status": BranchTaxIntegrationStatus.PENDING_OTP})
+        return await self.get_branch(ctx, ctx.branch.id)
     
-    async def complete_branch_tax_authority_data(self, ctx: RequestContext, branch_id: int, data: BranchTaxAuthorityDataCreate) -> BranchOutWithTaxAuthority:
-        branch = await self.get_branch(ctx, branch_id)
-        await self.tax_authority_service.complete_branch_tax_authority_data(ctx, branch_id, data)
-        await self.branch_repo.update_branch(branch_id, {
+    async def update_branch_tax_authority_data(self, ctx: RequestContext, data: BranchTaxAuthorityDataUpdate) -> BranchOutWithTaxAuthority:
+        await self.tax_authority_service.update_branch_tax_authority_data(ctx, ctx.branch.id, data)
+        return await self.get_branch(ctx, ctx.branch.id)
+    
+    async def complete_branch_tax_authority_data(self, ctx: RequestContext, data: BranchTaxAuthorityDataCreate) -> BranchOutWithTaxAuthority:
+        branch = await self.get_branch(ctx, ctx.branch.id)
+        await self.tax_authority_service.complete_branch_tax_authority_data(ctx, ctx.branch.id, data)
+        await self.branch_repo.update_branch(ctx.branch.id, {
             "tax_integration_status": BranchTaxIntegrationStatus.COMPLETED,
             "status": BranchStatus.COMPLETED,    
         })
-        return await self.get_branch(ctx, branch_id)
+        return await self.get_branch(ctx, ctx.branch.id)
     
     async def update_branch(self, ctx: RequestContext, id: int, data: BranchUpdate) -> BranchOutWithTaxAuthority:
         branch = await self.branch_repo.update_branch(id, data.model_dump())

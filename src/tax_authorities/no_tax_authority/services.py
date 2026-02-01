@@ -32,6 +32,9 @@ class NoTaxAuthorityService(TaxAuthorityService):
     async def create_branch_tax_authority_data(self, ctx: RequestContext, branch_id: int, data: Any) -> None:
         return None
     
+    async def update_branch_tax_authority_data(self, ctx: RequestContext, branch_id: int, data: Any) -> None:
+        return None
+    
     async def complete_branch_tax_authority_data(self, ctx: RequestContext, branch_id: int, data: Any) -> None:
         return None
 

@@ -6,6 +6,7 @@ from fastapi import (
     Response,
     status,
 )
+from src.authorization.exceptions import PermissionDeniedException
 from src.core.enums import TokenScope
 from src.users.schemas import UserInDB, UserOut
 from src.core.schemas import SingleObjectResponse, SuccessfulResponse, ErrorResponse
@@ -13,6 +14,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from redis.asyncio import Redis
 from .services.auth_service import AuthService
 from .schemas.auth_schemas import (
+    CurrentUserSessionOut,
     UserInviteAcceptRequest,
     LoginRequest,
     LoginResponse,
@@ -34,7 +36,12 @@ from .dependencies import (
     get_auth_service,
     get_redis,
 )
-from src.core.dependencies.auth import get_request_context, get_current_user_from_sign_up_complete_token, oauth2_scheme
+from src.core.dependencies.auth import (
+    get_request_context, 
+    get_current_user_from_sign_up_complete_token, 
+    get_me,
+    oauth2_scheme,
+)
 from src.core.schemas.context import RequestContext
 from src.docs.auth import RESPONSES, DOCSTRINGS, SUMMARIES
 
@@ -53,16 +60,16 @@ router = APIRouter(
 # ---------------------------------------------------------------------
 @router.get(
     "/me",
-    response_model=SingleObjectResponse[RequestContext],
+    response_model=SingleObjectResponse[CurrentUserSessionOut],
     responses=RESPONSES["get_me"],
     summary=SUMMARIES["get_me"],
     description=DOCSTRINGS["get_me"],
 )
-async def get_me(
-    request_context: Annotated[RequestContext, Depends(get_request_context)],
+async def get_current_session(
+    current_session: Annotated[CurrentUserSessionOut, Depends(get_me)],
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
-) -> SingleObjectResponse[RequestContext]:
-    return SingleObjectResponse(data=request_context)
+) -> SingleObjectResponse[CurrentUserSessionOut]:
+    return SingleObjectResponse(data=current_session)
 
 
 # ---------------------------------------------------------------------
@@ -95,16 +102,16 @@ async def sign_up_complete(
     response: Response,
     body: SignUpCompleteRequest,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
-    request_context: Annotated[RequestContext, Depends(get_current_user_from_sign_up_complete_token)],
+    current_user: Annotated[UserOut, Depends(get_current_user_from_sign_up_complete_token)],
 ) -> SingleObjectResponse[SignUpCompleteResponse]:
-    data = await auth_service.sign_up_complete(request_context.user.email, body)
+    organization_id, branch_id, data = await auth_service.sign_up_complete(current_user.email, body)
     response.delete_cookie("sign_up_complete_token")
     await auth_service.create_tokens_and_set_cookies(
         request, 
         response, 
-        request_context.user.id, 
-        request_context.branch.id, 
-        request_context.organization.id
+        current_user.id, 
+        branch_id,
+        organization_id
     )
     return SingleObjectResponse(data=data)
 
@@ -142,10 +149,37 @@ async def login(
         request, 
         response, 
         data.user.id,
-        data.user.branch_id,
+        data.user.default_branch_id,
         data.user.organization_id
     )
     return SingleObjectResponse(data=data)
+
+
+
+@router.post(
+    "/switch/branch/{branch_id}",
+    status_code=status.HTTP_204_NO_CONTENT
+)
+async def switch_branch(
+    request: Request,
+    response: Response,
+    branch_id: int,
+    current_session: CurrentUserSessionOut = Depends(get_me),
+    auth_service: AuthService = Depends(get_auth_service),
+) -> None:
+    allowed_branch_ids = {branch.id for branch in current_session.access.allowed_branches}
+    if branch_id == current_session.branch.id:
+        raise PermissionDeniedException("It is not allowed to switch to the same branch")
+    if branch_id not in allowed_branch_ids:
+        raise PermissionDeniedException("Branch not found or you are not allowed to access this branch")
+    await auth_service.create_tokens_and_set_cookies(
+        request, 
+        response, 
+        current_session.user.id,
+        branch_id,
+        current_session.organization.id
+    )
+    return 
 
 
 @router.post(

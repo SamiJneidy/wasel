@@ -24,11 +24,12 @@ from .schemas import (
     ZatcaPhase2ComplianceCSIDRequest,
     ZatcaPhase2CSIDInDB,
     ZatcaPhase2BranchDataCreate,
+    ZatcaPhase2BranchDataUpdate,
     ZatcaPhase2BranchDataOut,
     ZatcaPhase2BranchDataInDB,
     ZatcaPhase2InvoiceLineDataCreate,
     ZatcaPhase2InvoiceLineDataOut,
-    ZatcaPhase2InvoiceDataOut
+    ZatcaPhase2InvoiceDataOut,
 )
 from src.branches.schemas import BranchUpdate
 from src.core.config import settings
@@ -40,10 +41,12 @@ from .repositories import ZatcaRepository
 from .utils.invoice_helper import invoice_helper
 from src.branches.services import BranchService
 from .exceptions import (
+    ZatcaBranchDataUpdateNotAllowedException,
     ZatcaCSIDNotIssuedException,
     ZatcaRequestFailedException,
     ZatcaInvoiceSigningException,
     ZatcaBranchDataNotFoundException,
+    ZatcaBranchDataAlreadyCreatedException,
 )
 from ..exceptions import IncorrectTaxAuthorityException, InvoiceNotAcceptedException
 from src.items.services import ItemService
@@ -441,8 +444,8 @@ class ZatcaPhase2Service(TaxAuthorityService):
                 invoice_data = self._convert_dict_to_str(invoice_data)
                 try:
                     invoice_request = invoice_helper.sign_and_get_request(invoice_data, csid.private_key, csid.certificate)
-                    with open(f"invoice-{icv}.xml", "w") as f:
-                        f.write(base64.b64decode(invoice_request["invoice"]).decode())    
+                    # with open(f"invoice-{icv}.xml", "w") as f:
+                    #     f.write(base64.b64decode(invoice_request["invoice"]).decode())    
                 except Exception as e:
                     raise ZatcaCSIDNotIssuedException(detail="Could not create invoice for compliance submission")
                 zatca_response = await self._send_compliance_invoice(invoice_request, type, csid.binary_security_token, csid.secret)
@@ -458,15 +461,33 @@ class ZatcaPhase2Service(TaxAuthorityService):
         if ctx.organization.tax_authority != TaxAuthority.ZATCA_PHASE2:
             raise IncorrectTaxAuthorityException()
         
+        data_found = await self._get_branch_tax_authority_data_by_stage(ctx, branch_id, ZatcaPhase2Stage.COMPLIANCE)
+        if data_found:
+            raise ZatcaBranchDataAlreadyCreatedException()
+        
         payload = data.model_dump()
         payload.update({
             "icv": 1,
             "stage": ZatcaPhase2Stage.COMPLIANCE,
             "pih": "NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ==",
         })
-        branch_tax_authority_data = await self.zatca_repo.create_branch_tax_authority_data(ctx.id, ctx.organization.id, branch_id, payload)
+        branch_tax_authority_data = await self.zatca_repo.create_branch_tax_authority_data(ctx.user.id, ctx.organization.id, branch_id, payload)
         return ZatcaPhase2BranchDataInDB.model_validate(branch_tax_authority_data)   
     
+    async def update_branch_tax_authority_data(self, ctx: RequestContext, branch_id: int, data: ZatcaPhase2BranchDataUpdate) -> ZatcaPhase2BranchDataInDB:
+        if ctx.organization.tax_authority != TaxAuthority.ZATCA_PHASE2:
+            raise IncorrectTaxAuthorityException()
+        if ctx.branch.tax_integration_status == BranchTaxIntegrationStatus.COMPLETED:
+            raise ZatcaBranchDataUpdateNotAllowedException()
+        payload = data.model_dump()
+        payload.update({
+            "icv": 1,
+            "stage": ZatcaPhase2Stage.COMPLIANCE,
+            "pih": "NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ==",
+        })
+        branch_tax_authority_data = await self.zatca_repo.update_branch_tax_authority_data(ctx.user.id, ctx.organization.id, branch_id, payload)
+        return ZatcaPhase2BranchDataInDB.model_validate(branch_tax_authority_data)   
+
     async def complete_branch_tax_authority_data(self, ctx: RequestContext, branch_id: int, data: ZatcaPhase2BranchDataComplete) -> ZatcaPhase2BranchDataInDB:
         if ctx.organization.tax_authority != TaxAuthority.ZATCA_PHASE2:
             raise IncorrectTaxAuthorityException()

@@ -24,9 +24,11 @@ from src.auth.services.token_service import TokenService
 from src.core.services import EmailService
 from src.core.config import settings
 from src.core.enums import UserStatus, UserType
-from src.authorization.services import AuthorizationService
+from src.authorization.services.authorization_service import AuthorizationService
 from src.authorization.schemas import UserPermissionCreate
 from src.core.schemas.context import RequestContext
+from src.branches.schemas import BranchMinimal
+from src.branches.repositories import BranchRepository
 
 class UserService:
     def __init__(
@@ -35,7 +37,7 @@ class UserService:
         email_service: EmailService,
         token_service: TokenService,
         organization_service: OrganizationService,
-        authorization_service: AuthorizationService
+        authorization_service: AuthorizationService,
     ):
         self.user_repo = user_repo
         self.email_service = email_service
@@ -48,8 +50,6 @@ class UserService:
         if not db_user:
             raise UserNotFoundException()
         user_in_db = UserInDB.model_validate(db_user)
-        permissions = await self.authorization_service.get_user_permissions(user_in_db.organization_id, user_in_db.id)
-        user_in_db.permissions = permissions
         return UserInDB.model_validate(user_in_db)
 
     async def _get_or_raise_by_id(self, id: int) -> UserInDB:
@@ -57,8 +57,6 @@ class UserService:
         if not db_user:
             raise UserNotFoundException()
         user_in_db = UserInDB.model_validate(db_user)
-        permissions = await self.authorization_service.get_user_permissions(user_in_db.organization_id, user_in_db.id)
-        user_in_db.permissions = permissions
         return UserInDB.model_validate(user_in_db)
 
     async def get_user_in_db(self, email: str) -> UserInDB:
@@ -111,8 +109,7 @@ class UserService:
             "is_completed": False,
         }
         created_user = await self.user_repo.create(create_payload)
-        permissions = UserPermissionCreate(permissions=role.permissions)
-        await self.authorization_service.create_user_permissions(ctx, created_user.id, permissions)
+        await self.authorization_service.create_user_permissions(ctx, created_user.id, invite.access)
         await self.send_invitation(ctx.user, invite.email, host_url)
         return await self.get_user_by_email(created_user.email)
 
@@ -123,7 +120,7 @@ class UserService:
         payload = UserInviteToken(
             sub=email,
             invited_by=inviter.id,
-            organization_id=inviter.organization.id,
+            organization_id=inviter.organization_id,
         )
         token = self.token_service.create_user_invitation_token(payload)
         if not host_url.endswith("/"):

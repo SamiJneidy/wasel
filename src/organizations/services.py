@@ -4,8 +4,9 @@ from src.branches.repositories import BranchRepository
 from src.branches.schemas import BranchCreate, BranchOut
 from .schemas import OrganizationOut, OrganizationCreate, OrganizationUpdate
 from .repositories import OrganizationRepository
-from .exceptions import OrganizationNotFoundException
-from src.core.enums import BranchTaxIntegrationStatus
+from .exceptions import OrganizationNotFoundException, TaxAuthorityUpdateNotAllowedException
+from src.core.enums import BranchTaxIntegrationStatus, TaxAuthority
+from src.core.schemas.context import RequestContext
 
 class OrganizationService:
     def __init__(self, organization_repo: OrganizationRepository):
@@ -42,13 +43,19 @@ class OrganizationService:
         branch = await self.organization_repo.create_main_branch(branch_data)
         return OrganizationOut.model_validate(organization), BranchOut.model_validate(branch)
 
-    async def update_organization(self, id: int, data: OrganizationUpdate) -> OrganizationOut:
-        organization = await self.organization_repo.update(id, data.model_dump())
-        if not organization:
-            raise OrganizationNotFoundException()
+    async def update_organization(self, ctx: RequestContext, data: OrganizationUpdate) -> OrganizationOut:
+        current_tax_authority = ctx.organization.tax_authority
+        new_tax_authority = data.tax_authority
+        if current_tax_authority is not None and new_tax_authority is None:
+            raise TaxAuthorityUpdateNotAllowedException()
+        if current_tax_authority == TaxAuthority.ZATCA_PHASE2 and new_tax_authority == TaxAuthority.ZATCA_PHASE1:
+            raise TaxAuthorityUpdateNotAllowedException()
+        
+        organization = await self.organization_repo.update(ctx.organization.id, data.model_dump())
+        if current_tax_authority == TaxAuthority.ZATCA_PHASE1 and new_tax_authority == TaxAuthority.ZATCA_PHASE2:
+            await self.organization_repo.change_branches_tax_integration_status(ctx.organization.id, BranchTaxIntegrationStatus.NOT_STARTED)
         return OrganizationOut.model_validate(organization)
 
-    async def delete_organization(self, id: int) -> None:
-        _ = await self.get_organization(id)
-        await self.organization_repo.delete(id)
-        return None
+    async def delete_organization(self, ctx: RequestContext) -> None:
+        _ = await self.get_organization(ctx.organization.id)
+        await self.organization_repo.delete(ctx.organization.id)

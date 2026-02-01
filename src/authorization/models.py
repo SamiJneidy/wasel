@@ -50,3 +50,14 @@ class RolePermission(Base, AuditMixin):
     __table_args__ = (
         UniqueConstraint('role_id', 'permission_id', name='unique_role_permission'),
     )
+
+class UserBranch(Base):
+    __tablename__ = "user_branches"
+    id = Column(Integer, autoincrement=True, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"))
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    branch_id = Column(Integer, ForeignKey("branches.id", ondelete="CASCADE"), nullable=False, index=True)
+    branch = relationship("Branch", lazy="selectin", foreign_keys=[branch_id])
+    __table_args = (
+        UniqueConstraint("organization_id", "user_id", "branch_id", name="unique_organization_branch_user")
+    )

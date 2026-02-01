@@ -1,40 +1,24 @@
 from fastapi import Depends, Request
 from fastapi.security import OAuth2PasswordBearer
 from typing import Annotated
-from src.auth.exceptions import InvalidTokenException
 from src.core.enums import TokenScope
 from src.auth.services.token_service import TokenService
 from src.users.schemas import UserOut
 from src.branches.schemas import BranchOut
 from src.organizations.schemas import OrganizationOut
+from src.users.dependencies.services import UserService, get_user_service
 from src.auth.dependencies.token_deps import TokenService, get_token_service
-from src.users.dependencies import get_user_service, UserService
+from .shared import get_access_token_payload, get_current_user
 from src.branches.dependencies.repositories import BranchRepository, get_branch_repository
 from src.organizations.dependencies import OrganizationRepository, get_organization_repository
-from src.users.exceptions import UserNotFoundException
+from src.authorization.dependencies import AuthorizationService, get_authorization_service
 from src.branches.exceptions import BranchNotFoundException
 from src.organizations.exceptions import OrganizationNotFoundException
+from src.auth.exceptions import InvalidTokenException
 from src.core.schemas.context import RequestContext
+from src.auth.schemas.auth_schemas import CurrentUserSessionOut
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/swaggerlogin")
-
-async def get_access_token_payload(
-    request: Request,
-    token_service: Annotated[TokenService, Depends(get_token_service)],
-) -> dict:
-    token = request.cookies.get("access_token", "NO_TOKEN")
-    payload = token_service.decode_token(token)
-    if payload["scope"] != TokenScope.ACCESS:
-        raise InvalidTokenException(detail="Token scope is not ACCESS")
-    return payload
-
-async def get_current_user(
-    token_payload: dict = Depends(get_access_token_payload),
-    user_service: UserService = Depends(get_user_service)
-) -> UserOut | None:
-    """Returns the current user logged in."""
-    user_id: int = token_payload.get("sub")
-    return await user_service.get_user(user_id)
 
 async def get_current_branch(
     token_payload: dict = Depends(get_access_token_payload),
@@ -67,6 +51,7 @@ async def get_request_context(
     """Returns the context of the current request."""
     return RequestContext(user=current_user, branch=current_branch, organization=current_organization)
 
+
 async def get_current_user_from_sign_up_complete_token(
     request: Request,
     token_service: Annotated[TokenService, Depends(get_token_service)],
@@ -77,7 +62,18 @@ async def get_current_user_from_sign_up_complete_token(
     payload = token_service.decode_token(token)
     if payload["scope"] != TokenScope.SIGN_UP_COMPLETE:
         raise InvalidTokenException(detail="Token scope is not SIGN_UP_COMPLETE")
-    user_id: int = payload.get("user_id")
+    user_id: int = int(payload.get("sub"))
     return await user_service.get_user(user_id)
 
 
+async def get_me(
+    request_context: RequestContext = Depends(get_request_context),
+    authorization_service: AuthorizationService = Depends(get_authorization_service),
+) -> CurrentUserSessionOut:
+    access = await authorization_service.get_user_permissions(request_context, request_context.user.id)
+    return CurrentUserSessionOut(
+        user=request_context.user,
+        branch=request_context.branch,
+        organization=request_context.organization,
+        access=access
+    )

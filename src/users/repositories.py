@@ -1,12 +1,11 @@
 from typing import Optional, Dict, Any
 from datetime import datetime
 
-from sqlalchemy import select, update, delete, insert, func
+from sqlalchemy import select, update, delete, insert, or_, func
 from src.core.database import AsyncSession
 
 from .models import User
 from src.core.enums import UserStatus
-
 
 class UserRepository:
     def __init__(self, db: AsyncSession):

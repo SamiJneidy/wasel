@@ -1,11 +1,13 @@
-from pydantic import BaseModel, EmailStr, StringConstraints, ConfigDict, constr, Field, field_validator, model_validator
-from datetime import datetime
-from decimal import Decimal
-from src.core.schemas import AuditTimeMixin, ObjectListResponse, SingleObjectResponse
+from pydantic import BaseModel, ConfigDict, constr, Field, field_validator, model_validator
 from src.core.enums import TaxAuthority, UnitCodes, BranchStatus, BranchTaxIntegrationStatus
 from src.tax_authorities.schemas import BranchTaxAuthorityDataOut
 from typing import Optional
 
+class BranchMinimal(BaseModel):
+    id: int
+    name: str
+    is_main_branch: bool
+    model_config = ConfigDict(from_attributes=True)
 
 class BranchBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=300, example="Wasel LLC")

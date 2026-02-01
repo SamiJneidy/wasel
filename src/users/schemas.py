@@ -2,15 +2,15 @@ from pydantic import BaseModel, EmailStr, StringConstraints, ConfigDict, constr,
 from datetime import datetime
 from src.core.schemas import AuditTimeMixin
 from src.organizations.schemas import OrganizationOut
-from src.branches.schemas import BranchOut
+from src.branches.schemas import BranchOut, BranchMinimal
 from src.core.enums import UserStatus, UserType
-from src.authorization.schemas import RoleOut
+from src.authorization.schemas import UserPermissionCreate, RoleInDB
 from typing import Optional, Self
 
 class UserInDB(BaseModel, AuditTimeMixin):
     id: int
     organization_id: Optional[int] = None
-    branch_id: Optional[int] = None
+    default_branch_id: Optional[int] = None
     name: str
     phone: Optional[str] = None
     email: EmailStr
@@ -22,10 +22,7 @@ class UserInDB(BaseModel, AuditTimeMixin):
     last_login: Optional[datetime] = None
     invalid_login_attempts: int = 0
     is_super_admin: bool
-    organization: Optional[OrganizationOut] = None
-    branch: Optional[BranchOut] = None
-    role: Optional[RoleOut] = None
-    permissions: Optional[list[str]] = None
+    role: Optional[RoleInDB] = None
     model_config = ConfigDict(from_attributes=True)
 
     
@@ -52,9 +49,8 @@ class UserUpdate(BaseModel):
 class UserOut(UserBase):
     id: int
     organization_id: Optional[int] = None
-    branch_id: Optional[int] = None
-    role: Optional[RoleOut] = None
-    permissions: Optional[list[str]] = None
+    default_branch_id: Optional[int] = None
+    role: Optional[RoleInDB] = None
     is_completed: bool
     status: UserStatus
     type: UserType
@@ -64,15 +60,16 @@ class UserOut(UserBase):
 
 
 class UserInvite(BaseModel):
-    branch_id: int
+    default_branch_id: int
     name: str
     email: EmailStr
     phone: Optional[str] = None
     role_id: int
+    access: UserPermissionCreate
 
     @field_validator("email", mode="after")
     def normalize_email(cls, value: str) -> str:
-        return value.strip().lower() 
+        return value.strip().lower()
 
 
 class UserFilters(BaseModel):
